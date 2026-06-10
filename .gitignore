@@ -1,0 +1,15 @@
+# Test files
+test_allorigins.txt
+test_corsproxy.txt
+test_microlink.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Node modules (if any in future)
+node_modules/

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RVNL Creative & PR Reporting Hub</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar no-print">
+            <div class="logo-area">
+                <img src="inputs/RVNL (R)logo_vector.png" alt="RVNL Logo" class="sidebar-logo-img">
+                <div class="logo-text">
+                    <h1>RVNL</h1>
+                    <span>Reporting Hub</span>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+                </button>
+                <button class="nav-btn" data-tab="tracker">
+                    <i class="fa-solid fa-list-check"></i> <span>Unified Tracker</span>
+                </button>
+                <button class="nav-btn" data-tab="reports">
+                    <i class="fa-solid fa-file-invoice"></i> <span>Report Builder</span>
+                </button>
+                <button class="nav-btn" data-tab="settings">
+                    <i class="fa-solid fa-database"></i> <span>Backup & Data</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Candour Communications</p>
+                <span>v1.0.0</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header (Hidden in Print) -->
+            <header class="app-header no-print">
+                <div class="header-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="global-search" placeholder="Search tasks, platforms, campaigns...">
+                </div>
+                <div class="header-actions">
+                    <button id="quick-add-btn" class="btn btn-primary">
+                        <i class="fa-solid fa-plus"></i> Add Creative/PR
+                    </button>
+                    <div class="theme-toggle" id="theme-toggle">
+                        <i class="fa-solid fa-moon"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="tab-content active">
+                <div class="dashboard-hero">
+                    <div class="hero-text">
+                        <h2>RVNL Creative Portfolio & PR Analytics</h2>
+                        <p>Track ongoing work, social traction, and press coverage metrics in one unified space.</p>
+                    </div>
+                    <div class="hero-time" id="current-time-display">
+                        June 10, 2026
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-blue"><i class="fa-solid fa-photo-film"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Creatives</h3>
+                            <div class="stat-value" id="stat-total-creatives">0</div>
+                            <span class="stat-desc">Ongoing & completed</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-green"><i class="fa-solid fa-share-nodes"></i></div>
+                        <div class="stat-info">
+                            <h3>Social Media Posts</h3>
+                            <div class="stat-value" id="stat-total-linkedin">0</div>
+                            <span class="stat-desc">Published live updates</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-purple"><i class="fa-solid fa-newspaper"></i></div>
+                        <div class="stat-info">
+                            <h3>PR Coverages</h3>
+                            <div class="stat-value" id="stat-total-pr">0</div>
+                            <span class="stat-desc">Press releases & interviews</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>
+                        <div class="stat-info">
+                            <h3>In Progress</h3>
+                            <div class="stat-value" id="stat-total-wip">0</div>
+                            <span class="stat-desc">Awaiting feedback or draft</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-row">
+                    <div class="chart-card card-lg">
+                        <div class="card-header">
+                            <h4>Creative & PR Output Trend</h4>
+                            <span class="card-subtitle">Monthly breakdown of marketing activities</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="outputTrendChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card card-sm">
+                        <div class="card-header">
+                            <h4>Category Share</h4>
+                            <span class="card-subtitle">Distribution of assets</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="platformShareChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Activity & Health -->
+                <div class="dashboard-details-row">
+                    <div class="details-card">
+                        <div class="card-header">
+                            <h4>Recent Completed Social Media Posts</h4>
+                            <button class="btn btn-text view-all-link" data-tab="tracker" data-filter="Published">View All</button>
+                        </div>
+                        <div class="recent-list" id="recent-completed-list">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                    <div class="details-card">
+                        <div class="card-header">
+                            <h4>Hot Tasks (Upcoming Deadlines)</h4>
+                            <button class="btn btn-text view-all-link" data-tab="tracker" data-filter="In Progress">View All</button>
+                        </div>
+                        <div class="recent-list" id="recent-hot-tasks">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Unified Tracker Tab -->
+            <section id="tracker" class="tab-content">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Unified Task Tracker</h2>
+                        <p>Manage, categorize, and follow up on all creative collaterals, PR updates, and social assets.</p>
+                    </div>
+                    <div class="tracker-view-controls">
+                        <button class="view-toggle-btn active" id="view-table-btn"><i class="fa-solid fa-table"></i> Table</button>
+                        <button class="view-toggle-btn" id="view-kanban-btn"><i class="fa-solid fa-kaaba"></i> Kanban</button>
+                    </div>
+                </div>
+
+                <!-- Search and Filters bar -->
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="filter-type">Type</label>
+                        <select id="filter-type">
+                            <option value="all">All Types</option>
+                            <option value="Social Media">Social Media</option>
+                            <option value="PR Update">PR Update</option>
+                            <option value="Creative / Collateral">Creative / Collateral</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-month">Month</label>
+                        <select id="filter-month">
+                            <option value="all">All Months</option>
+                            <option value="May 2026">May 2026</option>
+                            <option value="June 2026">June 2026</option>
+                            <option value="July 2026">July 2026</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-status">Status</label>
+                        <select id="filter-status">
+                            <option value="all">All Statuses</option>
+                            <option value="WIP">WIP</option>
+                            <option value="Sent for internal approval">Sent for internal approval</option>
+                            <option value="Sent to client">Sent to client</option>
+                            <option value="Published/Closed">Published/Closed</option>
+                            <option value="Not used by client">Not used by client</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-owner">Owner</label>
+                        <select id="filter-owner">
+                            <option value="all">All Owners</option>
+                            <!-- Injected by JS -->
+                        </select>
+                    </div>
+                    <button id="clear-filters-btn" class="btn btn-secondary" title="Reset Filters">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                    </button>
+                </div>
+
+                <!-- Table View Container -->
+                <div class="tracker-view-container" id="table-view-container">
+                    <div class="table-responsive">
+                        <table class="modern-table" id="tracker-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">Type</th>
+                                    <th>Activity / Deliverable</th>
+                                    <th style="width: 140px;">Status</th>
+                                    <th style="width: 130px;">Timeline / Month</th>
+                                    <th style="width: 120px;">Owner</th>
+                                    <th>Links</th>
+                                    <th style="width: 110px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tracker-table-body">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <span id="table-summary-text">Showing 0 of 0 tasks</span>
+                        <div class="pagination-buttons">
+                            <button id="prev-page-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                            <span id="current-page-num">1</span>
+                            <button id="next-page-btn" class="btn btn-secondary btn-sm">Next <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban Board Container (Hidden by default) -->
+                <div class="tracker-view-container hidden" id="kanban-view-container">
+                    <div class="kanban-board">
+                        <div class="kanban-column" data-status="WIP">
+                            <div class="kanban-column-header">
+                                <span class="header-dot bg-amber"></span>
+                                <h4>WIP</h4>
+                                <span class="column-count">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-wip"></div>
+                        </div>
+                        <div class="kanban-column" data-status="Sent for internal approval">
+                            <div class="kanban-column-header">
+                                <span class="header-dot bg-blue"></span>
+                                <h4>Sent for internal approval</h4>
+                                <span class="column-count">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-review"></div>
+                        </div>
+                        <div class="kanban-column" data-status="Sent to client">
+                            <div class="kanban-column-header">
+                                <span class="header-dot bg-purple"></span>
+                                <h4>Sent to client</h4>
+                                <span class="column-count">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-approval"></div>
+                        </div>
+                        <div class="kanban-column" data-status="Published/Closed">
+                            <div class="kanban-column-header">
+                                <span class="header-dot bg-green"></span>
+                                <h4>Published/Closed</h4>
+                                <span class="column-count">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-published"></div>
+                        </div>
+                        <div class="kanban-column" data-status="Not used by client">
+                            <div class="kanban-column-header">
+                                <span class="header-dot bg-gray"></span>
+                                <h4>Not used by client</h4>
+                                <span class="column-count">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-hold"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Report Builder Tab -->
+            <section id="reports" class="tab-content">
+                <input type="file" id="report-clipping-upload" accept="image/*" class="hidden">
+                <div class="section-header no-print">
+                    <div class="section-title">
+                        <h2>Client Report Generator</h2>
+                        <p>Generate highly polished, print-ready client reports for weekly or monthly review sessions.</p>
+                    </div>
+                    <div class="report-export-actions">
+                        <button id="print-report-btn" class="btn btn-primary">
+                            <i class="fa-solid fa-print"></i> Print / Save as PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Filter Dashboard -->
+                <div class="filter-bar no-print">
+                    <div class="filter-group">
+                        <label for="report-period-type">Report Period</label>
+                        <select id="report-period-type">
+                            <option value="monthly">Monthly Report</option>
+                            <option value="weekly">Weekly Report</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="report-month">Select Month</label>
+                        <select id="report-month">
+                            <option value="June 2026">June 2026</option>
+                            <option value="May 2026">May 2026</option>
+                            <option value="July 2026">July 2026</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="report-week-group" style="display: none;">
+                        <label for="report-week">Select Week</label>
+                        <select id="report-week">
+                            <option value="all">All Weeks</option>
+                            <option value="Week 1">Week 1 (1st - 7th)</option>
+                            <option value="Week 2">Week 2 (8th - 14th)</option>
+                            <option value="Week 3">Week 3 (15th - 21st)</option>
+                            <option value="Week 4">Week 4 (22nd - 28th)</option>
+                            <option value="Week 5">Week 5 (29th - 31st)</option>
+                        </select>
+                    </div>
+                    <button id="generate-report-btn" class="btn btn-primary" style="margin-top: 20px;">
+                        <i class="fa-solid fa-sync"></i> Generate Preview
+                    </button>
+                </div>
+
+                <!-- Printable Report Shell -->
+                <div class="print-report-canvas" id="printable-report-canvas">
+                    <!-- Report Header -->
+                    <div class="report-print-header">
+                        <div class="report-header-top">
+                            <div class="report-brand">
+                                <div class="brand-accent"></div>
+                                <div>
+                                    <h2>Rail Vikas Nigam Limited (RVNL)</h2>
+                                    <span>PR, Social Media & Creative Marketing Report</span>
+                                </div>
+                            </div>
+                            <div class="client-logo" style="border: none; padding: 0;">
+                                <img src="inputs/RVNL logo.png" alt="RVNL Logo" style="height: 44px; width: auto; object-fit: contain;">
+                            </div>
+                        </div>
+                        <div class="report-meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-lbl">Report Period:</span>
+                                <span class="meta-val" id="report-meta-period">May 2026</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-lbl">Agency Partner:</span>
+                                <span class="meta-val">Candour Communications</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-lbl">Date Generated:</span>
+                                <span class="meta-val" id="report-meta-date">June 10, 2026</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Executive Summary Section -->
+                    <div class="report-section">
+                        <h3 class="report-section-title"><i class="fa-solid fa-chart-simple"></i> 1. Executive Activity Summary</h3>
+                        <div class="report-stats-summary">
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="rep-stat-total">0</span>
+                                <span class="box-lbl">Total Activities</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="rep-stat-sm">0</span>
+                                <span class="box-lbl">Social Media Posts</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="rep-stat-pr">0</span>
+                                <span class="box-lbl">Press Coverage Items</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="rep-stat-collateral">0</span>
+                                <span class="box-lbl">Collaterals & Designs</span>
+                            </div>
+                        </div>
+                        <div class="narrative-editor-container no-print" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight:600;">Edit Executive Summary Narrative</label>
+                            <textarea id="edit-report-narrative" rows="4" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-family: var(--font-body); font-size: 13px;" placeholder="Edit executive narrative here...">During this period, Candour Communications actively spearheaded media coverage, press communications, and social content strategies for RVNL. Social media accounts saw consistent growth driven by key event updates, announcements of Letters of Acceptance (LOA), and corporate milestones.</textarea>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                                <span id="narrative-ai-status" style="font-size: 11px; color: var(--text-muted); display: none; margin-right: auto;"></span>
+                                <button type="button" id="btn-generate-narrative-ai" class="btn btn-secondary btn-sm" style="display: none; background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple); border-color: rgba(139, 92, 246, 0.25);">
+                                    <i class="fa-solid fa-brain"></i> Generate with Gemini AI
+                                </button>
+                                <button type="button" id="btn-apply-narrative" class="btn btn-primary btn-sm">Update Narrative</button>
+                            </div>
+                        </div>
+                        <div class="report-narrative" style="margin-top: 15px;">
+                            <p id="report-narrative-text">During this period, Candour Communications actively spearheaded media coverage, press communications, and social content strategies for RVNL. Social media accounts saw consistent growth driven by key event updates, announcements of Letters of Acceptance (LOA), and corporate milestones.</p>
+                        </div>
+                    </div>
+
+                    <!-- Social Media Outputs Section -->
+                    <div class="report-section page-break-before" id="report-sec-social">
+                        <h3 class="report-section-title"><i class="fa-solid fa-share-nodes"></i> 2. Social Media Output & Analytics</h3>
+                        <div class="table-responsive">
+                            <table class="report-print-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Sl.</th>
+                                        <th style="width: 90px;">Platform</th>
+                                        <th>Activity Details</th>
+                                        <th style="width: 140px;">Status / Date</th>
+                                        <th style="width: 130px;">Metrics</th>
+                                        <th>Live Verification Link</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-social-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- PR Update Section -->
+                    <div class="report-section page-break-before" id="report-sec-pr">
+                        <h3 class="report-section-title"><i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage</h3>
+                        <div class="table-responsive">
+                            <table class="report-print-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Sl.</th>
+                                        <th style="width: 120px;">Category</th>
+                                        <th>Topics / Announcements</th>
+                                        <th>Publications / Channels</th>
+                                        <th style="width: 150px;">Spokesperson</th>
+                                        <th style="width: 140px;">Coverage Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-pr-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Creative Collaterals Section -->
+                    <div class="report-section page-break-before" id="report-sec-creative">
+                        <h3 class="report-section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs</h3>
+                        <div class="table-responsive">
+                            <table class="report-print-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Sl.</th>
+                                        <th style="width: 120px;">Category</th>
+                                        <th>Deliverable / Asset Description</th>
+                                        <th style="width: 140px;">Status / Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-creative-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Sign off -->
+                    <div class="report-footer-print">
+                        <div class="footer-divider"></div>
+                        <div class="footer-sign-off">
+                            <div class="sign-box">
+                                <span class="sign-title">Prepared By</span>
+                                <span class="sign-name">Candour Communications Team</span>
+                                <span class="sign-dep">Media & Social PR Partner</span>
+                            </div>
+                            <div class="sign-box">
+                                <span class="sign-title">Approved By</span>
+                                <span class="sign-name">___________________________</span>
+                                <span class="sign-dep">RVNL Corporate Communications</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Backup & Settings Tab -->
+            <section id="settings" class="tab-content">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Data Management & Backup</h2>
+                        <p>Export your tracked data as a backup file or import existing databases to keep your team interconnected.</p>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <div class="settings-icon"><i class="fa-solid fa-file-export"></i></div>
+                        <h3>Export Tracker Database</h3>
+                        <p>Save all ongoing work, Canvas links, LinkedIn URLs, and custom metrics as a single JSON file. Use this file to share with teammates or keep offline archives.</p>
+                        <button id="export-db-btn" class="btn btn-primary"><i class="fa-solid fa-download"></i> Export Data (.json)</button>
+                    </div>
+                    <div class="settings-card">
+                        <div class="settings-icon"><i class="fa-solid fa-file-import"></i></div>
+                        <h3>Import Tracker Database</h3>
+                        <p>Load a previously exported JSON backup file into your browser. This will merge or overwrite your current tracker data.</p>
+                        <div class="import-actions">
+                            <input type="file" id="import-db-file" class="hidden-input" accept=".json">
+                            <label for="import-db-file" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Choose Backup File</label>
+                            <button id="import-db-btn" class="btn btn-primary" disabled><i class="fa-solid fa-upload"></i> Load Backup</button>
+                        </div>
+                        <span class="file-chosen-name" id="import-file-name">No file selected</span>
+                    </div>
+                    <div class="settings-card">
+                        <div class="settings-icon" style="color: var(--accent-purple);"><i class="fa-solid fa-brain"></i></div>
+                        <h3>Gemini AI Integration</h3>
+                        <p>Save your Gemini API key to unlock automated narrative executive summary generation in the report builder.</p>
+                        <div class="api-key-input-group" style="display: flex; gap: 10px; margin-top: 15px; width: 100%;">
+                            <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key..." style="flex-grow: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                            <button type="button" id="save-api-key-btn" class="btn btn-primary">Save</button>
+                        </div>
+                        <span id="api-key-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">No API key configured.</span>
+                    </div>
+                    <div class="settings-card card-full">
+                        <h3>Reset to Preloaded Data</h3>
+                        <p>If you wish to wipe out your custom changes and return to the baseline records parsed from your June 2026 reports, click the button below. This action cannot be undone.</p>
+                        <button id="reset-db-btn" class="btn btn-danger"><i class="fa-solid fa-triangle-exclamation"></i> Reset to Factory Baseline</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Task Edit/Create Drawer (Slide-out menu) -->
+    <div class="drawer-overlay no-print" id="task-drawer-overlay">
+        <div class="task-drawer">
+            <div class="drawer-header">
+                <h3 id="drawer-title">Add Creative Asset / PR</h3>
+                <button class="drawer-close-btn" id="close-drawer-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="task-form" class="drawer-body">
+                <input type="hidden" id="task-id">
+                
+                <div class="form-group">
+                    <label for="task-type">Asset/Activity Type <span class="required">*</span></label>
+                    <select id="task-type" required>
+                        <option value="Social Media">Social Media Post</option>
+                        <option value="PR Update">PR Update (Press Release / Media)</option>
+                        <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-sub-type" id="lbl-sub-type">Sub-Category</label>
+                    <select id="task-sub-type">
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="X (Twitter)">X (Twitter)</option>
+                        <option value="Press Release">Press Release</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Magazine Ad">Magazine Ad</option>
+                        <option value="Newsletter">Newsletter</option>
+                        <option value="Video">Video</option>
+                        <option value="Blog">Blog</option>
+                        <option value="Website">Website</option>
+                        <option value="Other">Other / Miscellaneous</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-title">Activity Title / Deliverable Description <span class="required">*</span></label>
+                    <input type="text" id="task-title" placeholder="e.g. Parakram Diwas greetings post" required>
+                </div>
+
+                <!-- PR specific fields (Toggleable) -->
+                <div id="pr-only-fields" class="form-row hidden">
+                    <div class="form-group col-6">
+                        <label for="task-spokesperson">Spokesperson</label>
+                        <input type="text" id="task-spokesperson" placeholder="e.g. CMD / Director Projects">
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="task-publication">Publications / Channels</label>
+                        <input type="text" id="task-publication" placeholder="e.g. Business Standard, Mint">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label for="task-status">Status <span class="required">*</span></label>
+                        <select id="task-status" required>
+                            <option value="WIP">WIP</option>
+                            <option value="Sent for internal approval">Sent for internal approval</option>
+                            <option value="Sent to client">Sent to client</option>
+                            <option value="Published/Closed">Published/Closed</option>
+                            <option value="Not used by client">Not used by client</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="task-owner">Owner / Assignee</label>
+                        <input type="text" id="task-owner" list="owners-list" placeholder="e.g. Sanjam, Suvrata, Alka">
+                        <datalist id="owners-list">
+                            <option value="Sanjam">
+                            <option value="Komal">
+                            <option value="Eesha">
+                            <option value="Suvrata">
+                            <option value="Alka">
+                            <option value="Durgesh">
+                            <option value="Puja">
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label for="task-month">Target Month <span class="required">*</span></label>
+                        <select id="task-month" required>
+                            <option value="June 2026">June 2026</option>
+                            <option value="May 2026">May 2026</option>
+                            <option value="July 2026">July 2026</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="task-week">Target Week</label>
+                        <select id="task-week">
+                            <option value="Week 1">Week 1 (1st - 7th)</option>
+                            <option value="Week 2">Week 2 (8th - 14th)</option>
+                            <option value="Week 3">Week 3 (15th - 21st)</option>
+                            <option value="Week 4">Week 4 (22nd - 28th)</option>
+                            <option value="Week 5">Week 5 (29th - 31st)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-date">Specific Date (if published)</label>
+                    <input type="text" id="task-date" placeholder="e.g. 5th June or 2026-06-05">
+                </div>
+
+                <div class="form-group">
+                    <label for="task-canva-link"><i class="fa-solid fa-pen-nib"></i> Canva Design Link</label>
+                    <input type="url" id="task-canva-link" placeholder="https://www.canva.com/design/... (optional)">
+                </div>
+
+                <div class="form-group">
+                    <label for="task-live-link"><i class="fa-brands fa-linkedin-in"></i> Live LinkedIn / Verification Link</label>
+                    <input type="url" id="task-live-link" placeholder="https://www.linkedin.com/posts/... (optional)">
+                </div>
+
+                <!-- Metrics fields (Toggleable or standard) -->
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label for="task-impressions">Impressions (Monthly view)</label>
+                        <input type="number" id="task-impressions" placeholder="e.g. 14205">
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="task-engagement">Engagement</label>
+                        <input type="number" id="task-engagement" placeholder="e.g. 450">
+                    </div>
+                </div>
+
+                <!-- Clipping/Image Upload field -->
+                <div class="form-group">
+                    <label for="task-image-file"><i class="fa-solid fa-image"></i> Press Clipping / Image Attachment</label>
+                    <div class="image-upload-wrapper">
+                        <input type="file" id="task-image-file" accept="image/*" class="hidden-input">
+                        <label for="task-image-file" class="btn btn-secondary btn-full"><i class="fa-solid fa-upload"></i> Upload Clipping (Base64)</label>
+                        <input type="text" id="task-image-url" placeholder="Or enter Image URL directly..." style="margin-top: 10px;">
+                    </div>
+                    <div class="image-preview-box hidden" id="task-image-preview">
+                        <img src="" alt="Clipping preview">
+                        <button type="button" class="remove-img-btn" id="remove-preview-img-btn"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-remarks">Remarks & Notes</label>
+                    <textarea id="task-remarks" placeholder="Add details of approvals, dependencies, or comments..." rows="3"></textarea>
+                </div>
+
+                <div class="drawer-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-drawer-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="save-task-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preloaded initial data script -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
