@@ -41,7 +41,10 @@
             </nav>
             <div class="sidebar-footer">
                 <p>Candour Communications</p>
-                <span>v1.0.0</span>
+                <div class="sync-status" id="sync-status-indicator">
+                    <span class="sync-dot" id="sync-dot"></span>
+                    <span id="sync-status-text">Connecting...</span>
+                </div>
             </div>
         </aside>
 
@@ -687,6 +690,11 @@
         </div>
     </div>
 
+    <!-- Firebase SDK (compat mode — no build tools required) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Project Config -->
+    <script src="firebase-config.js"></script>
     <!-- Preloaded initial data script -->
     <script src="data.js"></script>
     <script src="app.js"></script>

@@ -43,59 +43,128 @@ function getFormattedToday() {
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
-    loadData();
     initTheme();
     setupEventListeners();
-    populateOwnerFilter();
-    updateDashboard();
-    renderTracker();
     
     // Set current date in dashboard hero
     document.getElementById("current-time-display").textContent = getFormattedToday();
     document.getElementById("report-meta-date").textContent = getFormattedToday();
-});
-// Load data from LocalStorage or fallback to data.js INITIAL_DATA
-function loadData() {
-    const localData = localStorage.getItem("rvnl_tracker_data");
-    if (localData) {
-        try {
-            state.tasks = JSON.parse(localData);
-            // Check if we need to purge old database records (if they contain months other than June 2026)
-            const hasPreJuneData = state.tasks.some(t => {
-                const m = t.month || "";
-                return m.includes("January") || m.includes("February") || m.includes("March") || m.includes("April") || m.includes("May");
-            });
-            if (hasPreJuneData) {
-                console.log("Detected old pre-June data. Resetting to June 2026 baseline.");
-                state.tasks = [...INITIAL_DATA];
-            }
-        } catch (e) {
-            console.error("Error parsing localStorage data, resetting to baseline.", e);
-            state.tasks = [...INITIAL_DATA];
-        }
-    } else {
-        // Fallback to data.js baseline
-        state.tasks = [...INITIAL_DATA];
-    }
 
-    // Migrate statuses to new schema
-    state.tasks.forEach(task => {
-        if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
-        else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
-        else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
-        else if (task.status === "Published" || task.status === "Published/Closed") task.status = "Published/Closed";
-        else if (task.status === "On Hold" || task.status === "Not Published" || task.status === "Not posted by client missed" || task.status === "Not used by client") {
-            task.status = "Not used by client";
-        }
-    });
-    saveData();
-    // Compress any large existing thumbnails asynchronously in the background
-    setTimeout(compressExistingLargeImages, 2000);
+    // Load data from Firestore (async)
+    loadData();
+});
+// ====================================================
+// SYNC STATUS INDICATOR
+// ====================================================
+function setSyncStatus(status) {
+    // status: 'synced' | 'saving' | 'offline' | 'connecting'
+    const dot = document.getElementById('sync-dot');
+    const text = document.getElementById('sync-status-text');
+    if (!dot || !text) return;
+    dot.className = 'sync-dot'; // reset classes
+    if (status === 'synced') {
+        dot.classList.add('sync-dot-green');
+        text.textContent = 'Synced';
+    } else if (status === 'saving') {
+        dot.classList.add('sync-dot-amber');
+        text.textContent = 'Saving...';
+    } else if (status === 'offline') {
+        dot.classList.add('sync-dot-red');
+        text.textContent = 'Offline';
+    } else {
+        dot.classList.add('sync-dot-gray');
+        text.textContent = 'Connecting...';
+    }
 }
 
-// Save current state to LocalStorage
-function saveData() {
-    localStorage.setItem("rvnl_tracker_data", JSON.stringify(state.tasks));
+// Load data from Firestore; migrate localStorage on first run
+async function loadData() {
+    setSyncStatus('connecting');
+    const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+
+    try {
+        const snapshot = await docRef.get();
+
+        if (snapshot.exists && Array.isArray(snapshot.data().tasks) && snapshot.data().tasks.length > 0) {
+            // Data already in Firestore — use it
+            state.tasks = snapshot.data().tasks;
+        } else {
+            // Nothing in Firestore yet — check if localStorage has user data to migrate
+            const localData = localStorage.getItem('rvnl_tracker_data');
+            if (localData) {
+                try {
+                    const parsed = JSON.parse(localData);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        // Migrate localStorage up to Firestore
+                        state.tasks = parsed;
+                        console.log('Migrating localStorage data to Firestore...');
+                        await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+                        localStorage.removeItem('rvnl_tracker_data'); // clean up local copy
+                        console.log('Migration complete.');
+                    } else {
+                        state.tasks = [...INITIAL_DATA];
+                        await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+                    }
+                } catch(e) {
+                    state.tasks = [...INITIAL_DATA];
+                    await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+                }
+            } else {
+                // Fresh start — seed with baseline data
+                state.tasks = [...INITIAL_DATA];
+                await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+        }
+
+        // Migrate statuses to current schema
+        state.tasks.forEach(task => {
+            if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
+            else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
+            else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
+            else if (task.status === "Published" || task.status === "Published/Closed") task.status = "Published/Closed";
+            else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
+                task.status = "Not used by client";
+            }
+        });
+
+        setSyncStatus('synced');
+        populateOwnerFilter();
+        updateDashboard();
+        renderTracker();
+        setTimeout(compressExistingLargeImages, 2000);
+
+    } catch (err) {
+        console.error('Firestore load error:', err);
+        setSyncStatus('offline');
+        // Graceful fallback to localStorage if Firestore unreachable
+        const localData = localStorage.getItem('rvnl_tracker_data');
+        if (localData) {
+            try { state.tasks = JSON.parse(localData); } catch(e) { state.tasks = [...INITIAL_DATA]; }
+        } else {
+            state.tasks = [...INITIAL_DATA];
+        }
+        populateOwnerFilter();
+        updateDashboard();
+        renderTracker();
+    }
+}
+
+// Save current state to Firestore
+async function saveData() {
+    setSyncStatus('saving');
+    const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+    try {
+        await docRef.set({
+            tasks: state.tasks,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        setSyncStatus('synced');
+    } catch (err) {
+        console.error('Firestore save error:', err);
+        setSyncStatus('offline');
+        // Fallback: keep a local copy so no data is lost
+        localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
+    }
 }
 
 // Initialize and Setup Theme Toggle (Dark Mode default)
