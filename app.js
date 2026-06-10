@@ -1820,16 +1820,16 @@ Write ONLY the final paragraph. Do not write any greetings or explanations.
 }
 async function callGemini(apiKey, prompt) {
     // We try a list of model/version configurations in order of preference:
-    // 1. gemini-2.5-flash on v1beta (latest in 2026)
-    // 2. gemini-2.0-flash on v1beta
-    // 3. gemini-1.5-flash on v1 (stable)
-    // 4. gemini-1.5-flash on v1beta
+    // 1. gemini-2.0-flash on v1beta  (current default free-tier model)
+    // 2. gemini-2.0-flash-lite on v1beta (lighter fallback)
+    // 3. gemini-2.5-flash on v1beta  (may require allowlist)
+    // 4. gemini-1.5-flash on v1      (stable endpoint, older but reliable)
     
     const configs = [
-        { version: "v1beta", model: "gemini-2.5-flash" },
         { version: "v1beta", model: "gemini-2.0-flash" },
-        { version: "v1", model: "gemini-1.5-flash" },
-        { version: "v1beta", model: "gemini-1.5-flash" }
+        { version: "v1beta", model: "gemini-2.0-flash-lite" },
+        { version: "v1beta", model: "gemini-2.5-flash" },
+        { version: "v1",     model: "gemini-1.5-flash" },
     ];
     
     let lastError = null;
