@@ -463,9 +463,14 @@ function togglePRFormFields(type) {
         `;
     } else if (type === "Social Media") {
         prFields.classList.add("hidden");
-        lblSubType.textContent = "Sub-Category";
+        lblSubType.textContent = "Platform";
         subTypeSelect.innerHTML = `
-            <option value="Social Media">Social Media Post</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="X (Twitter)">X (Twitter)</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Facebook">Facebook</option>
+            <option value="YouTube">YouTube</option>
+            <option value="WhatsApp">WhatsApp</option>
         `;
     } else {
         prFields.classList.add("hidden");
@@ -481,6 +486,19 @@ function togglePRFormFields(type) {
             <option value="Other">Other / Misc</option>
         `;
     }
+}
+
+// Returns { icon, color, label } for a given social media platform subType
+function getPlatformIcon(subType) {
+    const platforms = {
+        'LinkedIn':    { icon: 'fa-brands fa-linkedin',   color: '#0077b5', label: 'LinkedIn' },
+        'X (Twitter)': { icon: 'fa-brands fa-x-twitter',  color: '#14171a', label: 'X' },
+        'Instagram':   { icon: 'fa-brands fa-instagram',  color: '#e1306c', label: 'Instagram' },
+        'Facebook':    { icon: 'fa-brands fa-facebook',   color: '#1877f2', label: 'Facebook' },
+        'YouTube':     { icon: 'fa-brands fa-youtube',    color: '#ff0000', label: 'YouTube' },
+        'WhatsApp':    { icon: 'fa-brands fa-whatsapp',   color: '#25d366', label: 'WhatsApp' },
+    };
+    return platforms[subType] || { icon: 'fa-solid fa-share-nodes', color: '#3b82f6', label: subType || 'Social Media' };
 }
 
 // ====================================================
@@ -893,7 +911,8 @@ function renderDashboardLists() {
             itemEl.className = "recent-item";
             
             const bgClass = "bg-green";
-            const iconClass = "fa-brands fa-linkedin-in";
+            const platform = getPlatformIcon(item.subType);
+            const iconClass = platform.icon;
             
             itemEl.innerHTML = `
                 <div class="item-left">
@@ -1030,7 +1049,8 @@ function renderTrackerTable() {
         // Type Badge
         let typeBadge = "";
         if (task.type === "Social Media") {
-            typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes"></i> ${task.subType || 'Social'}</span>`;
+            const p = getPlatformIcon(task.subType);
+            typeBadge = `<span class="badge badge-social"><i class="${p.icon}" style="color:${p.color};"></i> ${p.label}</span>`;
         } else if (task.type === "PR Update") {
             typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
         } else {
@@ -1193,7 +1213,8 @@ function renderTrackerKanban() {
         // Links html quick view
         let linksQuick = "";
         if (task.liveLink && task.liveLink.startsWith("http")) {
-            linksQuick += `<a href="${task.liveLink}" target="_blank" class="quick-link-ico" title="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>`;
+            const p = getPlatformIcon(task.subType);
+            linksQuick += `<a href="${task.liveLink}" target="_blank" class="quick-link-ico" title="${p.label}" style="color:${p.color};"><i class="${p.icon}"></i></a>`;
         }
         if (task.canvaLink && task.canvaLink.startsWith("http")) {
             linksQuick += `<a href="${task.canvaLink}" target="_blank" class="quick-link-ico" title="Canva"><i class="fa-solid fa-pen-nib"></i></a>`;
@@ -1427,7 +1448,7 @@ function generateReport() {
             if (periodType === "weekly") {
                 tr.innerHTML = `
                     <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name"><i class="fa-brands fa-linkedin"></i> Social Media</td>
+                    <td class="platform-name">${(function(){ const p = getPlatformIcon(task.subType); return `<i class="${p.icon}" style="color:${p.color};"></i> ${p.label}`; })()}</td>
                     <td>${activityDetailsHtml}</td>
                     <td>${timelineDisplay}</td>
                     <td>${verificationLink}</td>
@@ -1435,7 +1456,7 @@ function generateReport() {
             } else {
                 tr.innerHTML = `
                     <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name"><i class="fa-brands fa-linkedin"></i> Social Media</td>
+                    <td class="platform-name">${(function(){ const p = getPlatformIcon(task.subType); return `<i class="${p.icon}" style="color:${p.color};"></i> ${p.label}`; })()}</td>
                     <td>${activityDetailsHtml}</td>
                     <td>${timelineDisplay}</td>
                     <td>${metricsDisplay}</td>
