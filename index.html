@@ -519,9 +519,12 @@
                             <span class="range-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px;">Reporting Range (GMT+5:30):</span>
                             <span class="range-val" id="briefing-time-range" style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Yesterday, 11:00 AM - Today, 11:00 AM</span>
                         </div>
-                        <div class="config-actions">
+                        <div class="config-actions" style="display: flex; gap: 8px;">
                             <button id="btn-run-briefing" class="btn btn-primary">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Briefing
+                            </button>
+                            <button id="btn-clear-briefing" class="btn btn-secondary" style="border-color: var(--accent-red); color: var(--accent-red); background: rgba(239, 68, 68, 0.05); display: none;">
+                                <i class="fa-solid fa-trash-can"></i> Delete Saved
                             </button>
                         </div>
                     </div>

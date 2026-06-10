@@ -402,6 +402,10 @@ function setupEventListeners() {
     if (btnRunBriefing) {
         btnRunBriefing.addEventListener("click", handleRunBriefing);
     }
+    const btnClearBriefing = document.getElementById("btn-clear-briefing");
+    if (btnClearBriefing) {
+        btnClearBriefing.addEventListener("click", handleClearBriefing);
+    }
     const briefingStartDateInput = document.getElementById("briefing-start-date");
     const briefingEndDateInput = document.getElementById("briefing-end-date");
     if (briefingStartDateInput) {
@@ -2100,9 +2104,11 @@ async function updateBriefingTimeRangeLabel() {
     // Attempt to load from database
     const rangeId = `${startVal}_${endVal}`;
     const cachedBriefing = await loadBriefingFromFirestore(rangeId);
+    const btnClear = document.getElementById("btn-clear-briefing");
     if (cachedBriefing) {
         currentBriefingData = cachedBriefing;
         renderBriefingResults(cachedBriefing);
+        if (btnClear) btnClear.style.display = "inline-block";
         if (statusContainer) {
             document.getElementById("briefing-status-text").textContent = "✓ Saved briefing loaded from database.";
             document.getElementById("briefing-status-text").style.color = "var(--accent-green)";
@@ -2110,11 +2116,55 @@ async function updateBriefingTimeRangeLabel() {
         }
     } else {
         currentBriefingData = null;
+        if (btnClear) btnClear.style.display = "none";
         if (statusContainer) {
             document.getElementById("briefing-status-text").textContent = "No briefing exists for this range. Click 'Run AI Briefing' to generate.";
             document.getElementById("briefing-status-text").style.color = "var(--text-muted)";
             document.getElementById("briefing-spinner").style.display = "none";
         }
+    }
+}
+
+// Handler to clear a saved briefing from database and local cache
+async function handleClearBriefing() {
+    const startDateInput = document.getElementById("briefing-start-date");
+    const endDateInput = document.getElementById("briefing-end-date");
+    if (!startDateInput || !endDateInput) return;
+    const startVal = startDateInput.value;
+    const endVal = endDateInput.value;
+    if (!startVal || !endVal) return;
+
+    if (!confirm("Are you sure you want to delete the saved briefing for this range?")) {
+        return;
+    }
+
+    const rangeId = `${startVal}_${endVal}`;
+    try {
+        const docId = `briefing_${rangeId}`;
+        await db.collection('rvnl_briefings').doc(docId).delete();
+        console.log("Briefing deleted from Firestore.");
+    } catch (err) {
+        console.warn("Firestore delete failed:", err);
+    }
+
+    localStorage.removeItem(`rvnl_briefing_${rangeId}`);
+
+    currentBriefingData = null;
+    const resultsContainer = document.getElementById("briefing-results");
+    if (resultsContainer) resultsContainer.classList.add("hidden");
+
+    const btnClear = document.getElementById("btn-clear-briefing");
+    if (btnClear) btnClear.style.display = "none";
+
+    const statusText = document.getElementById("briefing-status-text");
+    if (statusText) {
+        statusText.textContent = "Saved briefing deleted. Click 'Run AI Briefing' to generate a fresh one.";
+        statusText.style.color = "var(--accent-amber)";
+    }
+    
+    const queryLog = document.getElementById("briefing-status-queries");
+    if (queryLog) {
+        queryLog.innerHTML = "";
     }
 }
 
@@ -2174,57 +2224,95 @@ async function handleRunBriefing() {
     try {
         const pad = (n) => String(n).padStart(2, '0');
         const afterStr = `${startLimit.getFullYear()}-${pad(startLimit.getMonth()+1)}-${pad(startLimit.getDate())}`;
-        const beforeStr = `${endLimit.getFullYear()}-${pad(endLimit.getMonth()+1)}-${pad(endLimit.getDate())}`;
+        
+        // Add 1 day to endLimit for exclusive 'before' operator, making it inclusive of the end date
+        const endLimitPlusOne = new Date(endLimit);
+        endLimitPlusOne.setDate(endLimitPlusOne.getDate() + 1);
+        const beforeStr = `${endLimitPlusOne.getFullYear()}-${pad(endLimitPlusOne.getMonth()+1)}-${pad(endLimitPlusOne.getDate())}`;
         
         const query = `RVNL OR "Rail Vikas Nigam" after:${afterStr} before:${beforeStr}`;
         const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
         
         if (queryLog) queryLog.innerHTML += `<div style="margin-top:5px;">🔍 Querying Google News RSS for live updates...</div>`;
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'ok' && Array.isArray(data.items)) {
-                let liveCount = 0;
-                data.items.forEach(item => {
-                    // Extract Date
-                    let pubDateStr = item.pubDate;
-                    let parsedDate = new Date(pubDateStr);
-                    if (isNaN(parsedDate.getTime())) parsedDate = new Date();
-                    
-                    const itemDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth()+1)}-${pad(parsedDate.getDate())}`;
-                    
-                    // Simple check if this looks like a milestone
-                    const tLower = item.title.toLowerCase();
-                    const isRelevant = tLower.includes("rvnl") || tLower.includes("rail vikas") || tLower.includes("railway");
-                    
-                    if (isRelevant) {
-                        // De-duplicate against curated
-                        const exists = gatheredItems.some(c => c.title.toLowerCase().substring(0, 30) === item.title.toLowerCase().substring(0, 30));
-                        if (!exists) {
-                            // Extract metrics or build fallback
-                            const valMatch = item.title.match(/(?:rs\.?|₹)\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:crore|cr|million|billion|lakh|crores)/i);
-                            const pValue = valMatch ? `₹${valMatch[1]} Crore` : "Market Update";
-                            
-                            gatheredItems.push({
-                                date: itemDateStr,
-                                title: item.title,
-                                url: item.link,
-                                zone: "Indian Railways",
-                                division: "Zonal Division",
-                                value: pValue,
-                                type: "Media Coverage Update",
-                                subType: "PR & Media",
-                                desc: "analyzing national press highlights and building social media conversations around this live update",
-                                timeline: "Ongoing",
-                                isCurated: false
-                            });
-                            liveCount++;
-                        }
-                    }
-                });
-                if (queryLog && liveCount > 0) {
-                    queryLog.innerHTML += `<div style="margin-top:5px; color:var(--accent-green);">✓ Merged ${liveCount} live news items from Google News.</div>`;
+        
+        let liveItems = [];
+        let fetchedData = null;
+        
+        try {
+            const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'ok' && Array.isArray(data.items)) {
+                    fetchedData = data.items;
                 }
+            }
+        } catch (e) {
+            console.warn("Date-bounded RSS fetch failed, will try broad fallback", e);
+        }
+
+        // Broad Search Fallback if date-bounded search returned nothing
+        if (!fetchedData || fetchedData.length === 0) {
+            if (queryLog) queryLog.innerHTML += `<div style="margin-top:5px; color:var(--text-muted);">🔍 Date-specific query returned zero. Trying broad real-time search fallback...</div>`;
+            const fallbackQuery = `RVNL OR "Rail Vikas Nigam"`;
+            const fallbackFeedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-IN&gl=IN&ceid=IN:en`;
+            try {
+                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(fallbackFeedUrl)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'ok' && Array.isArray(data.items)) {
+                        // Filter items that fall within the selected date range in client-side Javascript
+                        fetchedData = data.items.filter(item => {
+                            let parsedDate = new Date(item.pubDate);
+                            return !isNaN(parsedDate.getTime()) && parsedDate >= startLimit && parsedDate <= endLimit;
+                        });
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn("Broad RSS fallback fetch failed:", fallbackErr);
+            }
+        }
+
+        if (fetchedData && fetchedData.length > 0) {
+            let liveCount = 0;
+            fetchedData.forEach(item => {
+                // Extract Date
+                let pubDateStr = item.pubDate;
+                let parsedDate = new Date(pubDateStr);
+                if (isNaN(parsedDate.getTime())) parsedDate = new Date();
+                
+                const itemDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth()+1)}-${pad(parsedDate.getDate())}`;
+                
+                // Simple check if this looks like a milestone
+                const tLower = item.title.toLowerCase();
+                const isRelevant = tLower.includes("rvnl") || tLower.includes("rail vikas") || tLower.includes("railway");
+                
+                if (isRelevant) {
+                    // De-duplicate against curated
+                    const exists = gatheredItems.some(c => c.title.toLowerCase().substring(0, 30) === item.title.toLowerCase().substring(0, 30));
+                    if (!exists) {
+                        // Extract metrics or build fallback
+                        const valMatch = item.title.match(/(?:rs\.?|₹)\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:crore|cr|million|billion|lakh|crores)/i);
+                        const pValue = valMatch ? `₹${valMatch[1]} Crore` : "Market Update";
+                        
+                        gatheredItems.push({
+                            date: itemDateStr,
+                            title: item.title,
+                            url: item.link,
+                            zone: "Indian Railways",
+                            division: "Zonal Division",
+                            value: pValue,
+                            type: "Media Coverage Update",
+                            subType: "PR & Media",
+                            desc: "analyzing national press highlights and building social media conversations around this live update",
+                            timeline: "Ongoing",
+                            isCurated: false
+                        });
+                        liveCount++;
+                    }
+                }
+            });
+            if (queryLog && liveCount > 0) {
+                queryLog.innerHTML += `<div style="margin-top:5px; color:var(--accent-green);">✓ Merged ${liveCount} live news items from Google News.</div>`;
             }
         }
     } catch (err) {
@@ -2350,6 +2438,8 @@ Read more: [Link to PR Room]
             statusText.style.color = "var(--accent-green)";
         }
         if (spinner) spinner.style.display = "none";
+        const btnClear = document.getElementById("btn-clear-briefing");
+        if (btnClear) btnClear.style.display = "inline-block";
     } catch (err) {
         console.error("Briefing execution error: ", err);
         if (statusText) {
