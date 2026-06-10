@@ -125,6 +125,10 @@ async function loadData() {
             else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
                 task.status = "Not used by client";
             }
+            // Normalize Social Media subType: posts go to all platforms
+            if (task.type === "Social Media") {
+                task.subType = "All Platforms";
+            }
         });
 
         setSyncStatus('synced');
@@ -452,6 +456,10 @@ function togglePRFormFields(type) {
     const subTypeSelect = document.getElementById("task-sub-type");
     const lblSubType = document.getElementById("lbl-sub-type");
 
+    // Always show sub-type group first (will be hidden for Social Media)
+    const subTypeGroupEl = subTypeSelect.closest('.form-group');
+    if (subTypeGroupEl) subTypeGroupEl.classList.remove('hidden');
+
     if (type === "PR Update") {
         prFields.classList.remove("hidden");
         lblSubType.textContent = "PR Category";
@@ -463,15 +471,11 @@ function togglePRFormFields(type) {
         `;
     } else if (type === "Social Media") {
         prFields.classList.add("hidden");
-        lblSubType.textContent = "Platform";
-        subTypeSelect.innerHTML = `
-            <option value="LinkedIn">LinkedIn</option>
-            <option value="X (Twitter)">X (Twitter)</option>
-            <option value="Instagram">Instagram</option>
-            <option value="Facebook">Facebook</option>
-            <option value="YouTube">YouTube</option>
-            <option value="WhatsApp">WhatsApp</option>
-        `;
+        // Social media posts go to ALL platforms — hide sub-type selector
+        const subTypeGroup = subTypeSelect.closest('.form-group');
+        if (subTypeGroup) subTypeGroup.classList.add('hidden');
+        subTypeSelect.innerHTML = `<option value="All Platforms">All Platforms</option>`;
+        return; // early return to avoid showing sub-type group below
     } else {
         prFields.classList.add("hidden");
         lblSubType.textContent = "Asset Sub-category";
@@ -911,8 +915,7 @@ function renderDashboardLists() {
             itemEl.className = "recent-item";
             
             const bgClass = "bg-green";
-            const platform = getPlatformIcon(item.subType);
-            const iconClass = platform.icon;
+            const iconClass = "fa-solid fa-share-nodes";
             
             itemEl.innerHTML = `
                 <div class="item-left">
@@ -923,7 +926,7 @@ function renderDashboardLists() {
                     </div>
                 </div>
                 <div class="item-right">
-                    <span class="badge badge-social">${item.subType}</span>
+                    <span class="badge badge-social">All Platforms</span>
                 </div>
             `;
             completedList.appendChild(itemEl);
@@ -1049,8 +1052,7 @@ function renderTrackerTable() {
         // Type Badge
         let typeBadge = "";
         if (task.type === "Social Media") {
-            const p = getPlatformIcon(task.subType);
-            typeBadge = `<span class="badge badge-social"><i class="${p.icon}" style="color:${p.color};"></i> ${p.label}</span>`;
+            typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
         } else if (task.type === "PR Update") {
             typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
         } else {
@@ -1448,7 +1450,7 @@ function generateReport() {
             if (periodType === "weekly") {
                 tr.innerHTML = `
                     <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name">${(function(){ const p = getPlatformIcon(task.subType); return `<i class="${p.icon}" style="color:${p.color};"></i> ${p.label}`; })()}</td>
+                    <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
                     <td>${activityDetailsHtml}</td>
                     <td>${timelineDisplay}</td>
                     <td>${verificationLink}</td>
@@ -1456,7 +1458,7 @@ function generateReport() {
             } else {
                 tr.innerHTML = `
                     <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name">${(function(){ const p = getPlatformIcon(task.subType); return `<i class="${p.icon}" style="color:${p.color};"></i> ${p.label}`; })()}</td>
+                    <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
                     <td>${activityDetailsHtml}</td>
                     <td>${timelineDisplay}</td>
                     <td>${metricsDisplay}</td>
