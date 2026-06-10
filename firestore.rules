@@ -4,5 +4,8 @@ service cloud.firestore {
     match /rvnl_tracker/{document=**} {
       allow read, write: if true;
     }
+    match /rvnl_briefings/{document=**} {
+      allow read, write: if true;
+    }
   }
 }
