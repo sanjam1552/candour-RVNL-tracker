@@ -346,6 +346,12 @@ function setupEventListeners() {
     document.getElementById("import-db-btn").addEventListener("click", importDatabase);
     document.getElementById("reset-db-btn").addEventListener("click", resetDatabase);
 
+    // Restore local localStorage data → Firestore
+    const restoreLocalBtn = document.getElementById("restore-local-btn");
+    if (restoreLocalBtn) {
+        restoreLocalBtn.addEventListener("click", restoreLocalBackup);
+    }
+
     // 11. API Key & AI Narrative Handlers
     const saveApiKeyBtn = document.getElementById("save-api-key-btn");
     if (saveApiKeyBtn) {
@@ -1589,6 +1595,63 @@ function generateReport() {
 // ====================================================
 // BACKUP, RESTORE & DATA EXPORT FUNCTIONS
 // ====================================================
+
+// Force-push localStorage data to Firestore (emergency recovery)
+async function restoreLocalBackup() {
+    const statusEl = document.getElementById('restore-local-status');
+    const localRaw = localStorage.getItem('rvnl_tracker_data');
+
+    if (!localRaw) {
+        statusEl.textContent = '⚠️ No local backup found in this browser. Your data may already be in the cloud, or was never stored here.';
+        statusEl.style.color = 'var(--accent-amber)';
+        return;
+    }
+
+    let localTasks;
+    try {
+        localTasks = JSON.parse(localRaw);
+    } catch(e) {
+        statusEl.textContent = '✗ Could not read local backup — data is corrupted.';
+        statusEl.style.color = 'var(--accent-red)';
+        return;
+    }
+
+    if (!Array.isArray(localTasks) || localTasks.length === 0) {
+        statusEl.textContent = '⚠️ Local backup is empty. Nothing to restore.';
+        statusEl.style.color = 'var(--accent-amber)';
+        return;
+    }
+
+    const confirmed = confirm(`Found ${localTasks.length} items in your local browser backup.\n\nThis will OVERWRITE the current cloud database (${state.tasks.length} items) with your local data.\n\nProceed?`);
+    if (!confirmed) return;
+
+    statusEl.textContent = `⏳ Uploading ${localTasks.length} items to Firestore...`;
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+        const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+        await docRef.set({
+            tasks: localTasks,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        state.tasks = localTasks;
+        localStorage.removeItem('rvnl_tracker_data'); // clean up old local copy
+
+        statusEl.textContent = `✅ Successfully restored ${localTasks.length} items from local backup to the cloud!`;
+        statusEl.style.color = 'var(--accent-green)';
+        setSyncStatus('synced');
+
+        populateOwnerFilter();
+        updateDashboard();
+        renderTracker();
+        switchTab('dashboard');
+    } catch(err) {
+        console.error('Restore failed:', err);
+        statusEl.textContent = '✗ Upload failed: ' + err.message;
+        statusEl.style.color = 'var(--accent-red)';
+    }
+}
 
 function exportDatabase() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.tasks, null, 2));

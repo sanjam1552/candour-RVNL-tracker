@@ -500,6 +500,14 @@
                 </div>
 
                 <div class="settings-grid">
+                    <!-- EMERGENCY RESTORE CARD -->
+                    <div class="settings-card card-full" style="border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.05);">
+                        <div class="settings-icon" style="color: var(--accent-amber);"><i class="fa-solid fa-rotate-left"></i></div>
+                        <h3 style="color: var(--accent-amber);">Restore My Local Browser Data → Cloud</h3>
+                        <p>If your data (with images and edits) is still saved in <strong>this browser</strong> from before the Firebase migration, click below to push it to the cloud and overwrite the current database.</p>
+                        <button id="restore-local-btn" class="btn" style="margin-top:12px; background-color: var(--accent-amber); color: #000; font-weight:700;"><i class="fa-solid fa-cloud-arrow-up"></i> Restore Local Data to Cloud</button>
+                        <span id="restore-local-status" style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted);"></span>
+                    </div>
                     <div class="settings-card">
                         <div class="settings-icon"><i class="fa-solid fa-file-export"></i></div>
                         <h3>Export Tracker Database</h3>
