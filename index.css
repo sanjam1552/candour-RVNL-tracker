@@ -1830,3 +1830,130 @@ h1, h2, h3, h4, h5, h6 {
         border: 1px solid #000000 !important;
     }
 }
+
+/* Daily Briefing Custom Styles */
+@keyframes briefing-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.briefing-config-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.briefing-config-card .config-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.briefing-config-card .config-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 180px;
+}
+
+.briefing-config-card .config-group label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.briefing-config-card .config-info {
+    flex-grow: 1;
+}
+
+.briefing-source-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.briefing-source-link:hover {
+    border-color: var(--accent-green);
+    background-color: rgba(16, 185, 129, 0.05);
+    transform: translateX(4px);
+}
+
+.briefing-source-link i {
+    color: var(--accent-green);
+    font-size: 14px;
+}
+
+.briefing-source-domain {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+    background-color: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+/* Markdown styling inside briefing */
+.markdown-body h4 {
+    margin-top: 15px;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.markdown-body p {
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.markdown-body ul, .markdown-body ol {
+    margin-left: 20px;
+    margin-bottom: 12px;
+}
+
+.markdown-body li {
+    margin-bottom: 6px;
+}
+
+.markdown-body strong {
+    color: var(--text-primary);
+}
+
+/* Strategy Action Card Badges and Borders */
+.border-left-blue {
+    border-left: 4px solid var(--accent-blue) !important;
+}
+
+.border-left-amber {
+    border-left: 4px solid var(--accent-amber) !important;
+}
+
+.border-left-purple {
+    border-left: 4px solid var(--accent-purple) !important;
+}
+
+.icon-purple { color: var(--accent-purple); }
+.icon-blue { color: var(--accent-blue); }
+.icon-green { color: var(--accent-green); }
+
+.border-accent-purple {
+    border-top: 4px solid var(--accent-purple) !important;
+}
+

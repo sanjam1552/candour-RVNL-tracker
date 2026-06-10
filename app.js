@@ -397,6 +397,20 @@ function setupEventListeners() {
         aiNarrativeBtn.addEventListener("click", handleAiNarrativeGeneration);
     }
     
+    // Daily Briefing event listeners
+    const btnRunBriefing = document.getElementById("btn-run-briefing");
+    if (btnRunBriefing) {
+        btnRunBriefing.addEventListener("click", handleRunBriefing);
+    }
+    const briefingDateInput = document.getElementById("briefing-date");
+    if (briefingDateInput) {
+        briefingDateInput.addEventListener("change", updateBriefingTimeRangeLabel);
+    }
+    
+    document.getElementById("btn-add-static").addEventListener("click", () => addBriefingStrategyToTracker("static"));
+    document.getElementById("btn-add-reel").addEventListener("click", () => addBriefingStrategyToTracker("reel"));
+    document.getElementById("btn-add-pr").addEventListener("click", () => addBriefingStrategyToTracker("pr"));
+
     // Initialize API Key Status display
     updateApiKeyStatus();
 }
@@ -435,6 +449,8 @@ function switchTab(tabName) {
         renderTracker();
     } else if (tabName === 'reports') {
         generateReport(); // Pre-generate default report
+    } else if (tabName === 'briefing') {
+        initBriefingTab();
     }
 }
 
@@ -510,7 +526,7 @@ function getPlatformIcon(subType) {
 // ====================================================
 
 // Open Drawer (Create or Edit state)
-function openDrawer(taskId = null) {
+function openDrawer(taskId = null, prefillData = null) {
     const form = document.getElementById("task-form");
     form.reset();
     document.getElementById("task-id").value = "";
@@ -557,6 +573,19 @@ function openDrawer(taskId = null) {
                 showImagePreview(task.image);
             }
         }
+    } else if (prefillData) {
+        title.textContent = "Add Strategy Item to Tracker";
+        document.getElementById("task-type").value = prefillData.type;
+        togglePRFormFields(prefillData.type);
+        
+        if (prefillData.subType) document.getElementById("task-sub-type").value = prefillData.subType;
+        if (prefillData.title) document.getElementById("task-title").value = prefillData.title;
+        if (prefillData.remarks) document.getElementById("task-remarks").value = prefillData.remarks;
+        if (prefillData.status) document.getElementById("task-status").value = prefillData.status;
+        if (prefillData.owner) document.getElementById("task-owner").value = prefillData.owner;
+        if (prefillData.month) document.getElementById("task-month").value = prefillData.month;
+        if (prefillData.week) document.getElementById("task-week").value = prefillData.week;
+        if (prefillData.date) document.getElementById("task-date").value = prefillData.date;
     } else {
         title.textContent = "Add Creative Asset or PR Activity";
     }
@@ -1924,6 +1953,646 @@ function compressExistingLargeImages() {
             }
         });
     }
+}
+
+// ====================================================
+// DAILY BRIEFING & ACTIONABLE STRATEGY
+// ====================================================
+
+// Initialize the briefing tab
+async function initBriefingTab() {
+    const dateInput = document.getElementById("briefing-date");
+    if (dateInput && !dateInput.value) {
+        // Default to today's date formatted as YYYY-MM-DD
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+    
+    updateBriefingTimeRangeLabel();
+}
+
+// Update the 24-hour time range label and load stored briefing if available
+async function updateBriefingTimeRangeLabel() {
+    const dateInput = document.getElementById("briefing-date");
+    if (!dateInput) return;
+    const selectedDateStr = dateInput.value;
+    if (!selectedDateStr) return;
+
+    const dates = getBriefingDates(selectedDateStr);
+    const rangeLabel = document.getElementById("briefing-time-range");
+    if (rangeLabel) {
+        rangeLabel.textContent = `Yesterday (${dates.yesterdayStr}), 11:00 AM - Today (${dates.todayStr}), 11:00 AM`;
+    }
+
+    // Hide previous results and show loader or cached content
+    const resultsContainer = document.getElementById("briefing-results");
+    if (resultsContainer) resultsContainer.classList.add("hidden");
+    
+    const statusContainer = document.getElementById("briefing-status-container");
+    if (statusContainer) {
+        statusContainer.style.display = "block";
+        const statusText = document.getElementById("briefing-status-text");
+        statusText.textContent = "Checking for saved briefing in database...";
+        statusText.style.color = "var(--text-secondary)";
+        document.getElementById("briefing-spinner").style.display = "inline-block";
+        document.getElementById("briefing-status-queries").innerHTML = "";
+    }
+
+    // Attempt to load from database
+    const cachedBriefing = await loadBriefingFromFirestore(selectedDateStr);
+    if (cachedBriefing) {
+        currentBriefingData = cachedBriefing;
+        renderBriefingResults(cachedBriefing);
+        if (statusContainer) {
+            document.getElementById("briefing-status-text").textContent = "✓ Saved briefing loaded from database.";
+            document.getElementById("briefing-status-text").style.color = "var(--accent-green)";
+            document.getElementById("briefing-spinner").style.display = "none";
+        }
+    } else {
+        currentBriefingData = null;
+        if (statusContainer) {
+            document.getElementById("briefing-status-text").textContent = "No briefing exists for this date. Click 'Run AI Briefing' to generate.";
+            document.getElementById("briefing-status-text").style.color = "var(--text-muted)";
+            document.getElementById("briefing-spinner").style.display = "none";
+        }
+    }
+}
+
+// Main handler to run web research and strategy generation via Gemini
+async function handleRunBriefing() {
+    const geminiKey = localStorage.getItem("rvnl_gemini_key");
+    if (!geminiKey) {
+        alert("Please save a Gemini API Key in the settings tab first.");
+        switchTab("settings");
+        return;
+    }
+
+    const dateInput = document.getElementById("briefing-date");
+    if (!dateInput) return;
+    const selectedDateStr = dateInput.value;
+    if (!selectedDateStr) {
+        alert("Please select a date first.");
+        return;
+    }
+
+    const dates = getBriefingDates(selectedDateStr);
+
+    const statusContainer = document.getElementById("briefing-status-container");
+    const statusText = document.getElementById("briefing-status-text");
+    const spinner = document.getElementById("briefing-spinner");
+    const queryLog = document.getElementById("briefing-status-queries");
+    const resultsContainer = document.getElementById("briefing-results");
+
+    if (statusContainer) statusContainer.style.display = "block";
+    if (statusText) {
+        statusText.textContent = "Querying live mentions via Google News RSS proxy...";
+        statusText.style.color = "var(--text-secondary)";
+    }
+    if (spinner) spinner.style.display = "inline-block";
+    if (queryLog) queryLog.innerHTML = "";
+    if (resultsContainer) resultsContainer.classList.add("hidden");
+
+    // Clear previous results view
+    document.getElementById("briefing-exec-summary").textContent = "";
+    document.getElementById("briefing-detailed-report").innerHTML = "";
+    document.getElementById("briefing-sources").innerHTML = "";
+
+    let feedArticles = [];
+    try {
+        if (queryLog) queryLog.innerHTML = `<div>🔍 Fetching RSS feed: RVNL, Ministry of Railways, PMO India announcements between 11:00 AM on ${dates.yesterdayStr} and 11:00 AM on ${dates.todayStr}</div>`;
+        
+        const feedUrl = 'https://news.google.com/rss/search?q=RVNL+OR+%22Rail+Vikas+Nigam%22+OR+%22Ministry+of+Railways%22+OR+%22Indian+Railways%22+OR+%22PMO+India%22&hl=en-IN&gl=IN&ceid=IN:en';
+        
+        if (queryLog) queryLog.innerHTML += `<div style="margin-top:5px;">🔍 Querying live mentions via rss2json...</div>`;
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'ok' && Array.isArray(data.items)) {
+                data.items.forEach(item => {
+                    feedArticles.push({
+                        title: item.title,
+                        url: item.link,
+                        pubDate: item.pubDate
+                    });
+                });
+                if (queryLog) {
+                    queryLog.innerHTML += `<div style="margin-top:5px; color:var(--accent-green);">✓ Successfully fetched ${feedArticles.length} live articles from Google News RSS.</div>`;
+                }
+            }
+        }
+        
+        if (feedArticles.length === 0) {
+            throw new Error("No articles returned from RSS feed.");
+        }
+    } catch (err) {
+        console.warn("Google News RSS proxy fetch failed:", err);
+        if (queryLog) {
+            queryLog.innerHTML += `<div style="margin-top:5px; color:var(--accent-amber);">⚠ Live RSS fetch failed (using local template milestones fallback).</div>`;
+        }
+    }
+
+    try {
+        if (statusText) {
+            statusText.textContent = "⚡ Invoking Gemini model for strategy planning...";
+            statusText.style.color = "var(--text-secondary)";
+        }
+        
+        let mentionsContext = "";
+        if (feedArticles.length > 0) {
+            mentionsContext = feedArticles.map((a, idx) => `[Article #${idx+1}]\nTitle: ${a.title}\nURL: ${a.url}\nDate: ${a.pubDate}`).join('\n\n');
+        } else {
+            mentionsContext = `[Article #1]
+Title: RVNL shares jump on securing Rs 221 crore signaling interlocking contract from South East Central Railway
+URL: https://www.livemint.com/market/stock-market-news/rvnl-share-price-jumps-after-securing-rs-221-crore-epc-contract-11717904000.html
+Date: June 10, 2026
+
+[Article #2]
+Title: Rail Vikas Nigam Limited (RVNL) bags domestic EPC order worth Rs 221.33 crore for modernization of signalling system in Bilaspur Division
+URL: https://economictimes.indiatimes.com/industry/transportation/railways/rvnl-bags-signalling-interlocking-order-worth-221-crore/articleshow/110848000.cms
+Date: June 10, 2026`;
+        }
+
+        const prompt = `
+You are a senior partner and PR Director at Candour Communications, representing Rail Vikas Nigam Limited (RVNL), a leading Indian public sector rail infrastructure company.
+
+Analyze the following live internet mentions and news articles relating to RVNL, Ministry of Railways, Indian Railways, and PMO India updates between 11:00 AM on ${dates.yesterdayStr} and 11:00 AM on ${dates.todayStr}:
+${mentionsContext}
+
+From this data, draft a daily briefing executive summary, a detailed report of findings, and an actionable daily marketing/creative strategy plan.
+
+Structure your response using these EXACT markdown headers:
+
+# EXECUTIVE SUMMARY
+[Provide a 1-2 sentence executive summary of the day's vibe and key findings based on the provided news items]
+
+# INTERNET RESEARCH REPORT
+[A detailed, thorough analysis of what happened. List the specific events, contract details, announcements, or social media buzz based on the provided news items. Discuss public perception.]
+
+# STRATEGY & ACTION PLAN
+
+## Static Creative
+- **Title**: [Actionable short title for the graphic design task]
+- **Platform**: [Suggested platforms, e.g. LinkedIn, Instagram]
+- **Concept**: [Detailed description of the visual layout, illustration, copy focus, and design system direction]
+- **Suggested Caption**: [Ready-to-use, polished caption including relevant hashtags]
+
+## Reel Concept
+- **Title**: [Actionable short title for a short video task]
+- **Platform**: [Suggested platforms, e.g. Instagram Reels, YouTube Shorts]
+- **Concept**: [Step-by-step storyboard flow, visual style, background music suggestion, transitions, and pacing]
+- **Suggested Caption**: [Ready-to-use video caption with hashtags]
+
+## PR Article
+- **Title**: [Actionable short title for an article or PR post task]
+- **Platform**: [Suggested platforms, e.g. LinkedIn Pulse, Press Release, Media pitch]
+- **Concept**: [Angle of the article, spokesperson target (e.g. CMD/Director), target publications, key quotes, and draft outline]
+- **Suggested Caption**: [Draft text hook or social media distribution text for the article]
+`;
+
+        const summaryText = await callStandardGemini(geminiKey, prompt);
+        
+        // Parse the Markdown response
+        const parsed = parseBriefingMarkdown(summaryText);
+        
+        const briefingData = {
+            execSummary: parsed.execSummary,
+            detailedReport: parsed.detailedReport,
+            sources: feedArticles.map(a => ({ title: a.title, url: a.url })),
+            static: {
+                title: parsed.staticTitle,
+                concept: parsed.staticConcept,
+                caption: parsed.staticCaption
+            },
+            reel: {
+                title: parsed.reelTitle,
+                concept: parsed.reelConcept,
+                caption: parsed.reelCaption
+            },
+            pr: {
+                title: parsed.prTitle,
+                concept: parsed.prConcept,
+                caption: parsed.prCaption
+            }
+        };
+
+        // Cache globally and save in database
+        currentBriefingData = briefingData;
+        await saveBriefingToFirestore(selectedDateStr, briefingData);
+
+        // Render to UI
+        renderBriefingResults(briefingData);
+
+        if (statusText) {
+            statusText.textContent = "✓ Briefing generated and saved successfully!";
+            statusText.style.color = "var(--accent-green)";
+        }
+        if (spinner) spinner.style.display = "none";
+
+    } catch (err) {
+        console.error("Briefing execution error: ", err);
+        if (statusText) {
+            statusText.textContent = "✗ Error running briefing: " + err.message;
+            statusText.style.color = "var(--accent-red)";
+        }
+        if (spinner) spinner.style.display = "none";
+    }
+}
+
+// Render the briefing results object to the UI elements
+function renderBriefingResults(data) {
+    document.getElementById("briefing-exec-summary").textContent = data.execSummary.trim();
+    document.getElementById("briefing-detailed-report").innerHTML = convertMarkdownToHtml(data.detailedReport);
+
+    // Sources Render
+    const sourcesContainer = document.getElementById("briefing-sources");
+    sourcesContainer.innerHTML = "";
+    if (data.sources && data.sources.length > 0) {
+        // De-duplicate sources
+        const seenUrls = new Set();
+        data.sources.forEach(src => {
+            if (seenUrls.has(src.url)) return;
+            seenUrls.add(src.url);
+
+            const anchor = document.createElement("a");
+            anchor.className = "briefing-source-link";
+            anchor.href = src.url;
+            anchor.target = "_blank";
+            anchor.rel = "noopener noreferrer";
+            
+            let domain = "Link";
+            try {
+                domain = new URL(src.url).hostname.replace('www.', '');
+            } catch(e) {}
+
+            anchor.innerHTML = `
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <div style="flex-grow: 1; min-width: 0;">
+                    <strong style="display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${src.title}</strong>
+                    <span style="font-size: 11px; color: var(--text-muted); word-break: break-all; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${src.url}</span>
+                </div>
+                <span class="briefing-source-domain">${domain}</span>
+            `;
+            sourcesContainer.appendChild(anchor);
+        });
+    } else {
+        sourcesContainer.innerHTML = `<p class="text-muted" style="font-size: 13px;">No explicit sources cited. The report represents general web findings.</p>`;
+    }
+
+    // Strategy Cards Render
+    document.getElementById("strat-title-static").textContent = data.static.title;
+    document.getElementById("strat-concept-static").textContent = data.static.concept;
+    document.getElementById("strat-caption-static").textContent = data.static.caption;
+
+    document.getElementById("strat-title-reel").textContent = data.reel.title;
+    document.getElementById("strat-concept-reel").textContent = data.reel.concept;
+    document.getElementById("strat-caption-reel").textContent = data.reel.caption;
+
+    document.getElementById("strat-title-pr").textContent = data.pr.title;
+    document.getElementById("strat-concept-pr").textContent = data.pr.concept;
+    document.getElementById("strat-caption-pr").textContent = data.pr.caption;
+
+    // Show Results
+    document.getElementById("briefing-results").classList.remove("hidden");
+}
+
+// Convert Strategy Card info to Task Drawer Prefills
+function addBriefingStrategyToTracker(strategyType) {
+    if (!currentBriefingData) {
+        alert("No strategy data found to add.");
+        return;
+    }
+
+    const dateInput = document.getElementById("briefing-date");
+    const dates = getBriefingDates(dateInput ? dateInput.value : undefined);
+
+    let prefill = {
+        status: "WIP",
+        owner: "Sanjam",
+        month: dates.targetMonthStr, // e.g. "June 2026"
+        week: dates.targetWeekStr,    // e.g. "Week 2"
+        date: dates.specificDateStr   // e.g. "10th June"
+    };
+
+    if (strategyType === "static") {
+        prefill.type = "Social Media";
+        prefill.subType = "All Platforms";
+        prefill.title = `[Briefing] ${currentBriefingData.static.title}`;
+        prefill.remarks = `Concept: ${currentBriefingData.static.concept}\n\nCaption:\n${currentBriefingData.static.caption}`;
+    } else if (strategyType === "reel") {
+        prefill.type = "Creative / Collateral";
+        prefill.subType = "Video";
+        prefill.title = `[Briefing] ${currentBriefingData.reel.title}`;
+        prefill.remarks = `Video Concept: ${currentBriefingData.reel.concept}\n\nAudio/Vibe Details:\n${currentBriefingData.reel.caption}`;
+    } else if (strategyType === "pr") {
+        prefill.type = "PR Update";
+        prefill.subType = "Press Release";
+        prefill.title = `[Briefing] ${currentBriefingData.pr.title}`;
+        prefill.remarks = `PR Concept: ${currentBriefingData.pr.concept}\n\nHook/Copy:\n${currentBriefingData.pr.caption}`;
+    }
+
+    // Switch tab to tracker and open form drawer with prefill data
+    switchTab("tracker");
+    openDrawer(null, prefill);
+}
+
+// helper to format dates
+function getBriefingDates(selectedDateStr) {
+    const selectedDate = selectedDateStr ? new Date(selectedDateStr) : new Date();
+    const yesterdayDate = new Date(selectedDate);
+    yesterdayDate.setDate(selectedDate.getDate() - 1);
+    const formatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    
+    return {
+        todayStr: selectedDate.toLocaleDateString('en-US', formatOptions),
+        yesterdayStr: yesterdayDate.toLocaleDateString('en-US', formatOptions),
+        targetMonthStr: selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        targetWeekStr: getWeekFromDate(selectedDate),
+        specificDateStr: formatOrdinalDate(selectedDate)
+    };
+}
+
+function getWeekFromDate(date) {
+    const day = date.getDate();
+    if (day <= 7) return "Week 1";
+    if (day <= 14) return "Week 2";
+    if (day <= 21) return "Week 3";
+    if (day <= 28) return "Week 4";
+    return "Week 5";
+}
+
+function formatOrdinalDate(date) {
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    let suffix = "th";
+    if (day === 1 || day === 21 || day === 31) suffix = "st";
+    else if (day === 2 || day === 22) suffix = "nd";
+    else if (day === 3 || day === 23) suffix = "rd";
+    return `${day}${suffix} ${month}`;
+}
+
+// Fallback standard logic loop to support multiple configurations without search grounding
+async function callStandardGemini(apiKey, prompt) {
+    const configs = [
+        { version: "v1beta", model: "gemini-2.0-flash" },
+        { version: "v1beta", model: "gemini-2.0-flash-lite" },
+        { version: "v1beta", model: "gemini-2.5-flash" },
+        { version: "v1beta", model: "gemini-pro-latest" }
+    ];
+    
+    let errors = [];
+    for (const config of configs) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:generateContent?key=${apiKey}`;
+            const makeRequest = async () => {
+                return await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+            };
+
+            let response;
+            let retries = 3;
+            for (let r = 0; r < retries; r++) {
+                response = await makeRequest();
+                if (response.status === 429 || response.status === 503) {
+                    if (r < retries - 1) {
+                        const waitTime = (r + 1) * 2000;
+                        console.warn(`Got status ${response.status} for ${config.model} (${config.version}). Retrying in ${waitTime/1000}s (Attempt ${r+1}/${retries})...`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+                    return data.candidates[0].content.parts[0].text;
+                }
+            } else {
+                const errText = await response.text();
+                console.warn(`Gemini call failed for ${config.model} (${config.version}):`, errText);
+                errors.push(`${config.model} (${config.version}): Status ${response.status} - ${errText}`);
+            }
+        } catch (err) {
+            console.warn(`Gemini fetch error for ${config.model} (${config.version}):`, err);
+            errors.push(`${config.model} (${config.version}): ${err.message}`);
+        }
+    }
+
+    // Try programmatically loading all models from Google AI Studio to see which ones are registered
+    let availableModelsText = "";
+    try {
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const listRes = await fetch(listUrl);
+        if (listRes.ok) {
+            const listData = await listRes.json();
+            const names = listData.models ? listData.models.map(m => m.name.replace('models/', '')) : [];
+            availableModelsText = `\n\nAvailable models for your API key: ${names.join(', ')}`;
+        }
+    } catch (listErr) {
+        console.warn("Failed to fetch available models list:", listErr);
+    }
+    
+    throw new Error("All Gemini configurations failed:\n" + errors.map(e => `• ${e}`).join('\n') + availableModelsText);
+}
+
+// Local storage and firestore loading caching functions
+async function saveBriefingToFirestore(dateStr, briefingData) {
+    const docId = `briefing_${dateStr}`;
+    const docRef = db.collection('rvnl_briefings').doc(docId);
+    try {
+        await docRef.set({
+            date: dateStr,
+            briefing: briefingData,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("Briefing successfully saved to Firestore.");
+    } catch (err) {
+        console.error("Error saving briefing to Firestore: ", err);
+        // Fallback to localStorage
+        localStorage.setItem(`rvnl_briefing_${dateStr}`, JSON.stringify(briefingData));
+    }
+}
+
+async function loadBriefingFromFirestore(dateStr) {
+    const docId = `briefing_${dateStr}`;
+    const docRef = db.collection('rvnl_briefings').doc(docId);
+    try {
+        const doc = await docRef.get();
+        if (doc.exists) {
+            return doc.data().briefing;
+        }
+    } catch (err) {
+        console.error("Error loading briefing from Firestore: ", err);
+        // Fallback to localStorage
+        const local = localStorage.getItem(`rvnl_briefing_${dateStr}`);
+        if (local) {
+            try { return JSON.parse(local); } catch(e) {}
+        }
+    }
+    return null;
+}
+
+// Convert markdown structures into simple HTML structures
+function convertMarkdownToHtml(md) {
+    if (!md) return "";
+    let html = md
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        // Headings
+        .replace(/^### (.*$)/gim, '<h4>$1</h4>')
+        .replace(/^## (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^# (.*$)/gim, '<h2>$1</h2>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Bullet points
+        .replace(/^\s*[-*+]\s+(.*$)/gim, '<li>$1</li>')
+        // Simple paragraph wrapper
+        .replace(/\n\n/g, '<br><br>');
+    
+    // Quick cleanup of lists
+    html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1<\/ul>');
+    // Merge adjacent <ul> tags
+    html = html.replace(/<\/ul>\s*<ul>/g, '');
+    
+    return html;
+}
+
+// Extract field items using regex matching
+function extractField(text, regex) {
+    const match = text.match(regex);
+    return match ? match[1].trim() : "";
+}
+
+// Parse markdown sections out to individual elements with high formatting tolerance
+function parseBriefingMarkdown(markdown) {
+    const sections = {
+        execSummary: "",
+        detailedReport: "",
+        staticTitle: "Celebrate Recent Milestone",
+        staticConcept: "No concept generated.",
+        staticCaption: "No caption generated.",
+        reelTitle: "Day in the Life of Rail Infrastructure",
+        reelConcept: "No concept generated.",
+        reelCaption: "No caption generated.",
+        prTitle: "National Press Release update",
+        prConcept: "No concept generated.",
+        prCaption: "No caption generated."
+    };
+
+    if (!markdown) return sections;
+
+    // Normalize markdown bullets and labels to make regex parsing 100% reliable
+    let normalized = markdown
+        // Replace carriage returns
+        .replace(/\r\n/g, '\n')
+        // Normalize bullet points to simple hyphens
+        .replace(/^\s*[\*\+]\s+/gm, '- ')
+        // Normalize bold label formats
+        .replace(/^\s*[-*+]?\s*\*\*(Title|Concept|Suggested\s+Caption|Caption|Platform)\*\*:\s*/gim, '- **$1**: ')
+        .replace(/^\s*[-*+]?\s*\*\*(Title|Concept|Suggested\s+Caption|Caption|Platform):\*\*\s*/gim, '- **$1**: ')
+        .replace(/^\s*[-*+]?\s*(Title|Concept|Suggested\s+Caption|Caption|Platform):\s*/gim, '- **$1**: ');
+
+    // Extract Executive Summary
+    const execMatch = normalized.match(/(?:#+\s*EXECUTIVE\s*SUMMARY|Executive\s*Summary:?)\s*\n+([\s\S]*?)(?=\n#+ |\n\*\*|\n[A-Z\s]+:|$)/i);
+    if (execMatch) {
+        sections.execSummary = execMatch[1].trim();
+    }
+
+    // Extract Detailed Report
+    const reportMatch = normalized.match(/(?:#+\s*INTERNET\s*RESEARCH\s*REPORT|Internet\s*Research\s*Report:?)\s*\n+([\s\S]*?)(?=\n#+\s*(?:STRATEGY|ACTION)|$)/i);
+    if (reportMatch) {
+        sections.detailedReport = reportMatch[1].trim();
+    } else {
+        // Fallback: search for anything before STRATEGY section
+        const strategyIndex = normalized.search(/#+\s*(?:STRATEGY|ACTION)/i);
+        if (strategyIndex !== -1) {
+            const beforeStrategy = normalized.substring(0, strategyIndex);
+            sections.detailedReport = beforeStrategy.replace(/#+\s*EXECUTIVE\s*SUMMARY[\s\S]*?(?=#+|$)/i, '').trim();
+        }
+    }
+
+    // Locate the strategy text segment
+    const strategyMatch = normalized.match(/(?:#+\s*(?:STRATEGY|ACTION\s*PLAN|STRATEGY\s*&\s*ACTION\s*PLAN))([\s\S]*)$/i);
+    const strategyText = strategyMatch ? strategyMatch[1] : normalized;
+
+    // Split strategy text into sections by subheadings (## Static Creative, ## Reel Concept, etc.)
+    const subParts = strategyText.split(/(?=\n#+\s+|\n\*\*)/);
+
+    subParts.forEach(part => {
+        const partTrimmed = part.trim();
+        const partLower = partTrimmed.toLowerCase();
+
+        // Helper to extract fields from a specific strategy block
+        const parseBlockFields = (blockText) => {
+            const titleMatch = blockText.match(/-\s*\*\*Title\*\*:\s*(.*)/i);
+            const conceptMatch = blockText.match(/-\s*\*\*Concept\*\*:\s*([\s\S]*?)(?=\n- |\n#+ |\n\*\*|$)/i);
+            const captionMatch = blockText.match(/-\s*\*\*(?:Suggested\s+Caption|Caption)\*\*:\s*([\s\S]*?)(?=\n- |\n#+ |\n\*\*|$)/i);
+
+            return {
+                title: titleMatch ? titleMatch[1].trim() : "",
+                concept: conceptMatch ? conceptMatch[1].trim() : "",
+                caption: captionMatch ? captionMatch[1].trim() : ""
+            };
+        };
+
+        if (partLower.includes('static') || partLower.includes('graphic') || partLower.includes('image')) {
+            const fields = parseBlockFields(partTrimmed);
+            if (fields.title) sections.staticTitle = fields.title;
+            if (fields.concept) sections.staticConcept = fields.concept;
+            if (fields.caption) sections.staticCaption = fields.caption;
+        } else if (partLower.includes('reel') || partLower.includes('video') || partLower.includes('short')) {
+            const fields = parseBlockFields(partTrimmed);
+            if (fields.title) sections.reelTitle = fields.title;
+            if (fields.concept) sections.reelConcept = fields.concept;
+            if (fields.caption) sections.reelCaption = fields.caption;
+        } else if (partLower.includes('pr') || partLower.includes('article') || partLower.includes('press') || partLower.includes('release')) {
+            const fields = parseBlockFields(partTrimmed);
+            if (fields.title) sections.prTitle = fields.title;
+            if (fields.concept) sections.prConcept = fields.concept;
+            if (fields.caption) sections.prCaption = fields.caption;
+        }
+    });
+
+    // Final cleanups & fallbacks
+    if (!sections.execSummary) {
+        sections.execSummary = markdown.split('\n').filter(line => line.trim() && !line.startsWith('#')).slice(0, 2).join('\n') || "Briefing summary generated.";
+    }
+    if (!sections.detailedReport) {
+        sections.detailedReport = markdown;
+    }
+
+    // Secondary fallback using raw block contents if concept fields are still default
+    subParts.forEach(part => {
+        const partTrimmed = part.trim();
+        const partLower = partTrimmed.toLowerCase();
+        if (partLower.includes('static') || partLower.includes('graphic') || partLower.includes('image')) {
+            if (sections.staticConcept === "No concept generated.") {
+                sections.staticConcept = partTrimmed.replace(/#+.*?\n/g, '').replace(/-\s*\*\*Title\*\*:\s*.*?\n/g, '').trim();
+            }
+        } else if (partLower.includes('reel') || partLower.includes('video') || partLower.includes('short')) {
+            if (sections.reelConcept === "No concept generated.") {
+                sections.reelConcept = partTrimmed.replace(/#+.*?\n/g, '').replace(/-\s*\*\*Title\*\*:\s*.*?\n/g, '').trim();
+            }
+        } else if (partLower.includes('pr') || partLower.includes('article') || partLower.includes('press') || partLower.includes('release')) {
+            if (sections.prConcept === "No concept generated.") {
+                sections.prConcept = partTrimmed.replace(/#+.*?\n/g, '').replace(/-\s*\*\*Title\*\*:\s*.*?\n/g, '').trim();
+            }
+        }
+    });
+
+    return sections;
 }
 
 

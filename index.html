@@ -38,6 +38,9 @@
                 <button class="nav-btn" data-tab="settings">
                     <i class="fa-solid fa-database"></i> <span>Backup & Data</span>
                 </button>
+                <button class="nav-btn" data-tab="briefing">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Daily Briefing</span>
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <p>Candour Communications</p>
@@ -484,6 +487,135 @@
                                 <span class="sign-title">Approved By</span>
                                 <span class="sign-name">___________________________</span>
                                 <span class="sign-dep">RVNL Corporate Communications</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Daily Briefing Tab -->
+            <section id="briefing" class="tab-content">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Daily Briefing & Strategy Plan</h2>
+                        <p>Perform deep research across news, social platforms, government databases, and the web for RVNL mentions, Ministry of Railways, and PMO updates, and outline actionable strategy creatives.</p>
+                    </div>
+                </div>
+
+                <!-- Config Control Panel -->
+                <div class="briefing-config-card">
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label for="briefing-date">Briefing Date</label>
+                            <input type="date" id="briefing-date" style="background-color: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 14px; border-radius: 10px; outline: none; font-size: 13px; cursor: pointer; transition: border-color var(--transition-fast);">
+                        </div>
+                        <div class="config-info">
+                            <span class="range-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px;">Reporting Range (GMT+5:30):</span>
+                            <span class="range-val" id="briefing-time-range" style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Yesterday, 11:00 AM - Today, 11:00 AM</span>
+                        </div>
+                        <div class="config-actions">
+                            <button id="btn-run-briefing" class="btn btn-primary">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Briefing
+                            </button>
+                        </div>
+                    </div>
+                    <div class="briefing-status-indicator" id="briefing-status-container" style="display: none; margin-top: 15px; padding: 15px; border-radius: 12px; background-color: var(--bg-primary); border: 1px solid var(--border-color);">
+                        <div class="briefing-status-top" style="display: flex; align-items: center; gap: 12px;">
+                            <span class="spinner" id="briefing-spinner" style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--accent-blue); border-radius: 50%; display: inline-block; animation: briefing-spin 1s linear infinite;"></span>
+                            <span id="briefing-status-text" style="font-size: 13px; font-weight: 500;">Scanning search tools...</span>
+                        </div>
+                        <div class="briefing-status-queries" id="briefing-status-queries" style="margin-top: 10px; font-size: 11px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;"></div>
+                    </div>
+                </div>
+
+                <!-- Briefing Results Grid -->
+                <div class="briefing-results-container hidden" id="briefing-results">
+                    <div class="results-grid" style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; margin-top: 24px;">
+                        <!-- Left Column: News and Sources -->
+                        <div class="results-col-left" style="display: flex; flex-direction: column; gap: 24px;">
+                            <!-- Executive Summary Card -->
+                            <div class="results-card border-accent-purple" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-top: 4px solid var(--accent-purple); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                    <i class="fa-solid fa-bolt icon-purple" style="color: var(--accent-purple); font-size: 18px;"></i>
+                                    <h3 style="font-size: 16px; font-weight: 600;">Executive Brief</h3>
+                                </div>
+                                <p id="briefing-exec-summary" class="exec-summary-text" style="font-size: 14px; line-height: 1.6; color: var(--text-primary); font-weight: 500;">No summary generated.</p>
+                            </div>
+
+                            <!-- Detailed Intelligence Report Card -->
+                            <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                    <i class="fa-solid fa-file-invoice icon-blue" style="color: var(--accent-blue); font-size: 18px;"></i>
+                                    <h3 style="font-size: 16px; font-weight: 600;">Thorough Web Intelligence</h3>
+                                </div>
+                                <div id="briefing-detailed-report" class="markdown-body" style="font-size: 13.5px; line-height: 1.6; color: var(--text-secondary);"></div>
+                            </div>
+
+                            <!-- Web Mentions & Citations Card -->
+                            <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                    <i class="fa-solid fa-link icon-green" style="color: var(--accent-green); font-size: 18px;"></i>
+                                    <h3 style="font-size: 16px; font-weight: 600;">Verified Mentions & Citations</h3>
+                                </div>
+                                <div class="sources-list" id="briefing-sources" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                                    <p class="text-muted" style="font-size: 13px;">No sources found.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Strategy Recommendations -->
+                        <div class="results-col-right" style="display: flex; flex-direction: column; gap: 20px;">
+                            <div class="strategy-header-area" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <i class="fa-solid fa-lightbulb" style="color: var(--accent-amber); font-size: 20px;"></i>
+                                <h3 style="font-size: 18px; font-weight: 600;">Actionable Daily Strategy</h3>
+                            </div>
+
+                            <!-- Static Creative Card -->
+                            <div class="strategy-card border-left-blue" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); border-radius: 14px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 12px;">
+                                <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="strat-card-badge badge-blue" style="background-color: rgba(59, 130, 246, 0.1); color: var(--accent-blue); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase;">Static Creative</span>
+                                    <button class="btn btn-secondary btn-sm btn-action-add" id="btn-add-static" style="padding: 4px 8px; font-size: 11px;">
+                                        <i class="fa-solid fa-plus"></i> Add to Tracker
+                                    </button>
+                                </div>
+                                <h4 id="strat-title-static" class="strat-title" style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Celebrate LOA Breakthrough</h4>
+                                <p id="strat-concept-static" class="strat-concept" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Design a high-contrast post displaying the milestone.</p>
+                                <div class="strat-caption-box" style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                    <span class="caption-header" style="display: block; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">Suggested Caption:</span>
+                                    <p id="strat-caption-static" style="font-size: 12.5px; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; font-style: italic;">Drafting...</p>
+                                </div>
+                            </div>
+
+                            <!-- Reel Concept Card -->
+                            <div class="strategy-card border-left-amber" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-amber); border-radius: 14px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 12px;">
+                                <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="strat-card-badge badge-amber" style="background-color: rgba(245, 158, 11, 0.1); color: var(--accent-amber); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase;">Reel / Video</span>
+                                    <button class="btn btn-secondary btn-sm btn-action-add" id="btn-add-reel" style="padding: 4px 8px; font-size: 11px;">
+                                        <i class="fa-solid fa-plus"></i> Add to Tracker
+                                    </button>
+                                </div>
+                                <h4 id="strat-title-reel" class="strat-title" style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Site Work Reel</h4>
+                                <p id="strat-concept-reel" class="strat-concept" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Transition clip highlighting project execution.</p>
+                                <div class="strat-caption-box" style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                    <span class="caption-header" style="display: block; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">Audio & Vibe / Storyboard:</span>
+                                    <p id="strat-caption-reel" style="font-size: 12.5px; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; font-style: italic;">Drafting...</p>
+                                </div>
+                            </div>
+
+                            <!-- PR Update/Article Card -->
+                            <div class="strategy-card border-left-purple" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-purple); border-radius: 14px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 12px;">
+                                <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="strat-card-badge badge-purple" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase;">PR Article / Post</span>
+                                    <button class="btn btn-secondary btn-sm btn-action-add" id="btn-add-pr" style="padding: 4px 8px; font-size: 11px;">
+                                        <i class="fa-solid fa-plus"></i> Add to Tracker
+                                    </button>
+                                </div>
+                                <h4 id="strat-title-pr" class="strat-title" style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Infrastructure Growth Story</h4>
+                                <p id="strat-concept-pr" class="strat-concept" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Submit a coverage release on national rail electrification milestones.</p>
+                                <div class="strat-caption-box" style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                    <span class="caption-header" style="display: block; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">Hook & Outlet / Copy:</span>
+                                    <p id="strat-caption-pr" style="font-size: 12.5px; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; font-style: italic;">Drafting...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
