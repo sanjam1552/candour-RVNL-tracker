@@ -1957,3 +1957,107 @@ h1, h2, h3, h4, h5, h6 {
     border-top: 4px solid var(--accent-purple) !important;
 }
 
+@keyframes progress-glow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@media (max-width: 900px) {
+    .playbook-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Briefing Card Tabs */
+.briefing-tab-btn {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all var(--transition-fast);
+    outline: none;
+}
+
+.briefing-tab-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.briefing-tab-btn.active {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    color: #ffffff !important;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+}
+
+.briefing-panel {
+    animation: briefingFadeIn var(--transition-normal);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hidden-panel {
+    display: none !important;
+}
+
+@keyframes briefingFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.briefing-tabs-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.draft-container {
+    position: relative;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px 44px 14px 14px;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    color: var(--text-primary);
+}
+
+.copy-btn-briefing {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    cursor: pointer;
+    font-size: 14px;
+    transition: color var(--transition-fast);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-btn-briefing:hover {
+    color: var(--accent-purple);
+}
+
+
+
+

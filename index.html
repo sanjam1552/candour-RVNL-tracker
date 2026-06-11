@@ -528,60 +528,85 @@
                             </button>
                         </div>
                     </div>
-                    <div class="briefing-status-indicator" id="briefing-status-container" style="display: none; margin-top: 15px; padding: 15px; border-radius: 12px; background-color: var(--bg-primary); border: 1px solid var(--border-color);">
-                        <div class="briefing-status-top" style="display: flex; align-items: center; gap: 12px;">
-                            <span class="spinner" id="briefing-spinner" style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--accent-blue); border-radius: 50%; display: inline-block; animation: briefing-spin 1s linear infinite;"></span>
-                            <span id="briefing-status-text" style="font-size: 13px; font-weight: 500;">Scanning search tools...</span>
+                    <div class="briefing-status-indicator" id="briefing-status-container" style="display: none; margin-top: 24px; padding: 24px; border-radius: 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); box-shadow: var(--glass-shadow);">
+                        <!-- Header -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-purple); animation: pulse 1.5s infinite;"></i> B2B Strategy Core Generation
+                            </span>
+                            <span id="briefing-status-badge" style="font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); display: flex; align-items: center; gap: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-blue); display: inline-block;"></span> INITIALIZING
+                            </span>
                         </div>
-                        <div class="briefing-status-queries" id="briefing-status-queries" style="margin-top: 10px; font-size: 11px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;"></div>
+
+                        <!-- Main Central Progress & Status Text -->
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 24px;">
+                            <div id="briefing-large-status-text" style="font-size: 16px; font-weight: 700; color: var(--text-primary); text-align: center;">Spinning up AI agents...</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); text-align: center;" id="briefing-sub-status-text">Setting up workspace coordinates</div>
+                            <div class="briefing-progress-bar-container" style="margin-top: 10px; width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; position: relative;">
+                                <div id="briefing-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-blue)); background-size: 200% auto; animation: progress-glow 2s linear infinite; transition: width 0.4s ease; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- 4 Pillar Grid -->
+                        <div class="briefing-pillars-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                            <!-- Pillar 1 -->
+                            <div id="pillar-1" class="pillar-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.4;">
+                                <div style="font-size: 26px; color: var(--accent-blue); margin-bottom: 10px;"><i class="fa-solid fa-database"></i></div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Ingestion</div>
+                                <div id="pillar-1-desc" style="font-size: 11px; color: var(--text-muted);">Waiting for trigger</div>
+                            </div>
+                            <!-- Pillar 2 -->
+                            <div id="pillar-2" class="pillar-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.4;">
+                                <div style="font-size: 26px; color: var(--accent-purple); margin-bottom: 10px;"><i class="fa-solid fa-earth-americas"></i></div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">RSS Crawler</div>
+                                <div id="pillar-2-desc" style="font-size: 11px; color: var(--text-muted);">Awaiting network</div>
+                            </div>
+                            <!-- Pillar 3 -->
+                            <div id="pillar-3" class="pillar-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.4;">
+                                <div style="font-size: 26px; color: var(--accent-amber); margin-bottom: 10px;"><i class="fa-solid fa-brain"></i></div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Strategy Model</div>
+                                <div id="pillar-3-desc" style="font-size: 11px; color: var(--text-muted);">Idle</div>
+                            </div>
+                            <!-- Pillar 4 -->
+                            <div id="pillar-4" class="pillar-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.4;">
+                                <div style="font-size: 26px; color: var(--accent-green); margin-bottom: 10px;"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Campaign Planner</div>
+                                <div id="pillar-4-desc" style="font-size: 11px; color: var(--text-muted);">Idle</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Briefing Results Grid -->
                 <div class="briefing-results-container hidden" id="briefing-results">
-                    <div class="results-grid" style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; margin-top: 24px;">
-                        <!-- Left Column: News and Sources -->
-                        <div class="results-col-left" style="display: flex; flex-direction: column; gap: 24px;">
-                            <!-- Executive Summary Card -->
-                            <div class="results-card border-accent-purple" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-top: 4px solid var(--accent-purple); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                                    <i class="fa-solid fa-bolt icon-purple" style="color: var(--accent-purple); font-size: 18px;"></i>
-                                    <h3 style="font-size: 16px; font-weight: 600;">Executive Brief</h3>
-                                </div>
-                                <p id="briefing-exec-summary" class="exec-summary-text" style="font-size: 14px; line-height: 1.6; color: var(--text-primary); font-weight: 500;">No summary generated.</p>
+                    <div class="results-grid" style="display: flex; flex-direction: column; gap: 24px; margin-top: 24px; margin-left: auto; margin-right: auto; width: 100%;">
+                        <!-- Executive Summary Card -->
+                        <div class="results-card border-accent-purple" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-top: 4px solid var(--accent-purple); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                            <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                <i class="fa-solid fa-bolt icon-purple" style="color: var(--accent-purple); font-size: 18px;"></i>
+                                <h3 style="font-size: 16px; font-weight: 600;">Executive Brief</h3>
                             </div>
-
-                            <!-- Detailed Intelligence Report Card -->
-                            <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                                    <i class="fa-solid fa-file-invoice icon-blue" style="color: var(--accent-blue); font-size: 18px;"></i>
-                                    <h3 style="font-size: 16px; font-weight: 600;">Thorough Web Intelligence</h3>
-                                </div>
-                                <div id="briefing-detailed-report" class="markdown-body" style="font-size: 13.5px; line-height: 1.6; color: var(--text-secondary);"></div>
-                            </div>
-
-                            <!-- Web Mentions & Citations Card -->
-                            <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                                <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                                    <i class="fa-solid fa-link icon-green" style="color: var(--accent-green); font-size: 18px;"></i>
-                                    <h3 style="font-size: 16px; font-weight: 600;">Verified Mentions & Citations</h3>
-                                </div>
-                                <div class="sources-list" id="briefing-sources" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
-                                    <p class="text-muted" style="font-size: 13px;">No sources found.</p>
-                                </div>
-                            </div>
+                            <p id="briefing-exec-summary" class="exec-summary-text" style="font-size: 15px; line-height: 1.7; color: var(--text-primary); font-weight: 500;">No summary generated.</p>
                         </div>
 
-                        <!-- Right Column: Strategy Recommendations -->
-                        <div class="results-col-right" style="display: flex; flex-direction: column; gap: 20px;">
-                            <div class="strategy-header-area" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                <i class="fa-solid fa-lightbulb" style="color: var(--accent-amber); font-size: 20px;"></i>
-                                <h3 style="font-size: 18px; font-weight: 600;">Actionable Daily Strategy</h3>
+                        <!-- Detailed Intelligence Report Card -->
+                        <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                            <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                <i class="fa-solid fa-file-invoice icon-blue" style="color: var(--accent-blue); font-size: 18px;"></i>
+                                <h3 style="font-size: 16px; font-weight: 600;">Thorough Web Intelligence & Campaign Playbooks</h3>
                             </div>
+                            <div id="briefing-detailed-report" class="markdown-body" style="font-size: 13.5px; line-height: 1.6; color: var(--text-secondary);"></div>
+                        </div>
 
-                            <!-- Dynamic Strategy Cards Container -->
-                            <div id="briefing-strategy-list" style="display: flex; flex-direction: column; gap: 24px; max-height: 800px; overflow-y: auto; padding-right: 8px;">
-                                <p class="text-muted" style="font-size: 13.5px; text-align: center; margin-top: 20px;">No strategy recommended yet. Choose a date range and click Run AI Briefing.</p>
+                        <!-- Web Mentions & Citations Card -->
+                        <div class="results-card" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                            <div class="card-header-simple" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                <i class="fa-solid fa-link icon-green" style="color: var(--accent-green); font-size: 18px;"></i>
+                                <h3 style="font-size: 16px; font-weight: 600;">Verified Mentions & Citations</h3>
+                            </div>
+                            <div class="sources-list" id="briefing-sources" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                                <p class="text-muted" style="font-size: 13px;">No sources found.</p>
                             </div>
                         </div>
                     </div>

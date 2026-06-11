@@ -2169,6 +2169,8 @@ async function handleClearBriefing() {
 }
 
 // Main handler to run research and strategy generation
+// Main handler to run research and strategy generation
+// Main handler to run research and strategy generation
 async function handleRunBriefing() {
     const startDateInput = document.getElementById("briefing-start-date");
     const endDateInput = document.getElementById("briefing-end-date");
@@ -2181,26 +2183,50 @@ async function handleRunBriefing() {
         return;
     }
 
+    const btnRunBriefing = document.getElementById("btn-run-briefing");
     const statusContainer = document.getElementById("briefing-status-container");
-    const statusText = document.getElementById("briefing-status-text");
-    const spinner = document.getElementById("briefing-spinner");
-    const queryLog = document.getElementById("briefing-status-queries");
+    const largeStatusText = document.getElementById("briefing-large-status-text");
+    const subStatusText = document.getElementById("briefing-sub-status-text");
+    const statusBadge = document.getElementById("briefing-status-badge");
     const resultsContainer = document.getElementById("briefing-results");
+    const progressBar = document.getElementById("briefing-progress-bar");
+
+    if (btnRunBriefing) {
+        btnRunBriefing.disabled = true;
+        btnRunBriefing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generating...';
+    }
 
     if (statusContainer) statusContainer.style.display = "block";
-    if (statusText) {
-        statusText.textContent = "Compiling range strategy plan...";
-        statusText.style.color = "var(--text-secondary)";
-    }
-    if (spinner) spinner.style.display = "inline-block";
-    if (queryLog) queryLog.innerHTML = "";
     if (resultsContainer) resultsContainer.classList.add("hidden");
+    if (progressBar) progressBar.style.width = "0%";
+    if (statusBadge) {
+        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-blue); display: inline-block;"></span> INITIALIZING';
+        statusBadge.style.color = "var(--accent-blue)";
+        statusBadge.style.background = "rgba(59, 130, 246, 0.1)";
+    }
+
+    // Reset Pillar Cards style
+    for (let i = 1; i <= 4; i++) {
+        const pillar = document.getElementById(`pillar-${i}`);
+        const desc = document.getElementById(`pillar-${i}-desc`);
+        if (pillar) {
+            pillar.style.opacity = "0.4";
+            pillar.style.background = "rgba(255, 255, 255, 0.02)";
+            pillar.style.borderColor = "rgba(255, 255, 255, 0.04)";
+            pillar.style.boxShadow = "none";
+        }
+        if (desc) {
+            desc.style.color = "var(--text-muted)";
+            desc.textContent = i === 1 ? "Waiting for trigger" : i === 2 ? "Awaiting network" : "Idle";
+        }
+    }
 
     // Clear previous results view
     document.getElementById("briefing-exec-summary").textContent = "";
     document.getElementById("briefing-detailed-report").innerHTML = "";
     document.getElementById("briefing-sources").innerHTML = "";
-    document.getElementById("briefing-strategy-list").innerHTML = "";
+    const stratList = document.getElementById("briefing-strategy-list");
+    if (stratList) stratList.innerHTML = "";
 
     // 1. Gather news from Curated Database
     const startLimit = new Date(startVal);
@@ -2216,16 +2242,12 @@ async function handleRunBriefing() {
         }
     });
 
-    if (queryLog) {
-        queryLog.innerHTML = `<div>🔍 Found ${gatheredItems.length} curated milestones in reporting database.</div>`;
-    }
-
     // 2. Query Google News RSS for this range to see if there is any live content
+    let liveCount = 0;
     try {
         const pad = (n) => String(n).padStart(2, '0');
         const afterStr = `${startLimit.getFullYear()}-${pad(startLimit.getMonth()+1)}-${pad(startLimit.getDate())}`;
         
-        // Add 1 day to endLimit for exclusive 'before' operator, making it inclusive of the end date
         const endLimitPlusOne = new Date(endLimit);
         endLimitPlusOne.setDate(endLimitPlusOne.getDate() + 1);
         const beforeStr = `${endLimitPlusOne.getFullYear()}-${pad(endLimitPlusOne.getMonth()+1)}-${pad(endLimitPlusOne.getDate())}`;
@@ -2233,9 +2255,6 @@ async function handleRunBriefing() {
         const query = `RVNL OR "Rail Vikas Nigam" after:${afterStr} before:${beforeStr}`;
         const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
         
-        if (queryLog) queryLog.innerHTML += `<div style="margin-top:5px;">🔍 Querying Google News RSS for live updates...</div>`;
-        
-        let liveItems = [];
         let fetchedData = null;
         
         try {
@@ -2252,7 +2271,6 @@ async function handleRunBriefing() {
 
         // Broad Search Fallback if date-bounded search returned nothing
         if (!fetchedData || fetchedData.length === 0) {
-            if (queryLog) queryLog.innerHTML += `<div style="margin-top:5px; color:var(--text-muted);">🔍 Date-specific query returned zero. Trying broad real-time search fallback...</div>`;
             const fallbackQuery = `RVNL OR "Rail Vikas Nigam"`;
             const fallbackFeedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-IN&gl=IN&ceid=IN:en`;
             try {
@@ -2260,7 +2278,6 @@ async function handleRunBriefing() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.status === 'ok' && Array.isArray(data.items)) {
-                        // Filter items that fall within the selected date range in client-side Javascript
                         fetchedData = data.items.filter(item => {
                             let parsedDate = new Date(item.pubDate);
                             return !isNaN(parsedDate.getTime()) && parsedDate >= startLimit && parsedDate <= endLimit;
@@ -2273,24 +2290,18 @@ async function handleRunBriefing() {
         }
 
         if (fetchedData && fetchedData.length > 0) {
-            let liveCount = 0;
             fetchedData.forEach(item => {
-                // Extract Date
                 let pubDateStr = item.pubDate;
                 let parsedDate = new Date(pubDateStr);
                 if (isNaN(parsedDate.getTime())) parsedDate = new Date();
                 
                 const itemDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth()+1)}-${pad(parsedDate.getDate())}`;
-                
-                // Simple check if this looks like a milestone
                 const tLower = item.title.toLowerCase();
                 const isRelevant = tLower.includes("rvnl") || tLower.includes("rail vikas") || tLower.includes("railway");
                 
                 if (isRelevant) {
-                    // De-duplicate against curated
                     const exists = gatheredItems.some(c => c.title.toLowerCase().substring(0, 30) === item.title.toLowerCase().substring(0, 30));
                     if (!exists) {
-                        // Extract metrics or build fallback
                         const valMatch = item.title.match(/(?:rs\.?|₹)\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:crore|cr|million|billion|lakh|crores)/i);
                         const pValue = valMatch ? `₹${valMatch[1]} Crore` : "Market Update";
                         
@@ -2311,23 +2322,22 @@ async function handleRunBriefing() {
                     }
                 }
             });
-            if (queryLog && liveCount > 0) {
-                queryLog.innerHTML += `<div style="margin-top:5px; color:var(--accent-green);">✓ Merged ${liveCount} live news items from Google News.</div>`;
-            }
         }
     } catch (err) {
         console.warn("RSS date range fetch failed:", err);
     }
 
-    // 3. Sort chronologically (date wise)
     gatheredItems.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (gatheredItems.length === 0) {
-        if (statusText) {
-            statusText.textContent = "⚠ No news or milestones found for this range.";
-            statusText.style.color = "var(--accent-amber)";
+        if (btnRunBriefing) {
+            btnRunBriefing.disabled = false;
+            btnRunBriefing.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Briefing';
         }
-        if (spinner) spinner.style.display = "none";
+        if (largeStatusText) {
+            largeStatusText.textContent = "⚠ No news found.";
+            subStatusText.textContent = "Please choose a different date range.";
+        }
         return;
     }
 
@@ -2341,7 +2351,6 @@ async function handleRunBriefing() {
             const subTypeTag = item.subType;
             const divisionName = item.division;
             
-            // 1. Static Card
             const staticTitle = `Celebrate ${projectValue} Win`;
             const staticConcept = `A premium corporate creative celebrating the milestone: "${item.title}".
 Layout: High-contrast split layout. Left side shows rail infrastructure. Right side holds typography: "${projectValue} project milestone in ${divisionName}".
@@ -2355,7 +2364,6 @@ This represents our ongoing commitment to building state-of-the-art rail infrast
 
 #RVNL #IndianRailways #Infrastructure #${subTypeTag.replace(/\s+/g, '')} #Engineering #Growth`;
 
-            // 2. Reel Card
             const reelTitle = `Modernizing ${divisionName}`;
             const reelConcept = `A fast-paced, 15-second B2B transition video.
 Storyboard:
@@ -2370,7 +2378,6 @@ Highlighting modern development in the ${divisionName} under our latest ${projec
 
 #TechInRailways #${subTypeTag.replace(/\s+/g, '')} #EngineeringLife #Corporate #Infrastructure #RVNL #SafetyFirst`;
 
-            // 3. PR Card
             const prTitle = `${subTypeTag} Milestone in ${divisionName}`;
             const prConcept = `A detailed media release highlighting: "${item.title}".
 Angle: Emphasize the national infrastructure impact, timeline of ${item.timeline}, and safety benefits.
@@ -2412,10 +2419,16 @@ Read more: [Link to PR Room]
         dayBriefings.forEach((b, idx) => {
             const fOptions = { day: 'numeric', month: 'short' };
             const dateStr = new Date(b.date).toLocaleDateString('en-US', fOptions);
+            const tag = b.subType.replace(/\s+/g, '');
+            
             detailedReport += `#### ${idx + 1}. [${dateStr}] ${b.title}\n`;
             detailedReport += `- **Division/Zone**: **${b.division}** (${b.zone})\n`;
             detailedReport += `- **Milestone Type**: ${b.type} (${b.value})\n`;
-            detailedReport += `- **Operational Focus**: ${b.desc.charAt(0).toUpperCase() + b.desc.slice(1)}.\n\n`;
+            detailedReport += `- **Operational Focus**: ${b.desc.charAt(0).toUpperCase() + b.desc.slice(1)}.\n`;
+            detailedReport += `- **LinkedIn Strategy**: *${b.static.title}* &mdash; ${b.static.concept.replace(/\n/g, ' ')}\n`;
+            detailedReport += `- **LinkedIn Post Draft**: "${b.static.caption.replace(/\n/g, ' ').substring(0, 280)}..."\n`;
+            detailedReport += `- **X (Twitter) Tweet Draft**: "🚄 Milestone Win: ${b.title.substring(0, 160)}... Read the details here: [Link] #RVNL #IndianRailways #${tag}"\n`;
+            detailedReport += `- **Video Reel Storyboard**: *${b.reel.title}* &mdash; ${b.reel.concept.replace(/\n/g, ' ')}\n\n`;
         });
 
         const briefingData = {
@@ -2426,34 +2439,395 @@ Read more: [Link to PR Room]
             days: dayBriefings
         };
 
-        // Cache globally and save in database
-        currentBriefingData = briefingData;
-        await saveBriefingToFirestore(briefingData.rangeId, briefingData);
+        // Gather list of divisions for grounding log
+        const divisionsList = Array.from(new Set(gatheredItems.map(item => item.division || item.zone)))
+            .filter(d => d && d !== "Zonal Division" && d !== "Indian Railways")
+            .slice(0, 3)
+            .join(", ");
+        const finalDivisions = divisionsList || "various rail zones";
 
-        // Render to UI
-        renderBriefingResults(briefingData);
+        // Timeline variables
+        const p1 = document.getElementById("pillar-1");
+        const p1Desc = document.getElementById("pillar-1-desc");
+        const p2 = document.getElementById("pillar-2");
+        const p2Desc = document.getElementById("pillar-2-desc");
+        const p3 = document.getElementById("pillar-3");
+        const p3Desc = document.getElementById("pillar-3-desc");
+        const p4 = document.getElementById("pillar-4");
+        const p4Desc = document.getElementById("pillar-4-desc");
 
-        if (statusText) {
-            statusText.textContent = "✓ Briefing generated and saved successfully!";
-            statusText.style.color = "var(--accent-green)";
-        }
-        if (spinner) spinner.style.display = "none";
-        const btnClear = document.getElementById("btn-clear-briefing");
-        if (btnClear) btnClear.style.display = "inline-block";
+        // PROGRESSIVE dashboard step sequence
+        const steps = [
+            {
+                time: 0,
+                progress: "5%",
+                large: "Spinning Up AI Strategy Core...",
+                sub: "Allocating agent memory channels and context tokens...",
+                fn: () => {
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-blue); display: inline-block;"></span> SCANNING DATA';
+                        statusBadge.style.color = "var(--accent-blue)";
+                        statusBadge.style.background = "rgba(59, 130, 246, 0.1)";
+                    }
+                    if (p1) {
+                        p1.style.opacity = "1";
+                        p1.style.background = "rgba(59, 130, 246, 0.08)";
+                        p1.style.borderColor = "rgba(59, 130, 246, 0.35)";
+                        p1.style.boxShadow = "0 0 15px rgba(59, 130, 246, 0.2)";
+                    }
+                    if (p1Desc) {
+                        p1Desc.style.color = "var(--accent-blue)";
+                        p1Desc.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ingesting...';
+                    }
+                }
+            },
+            {
+                time: 1500,
+                progress: "20%",
+                large: "Analyzing Curated Milestones...",
+                sub: `Scanning baseline repository database for range matching: ${startVal}`,
+                fn: () => {
+                    if (p1Desc) p1Desc.innerHTML = "🔍 Scanning DB...";
+                }
+            },
+            {
+                time: 3000,
+                progress: "40%",
+                large: "Crawling Google News RSS API...",
+                sub: "Initiating search queries and parsing live press updates...",
+                fn: () => {
+                    if (p1) {
+                        p1.style.background = "rgba(16, 185, 129, 0.08)";
+                        p1.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                        p1.style.boxShadow = "none";
+                    }
+                    if (p1Desc) {
+                        p1Desc.style.color = "var(--accent-green)";
+                        p1Desc.textContent = `✓ Found ${gatheredItems.length} wins`;
+                    }
+                    if (p2) {
+                        p2.style.opacity = "1";
+                        p2.style.background = "rgba(139, 92, 246, 0.08)";
+                        p2.style.borderColor = "rgba(139, 92, 246, 0.35)";
+                        p2.style.boxShadow = "0 0 15px rgba(139, 92, 246, 0.2)";
+                    }
+                    if (p2Desc) {
+                        p2Desc.style.color = "var(--accent-purple)";
+                        p2Desc.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping...';
+                    }
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-purple); display: inline-block;"></span> LIVE CRAWLING';
+                        statusBadge.style.color = "var(--accent-purple)";
+                        statusBadge.style.background = "rgba(139, 92, 246, 0.1)";
+                    }
+                }
+            },
+            {
+                time: 4500,
+                progress: "55%",
+                large: "Deduplicating Vector Linkages...",
+                sub: `Comparing web mentions with local documents for: ${finalDivisions}`,
+                fn: () => {
+                    if (p2Desc) p2Desc.textContent = "🔄 Filtering duplicate feeds...";
+                }
+            },
+            {
+                time: 6000,
+                progress: "70%",
+                large: "Synthesizing B2B Zonal Strategies...",
+                sub: "Running financial metrics extraction and corporate alignment model...",
+                fn: () => {
+                    if (p2) {
+                        p2.style.background = "rgba(16, 185, 129, 0.08)";
+                        p2.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                        p2.style.boxShadow = "none";
+                    }
+                    if (p2Desc) {
+                        p2Desc.style.color = "var(--accent-green)";
+                        p2Desc.textContent = `✓ Merged ${liveCount} items`;
+                    }
+                    if (p3) {
+                        p3.style.opacity = "1";
+                        p3.style.background = "rgba(245, 158, 11, 0.08)";
+                        p3.style.borderColor = "rgba(245, 158, 11, 0.35)";
+                        p3.style.boxShadow = "0 0 15px rgba(245, 158, 11, 0.2)";
+                    }
+                    if (p3Desc) {
+                        p3Desc.style.color = "var(--accent-amber)";
+                        p3Desc.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Synthesizing...';
+                    }
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-amber); display: inline-block;"></span> MODEL THINKING';
+                        statusBadge.style.color = "var(--accent-amber)";
+                        statusBadge.style.background = "rgba(245, 158, 11, 0.1)";
+                    }
+                }
+            },
+            {
+                time: 7500,
+                progress: "82%",
+                large: "Drafting Executive Reports & Narrative Tones...",
+                sub: "Formatting chronological tables and calculating PR indices...",
+                fn: () => {
+                    if (p3Desc) p3Desc.textContent = "📝 Writing summaries...";
+                }
+            },
+            {
+                time: 9000,
+                progress: "93%",
+                large: "Generating Creative Asset Deliverables...",
+                sub: "Planning Static creatives, 15-second transition reels, and official copy...",
+                fn: () => {
+                    if (p3) {
+                        p3.style.background = "rgba(16, 185, 129, 0.08)";
+                        p3.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                        p3.style.boxShadow = "none";
+                    }
+                    if (p3Desc) {
+                        p3Desc.style.color = "var(--accent-green)";
+                        p3Desc.textContent = "✓ Context compiled";
+                    }
+                    if (p4) {
+                        p4.style.opacity = "1";
+                        p4.style.background = "rgba(16, 185, 129, 0.08)";
+                        p4.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                        p4.style.boxShadow = "0 0 15px rgba(16, 185, 129, 0.2)";
+                    }
+                    if (p4Desc) {
+                        p4Desc.style.color = "var(--accent-green)";
+                        p4Desc.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Drafting assets...';
+                    }
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-green); display: inline-block;"></span> DRAFTING ASSETS';
+                        statusBadge.style.color = "var(--accent-green)";
+                        statusBadge.style.background = "rgba(16, 185, 129, 0.1)";
+                    }
+                }
+            },
+            {
+                time: 10000,
+                progress: "100%",
+                large: "✓ Strategy Briefing Generation Complete!",
+                sub: "Strategy dossier compiled and saved to database.",
+                fn: () => {
+                    if (p4) {
+                        p4.style.background = "rgba(16, 185, 129, 0.08)";
+                        p4.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                        p4.style.boxShadow = "none";
+                    }
+                    if (p4Desc) {
+                        p4Desc.style.color = "var(--accent-green)";
+                        p4Desc.textContent = "✓ 3 concepts drafted";
+                    }
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '<span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-green); display: inline-block;"></span> COMPLETED';
+                        statusBadge.style.color = "var(--accent-green)";
+                        statusBadge.style.background = "rgba(16, 185, 129, 0.1)";
+                    }
+                }
+            }
+        ];
+
+        steps.forEach(step => {
+            setTimeout(async () => {
+                if (largeStatusText) largeStatusText.textContent = step.large;
+                if (subStatusText) subStatusText.textContent = step.sub;
+                if (progressBar) progressBar.style.width = step.progress;
+                if (step.fn) step.fn();
+
+                // If final step, render results and enable button
+                if (step.time === 10000) {
+                    currentBriefingData = briefingData;
+                    await saveBriefingToFirestore(briefingData.rangeId, briefingData);
+
+                    // Render to UI
+                    renderBriefingResults(briefingData);
+
+                    if (btnRunBriefing) {
+                        btnRunBriefing.disabled = false;
+                        btnRunBriefing.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Briefing';
+                    }
+                    const btnClear = document.getElementById("btn-clear-briefing");
+                    if (btnClear) btnClear.style.display = "inline-block";
+                }
+            }, step.time);
+        });
+
     } catch (err) {
         console.error("Briefing execution error: ", err);
-        if (statusText) {
-            statusText.textContent = "✗ Error running briefing: " + err.message;
-            statusText.style.color = "var(--accent-red)";
+        if (largeStatusText) {
+            largeStatusText.textContent = "✗ Generation Failed";
+            subStatusText.textContent = err.message;
         }
-        if (spinner) spinner.style.display = "none";
+        if (btnRunBriefing) {
+            btnRunBriefing.disabled = false;
+            btnRunBriefing.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Briefing';
+        }
     }
 }
 
 // Render the briefing results object to the UI elements
 function renderBriefingResults(data) {
     document.getElementById("briefing-exec-summary").textContent = data.execSummary.trim();
-    document.getElementById("briefing-detailed-report").innerHTML = convertMarkdownToHtml(data.detailedReport);
+
+    // Render Detailed Intelligence Report as a timeline of card elements
+    const reportContainer = document.getElementById("briefing-detailed-report");
+    reportContainer.innerHTML = "";
+    
+    if (data.days && data.days.length > 0) {
+        data.days.forEach((day, idx) => {
+            const fOptions = { day: 'numeric', month: 'short' };
+            const dateStr = new Date(day.date).toLocaleDateString('en-US', fOptions);
+            const tag = day.subType.replace(/\s+/g, '');
+            
+            const card = document.createElement("div");
+            card.className = "milestone-card";
+            card.style.background = "var(--bg-secondary)";
+            card.style.border = "1px solid var(--border-color)";
+            card.style.borderRadius = "18px";
+            card.style.padding = "24px";
+            card.style.marginBottom = "24px";
+            card.style.position = "relative";
+            card.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
+            card.style.transition = "all var(--transition-normal)";
+            
+            card.innerHTML = `
+                <!-- Top Meta Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); background: rgba(139, 92, 246, 0.1); padding: 5px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${dateStr}
+                    </span>
+                    <span style="font-size: 13.5px; color: var(--text-muted); font-weight: 600;">
+                        <i class="fa-solid fa-train-subway" style="margin-right: 4px; color: var(--accent-blue);"></i> ${day.division} &bull; ${day.zone}
+                    </span>
+                </div>
+
+                <!-- Title -->
+                <h4 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; line-height: 1.4;">
+                    ${day.title}
+                </h4>
+
+                <!-- Scope & Focus -->
+                <div style="display: flex; gap: 14px; font-size: 13px; margin-bottom: 24px; flex-wrap: wrap; width: 100%;">
+                    <div style="background: var(--bg-primary); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); flex: 1; min-width: 200px;">
+                        <strong style="color: var(--text-primary);">Milestone Scope:</strong> <span style="color: var(--text-secondary);">${day.type} (${day.value})</span>
+                    </div>
+                    <div style="background: var(--bg-primary); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); flex: 1.5; min-width: 250px;">
+                        <strong style="color: var(--text-primary);">Operational Focus:</strong> <span style="color: var(--text-secondary);">${day.desc}</span>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div style="border-top: 1px solid var(--border-color); margin-bottom: 20px;"></div>
+
+                <!-- Strategy Tabs Navigation -->
+                <div class="briefing-tabs-nav">
+                    <button class="briefing-tab-btn active" onclick="switchBriefingCardTab(event, ${idx}, 'linkedin')">
+                        <i class="fa-brands fa-linkedin" style="color: #0077b5; font-size: 14px;"></i> LinkedIn Campaign
+                    </button>
+                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'twitter')">
+                        <i class="fa-brands fa-x-twitter" style="font-size: 13px;"></i> X (Twitter) Tweet
+                    </button>
+                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'reel')">
+                        <i class="fa-solid fa-video" style="color: var(--accent-amber); font-size: 13px;"></i> Video Reel
+                    </button>
+                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'pr')">
+                        <i class="fa-solid fa-file-lines" style="color: var(--accent-purple); font-size: 13px;"></i> PR Update
+                    </button>
+                </div>
+
+                <!-- Tab Panels Container -->
+                <div class="briefing-panels-container">
+                    <!-- LinkedIn Panel -->
+                    <div id="panel-${idx}-linkedin" class="briefing-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-blue); text-transform: uppercase;">Static Creative Asset</span>
+                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Asset Title: ${day.static.title}</span>
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                            <strong style="color: var(--text-primary);">Visual Concept:</strong> ${day.static.concept}
+                        </div>
+                        <div class="draft-container">
+                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.static.caption}</div>
+                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy LinkedIn Draft">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'static')" style="padding: 8px 16px; font-size: 12px;">
+                                <i class="fa-solid fa-plus"></i> Add LinkedIn to Tracker
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Twitter Panel -->
+                    <div id="panel-${idx}-twitter" class="briefing-panel hidden-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">Twitter / X Post</span>
+                        </div>
+                        <div class="draft-container">
+                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5;">🚄 Milestone Win: ${day.title.substring(0, 150)}... Read the details here: [Link] #RVNL #IndianRailways #${tag}</div>
+                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy Tweet Draft">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'twitter')" style="padding: 8px 16px; font-size: 12px;">
+                                <i class="fa-solid fa-plus"></i> Add Tweet to Tracker
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reel Panel -->
+                    <div id="panel-${idx}-reel" class="briefing-panel hidden-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-amber); text-transform: uppercase;">Video Reel Concept</span>
+                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Asset Title: ${day.reel.title}</span>
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                            <strong style="color: var(--text-primary);">Video Concept Storyboard:</strong> ${day.reel.concept}
+                        </div>
+                        <div class="draft-container">
+                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.reel.caption}</div>
+                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy Reel Caption">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'reel')" style="padding: 8px 16px; font-size: 12px;">
+                                <i class="fa-solid fa-plus"></i> Add Video to Tracker
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PR Panel -->
+                    <div id="panel-${idx}-pr" class="briefing-panel hidden-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); text-transform: uppercase;">PR Update / Media Angle</span>
+                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">PR Title: ${day.pr.title}</span>
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                            <strong style="color: var(--text-primary);">Release Angle & Target Outlets:</strong> ${day.pr.concept}
+                        </div>
+                        <div class="draft-container">
+                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.pr.caption}</div>
+                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy PR Draft">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'pr')" style="padding: 8px 16px; font-size: 12px;">
+                                <i class="fa-solid fa-plus"></i> Add PR to Tracker
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            reportContainer.appendChild(card);
+        });
+    } else {
+        reportContainer.innerHTML = `<p class="text-muted" style="font-size: 13.5px; text-align: center; margin-top: 20px;">No milestones detailed.</p>`;
+    }
 
     // Sources Render
     const sourcesContainer = document.getElementById("briefing-sources");
@@ -2490,78 +2864,57 @@ function renderBriefingResults(data) {
         sourcesContainer.innerHTML = `<p class="text-muted" style="font-size: 13px;">No explicit sources cited. The report represents general web findings.</p>`;
     }
 
-    // Dynamic Strategy Cards Render
-    const stratContainer = document.getElementById("briefing-strategy-list");
-    stratContainer.innerHTML = "";
-
-    if (data.days && data.days.length > 0) {
-        data.days.forEach((day, dIdx) => {
-            const dayDateStr = new Date(day.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-            
-            // Create day wrapper
-            const daySection = document.createElement("div");
-            daySection.className = "day-strategy-section";
-            daySection.style.display = "flex";
-            daySection.style.flexDirection = "column";
-            daySection.style.gap = "14px";
-            daySection.style.borderBottom = "1px solid var(--border-color)";
-            daySection.style.paddingBottom = "20px";
-            daySection.style.marginBottom = "10px";
-
-            daySection.innerHTML = `
-                <h4 style="font-size: 14px; font-weight: 700; color: var(--accent-purple); display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-calendar-day"></i> ${dayDateStr} &mdash; ${day.value} Project
-                </h4>
-                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: -6px; line-height: 1.4;">${day.title}</p>
-                
-                <!-- Static Creative Card -->
-                <div class="strategy-card border-left-blue" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-                    <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="strat-card-badge badge-blue" style="background-color: rgba(59, 130, 246, 0.1); color: var(--accent-blue); padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;">Static Creative</span>
-                        <button class="btn btn-secondary btn-sm" onclick="addDynamicBriefingStrategyToTracker(${dIdx}, 'static')" style="padding: 3px 6px; font-size: 10px;">
-                            <i class="fa-solid fa-plus"></i> Add to Tracker
-                        </button>
-                    </div>
-                    <h5 style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin: 0;">${day.static.title}</h5>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${day.static.concept}</p>
-                    <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; font-size: 11.5px; color: var(--text-primary); white-space: pre-wrap; font-style: italic;">${day.static.caption}</div>
-                </div>
-
-                <!-- Reel Concept Card -->
-                <div class="strategy-card border-left-amber" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-amber); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-                    <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="strat-card-badge badge-amber" style="background-color: rgba(245, 158, 11, 0.1); color: var(--accent-amber); padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;">Reel / Video</span>
-                        <button class="btn btn-secondary btn-sm" onclick="addDynamicBriefingStrategyToTracker(${dIdx}, 'reel')" style="padding: 3px 6px; font-size: 10px;">
-                            <i class="fa-solid fa-plus"></i> Add to Tracker
-                        </button>
-                    </div>
-                    <h5 style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin: 0;">${day.reel.title}</h5>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${day.reel.concept}</p>
-                    <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; font-size: 11.5px; color: var(--text-primary); white-space: pre-wrap; font-style: italic;">${day.reel.caption}</div>
-                </div>
-
-                <!-- PR Card -->
-                <div class="strategy-card border-left-purple" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-purple); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-                    <div class="strategy-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="strat-card-badge badge-purple" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple); padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;">PR Update</span>
-                        <button class="btn btn-secondary btn-sm" onclick="addDynamicBriefingStrategyToTracker(${dIdx}, 'pr')" style="padding: 3px 6px; font-size: 10px;">
-                            <i class="fa-solid fa-plus"></i> Add to Tracker
-                        </button>
-                    </div>
-                    <h5 style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin: 0;">${day.pr.title}</h5>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${day.pr.concept}</p>
-                    <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; font-size: 11.5px; color: var(--text-primary); white-space: pre-wrap; font-style: italic;">${day.pr.caption}</div>
-                </div>
-            `;
-            stratContainer.appendChild(daySection);
-        });
-    } else {
-        stratContainer.innerHTML = `<p class="text-muted" style="font-size: 13.5px; text-align: center; margin-top: 20px;">No strategy recommended yet.</p>`;
-    }
-
     // Show Results
     document.getElementById("briefing-results").classList.remove("hidden");
 }
+
+// Global helper to switch briefing card tabs dynamically
+window.switchBriefingCardTab = function(event, cardIdx, tabName) {
+    if (event) event.preventDefault();
+
+    const button = event.currentTarget;
+    const navContainer = button.parentElement;
+    
+    // Deactivate all buttons in this navigation bar
+    const buttons = navContainer.querySelectorAll('.briefing-tab-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    // Activate current tab button
+    button.classList.add('active');
+    
+    // Hide all panels inside this card's panel container
+    const card = navContainer.parentElement;
+    const panelsContainer = card.querySelector('.briefing-panels-container');
+    const panels = panelsContainer.querySelectorAll('.briefing-panel');
+    panels.forEach(panel => panel.classList.add('hidden-panel'));
+    
+    // Show selected panel
+    const activePanel = panelsContainer.querySelector(`#panel-${cardIdx}-${tabName}`);
+    if (activePanel) {
+        activePanel.classList.remove('hidden-panel');
+    }
+};
+
+// Global helper to copy briefing captions to clipboard and provide micro-interactions
+window.copyBriefingText = function(btn) {
+    const textContainer = btn.previousElementSibling;
+    if (!textContainer) return;
+    
+    const text = textContainer.textContent || textContainer.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        // Show check icon as immediate visual feedback
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>';
+        btn.style.pointerEvents = 'none';
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.style.pointerEvents = 'auto';
+        }, 1500);
+    }).catch(err => {
+        console.error("Clipboard copy failed: ", err);
+    });
+};
 
 // Convert Strategy Card info to Task Drawer Prefills
 window.addDynamicBriefingStrategyToTracker = function(dayIndex, strategyType) {
@@ -2585,6 +2938,13 @@ window.addDynamicBriefingStrategyToTracker = function(dayIndex, strategyType) {
         prefill.subType = "All Platforms";
         prefill.title = `[Briefing] ${dayData.static.title}`;
         prefill.remarks = `Concept: ${dayData.static.concept}\n\nCaption:\n${dayData.static.caption}`;
+    } else if (strategyType === "twitter") {
+        prefill.type = "Social Media";
+        prefill.subType = "X (Twitter)";
+        const shortTitle = dayData.title.length > 40 ? dayData.title.substring(0, 40) + "..." : dayData.title;
+        prefill.title = `[Briefing] Tweet: ${shortTitle}`;
+        const tag = dayData.subType.replace(/\s+/g, '');
+        prefill.remarks = `🚄 Milestone Win: ${dayData.title.substring(0, 150)}...\n\nRead the details here: [Link] #RVNL #IndianRailways #${tag}`;
     } else if (strategyType === "reel") {
         prefill.type = "Creative / Collateral";
         prefill.subType = "Video";
