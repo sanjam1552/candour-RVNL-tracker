@@ -306,6 +306,11 @@ function setupEventListeners() {
         togglePRFormFields(e.target.value);
     });
 
+    // Toggle WIP/Approval fields on status selection
+    document.getElementById("task-status").addEventListener("change", (e) => {
+        toggleWipCommentFields(e.target.value);
+    });
+
     // Handle form submit
     document.getElementById("task-form").addEventListener("submit", handleFormSubmit);
 
@@ -528,12 +533,29 @@ function getPlatformIcon(subType) {
 // CRUD & FORM SUBMISSION LOGIC
 // ====================================================
 
+// Helper to show/hide WIP comments fields in task form
+function toggleWipCommentFields(status) {
+    const group = document.getElementById("wip-comments-group");
+    if (!group) return;
+    if (status === "WIP" || status === "Sent for internal approval") {
+        group.classList.remove("hidden");
+    } else {
+        group.classList.add("hidden");
+    }
+}
+
 // Open Drawer (Create or Edit state)
 function openDrawer(taskId = null, prefillData = null) {
     const form = document.getElementById("task-form");
     form.reset();
     document.getElementById("task-id").value = "";
     removeImagePreview();
+
+    // Reset WIP comment fields
+    const wipWhoInput = document.getElementById("task-wip-who");
+    const wipWhyInput = document.getElementById("task-wip-why");
+    if (wipWhoInput) wipWhoInput.value = "";
+    if (wipWhyInput) wipWhyInput.value = "";
 
     const overlay = document.getElementById("task-drawer-overlay");
     const title = document.getElementById("drawer-title");
@@ -544,6 +566,7 @@ function openDrawer(taskId = null, prefillData = null) {
     document.getElementById("task-status").value = "WIP";
     
     togglePRFormFields("Social Media"); // default reset
+    toggleWipCommentFields("WIP"); // default status is WIP
 
     if (taskId) {
         title.textContent = "Edit Tracked Item";
@@ -566,6 +589,10 @@ function openDrawer(taskId = null, prefillData = null) {
             document.getElementById("task-impressions").value = task.impressions || "";
             document.getElementById("task-engagement").value = task.engagement || "";
             
+            if (wipWhoInput) wipWhoInput.value = task.wipWho || "";
+            if (wipWhyInput) wipWhyInput.value = task.wipWhy || "";
+            toggleWipCommentFields(task.status || "WIP");
+            
             if (task.type === "PR Update") {
                 document.getElementById("task-spokesperson").value = task.spokesperson || "";
                 document.getElementById("task-publication").value = task.publication || "";
@@ -584,7 +611,10 @@ function openDrawer(taskId = null, prefillData = null) {
         if (prefillData.subType) document.getElementById("task-sub-type").value = prefillData.subType;
         if (prefillData.title) document.getElementById("task-title").value = prefillData.title;
         if (prefillData.remarks) document.getElementById("task-remarks").value = prefillData.remarks;
-        if (prefillData.status) document.getElementById("task-status").value = prefillData.status;
+        if (prefillData.status) {
+            document.getElementById("task-status").value = prefillData.status;
+            toggleWipCommentFields(prefillData.status);
+        }
         if (prefillData.owner) document.getElementById("task-owner").value = prefillData.owner;
         if (prefillData.month) document.getElementById("task-month").value = prefillData.month;
         if (prefillData.week) document.getElementById("task-week").value = prefillData.week;
@@ -709,6 +739,10 @@ function handleFormSubmit(e) {
     const impressions = document.getElementById("task-impressions").value;
     const engagement = document.getElementById("task-engagement").value;
     
+    // WIP comment fields
+    const wipWho = (status === "WIP" || status === "Sent for internal approval") ? (document.getElementById("task-wip-who") ? document.getElementById("task-wip-who").value.trim() : "") : "";
+    const wipWhy = (status === "WIP" || status === "Sent for internal approval") ? (document.getElementById("task-wip-why") ? document.getElementById("task-wip-why").value.trim() : "") : "";
+    
     // Check image source (file upload base64 or custom URL)
     let image = "";
     const previewBox = document.getElementById("task-image-preview");
@@ -735,7 +769,9 @@ function handleFormSubmit(e) {
         remarks,
         impressions,
         engagement,
-        image
+        image,
+        wipWho,
+        wipWhy
     };
 
     if (type === "PR Update") {
@@ -1131,17 +1167,27 @@ function renderTrackerTable() {
             `;
         }
 
+        let wipDetailsHtml = "";
+        if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+            wipDetailsHtml = `<div style="font-size: 11px; margin-top: 5px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                ${task.wipWho ? `<span style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.15); color: var(--accent-amber); padding: 1px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user-clock" style="font-size: 10px;"></i> Pending with: ${task.wipWho}</span>` : ''}
+                ${task.wipWhy ? `<span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-comment-dots" style="color: var(--text-muted); font-size: 10px;"></i> ${task.wipWhy}</span>` : ''}
+            </div>`;
+        }
+
         const titleAndImageHtml = trackerImageHtml 
             ? `<div class="tracker-item-flex">
                  ${trackerImageHtml}
                  <div class="tracker-item-details">
                      <div style="font-weight:600;">${task.title}</div>
                      ${prDetails}
+                     ${wipDetailsHtml}
                  </div>
                </div>`
             : `<div class="tracker-item-details">
                  <div style="font-weight:600;">${task.title}</div>
                  ${prDetails}
+                 ${wipDetailsHtml}
                </div>`;
 
         tr.innerHTML = `
@@ -1266,10 +1312,21 @@ function renderTrackerKanban() {
             `;
         }
 
+        let kanbanCommentHtml = "";
+        if ((colStatus === "WIP" || colStatus === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+            kanbanCommentHtml = `
+                <div class="kanban-card-comments" style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; margin-top: 10px; border-left: 3px solid var(--accent-amber); font-size: 11.5px; border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                    ${task.wipWho ? `<div style="font-weight: 600; margin-bottom: 4px; color: var(--text-primary); display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user-clock" style="color: var(--accent-amber);"></i> ${task.wipWho}</div>` : ''}
+                    ${task.wipWhy ? `<div style="color: var(--text-secondary); line-height: 1.35; font-style: italic;">"${task.wipWhy}"</div>` : ''}
+                </div>
+            `;
+        }
+
         card.innerHTML = `
             ${kanbanCoverHtml}
             <span class="card-tag" style="color:${tagColor};">${task.subType || task.type}</span>
-            <div class="card-title" style="font-weight: 600;">${task.title}</div>
+            <div class="card-title" style="font-weight: 600; margin-bottom: 8px;">${task.title}</div>
+            ${kanbanCommentHtml}
             <div class="card-links-quick">${linksQuick}</div>
             <div class="card-meta">
                 <span class="card-owner"><i class="fa-solid fa-user"></i> ${task.owner}</span>
@@ -1453,17 +1510,27 @@ function generateReport() {
                 </div>
             `;
 
+            let wipReportDetails = "";
+            if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+                    ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
+                    ${task.wipWhy ? `<span><strong>Status/Delay:</strong> ${task.wipWhy}</span>` : ''}
+                </div>`;
+            }
+
             const activityDetailsHtml = reportThumbnailHtml
                 ? `<div class="report-item-flex">
                      ${reportThumbnailHtml}
                      <div class="report-item-details">
                          <strong>${task.title}</strong>
                          ${task.remarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
+                         ${wipReportDetails}
                      </div>
                    </div>`
                 : `<div class="report-item-details">
                      <strong>${task.title}</strong>
                      ${task.remarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
+                     ${wipReportDetails}
                      ${noPrintButtons}
                    </div>`;
 
@@ -1579,6 +1646,12 @@ function generateReport() {
                 let statusBadge = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status}</span>`;
                 if (task.remarks) {
                     statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
+                }
+                if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                    statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
+                        ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
+                        ${task.wipWhy ? `<div><strong>Status/Delay:</strong> ${task.wipWhy}</div>` : ''}
+                    </div>`;
                 }
 
                 // Inline Thumbnail block beside or below the title
