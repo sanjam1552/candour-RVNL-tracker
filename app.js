@@ -8,6 +8,7 @@ const state = {
     pageSize: 12,
     activeTab: 'dashboard',
     activeView: 'table',
+    activeClient: 'RVNL',
     filters: {
         type: 'all',
         month: 'all',
@@ -118,6 +119,9 @@ async function loadData() {
 
         // Migrate statuses to current schema
         state.tasks.forEach(task => {
+            if (!task.client) {
+                task.client = "RVNL";
+            }
             if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
             else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
             else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
@@ -133,8 +137,7 @@ async function loadData() {
 
         setSyncStatus('synced');
         populateOwnerFilter();
-        updateDashboard();
-        renderTracker();
+        switchClient(state.activeClient);
         setTimeout(compressExistingLargeImages, 2000);
 
     } catch (err) {
@@ -147,9 +150,12 @@ async function loadData() {
         } else {
             state.tasks = [...INITIAL_DATA];
         }
+        // Ensure offline items also default client
+        state.tasks.forEach(task => {
+            if (!task.client) task.client = "RVNL";
+        });
         populateOwnerFilter();
-        updateDashboard();
-        renderTracker();
+        switchClient(state.activeClient);
     }
 }
 
@@ -190,7 +196,8 @@ function updateThemeToggleIcon(theme) {
 // Populate the Owner filter dropdown dynamically from available data
 function populateOwnerFilter() {
     const owners = new Set();
-    state.tasks.forEach(t => {
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
+    clientTasks.forEach(t => {
         if (t.owner && t.owner.trim() !== "" && t.owner.toLowerCase() !== "nan") {
             owners.add(t.owner);
         }
@@ -419,8 +426,74 @@ function setupEventListeners() {
     if (briefingEndDateInput) {
         briefingEndDateInput.addEventListener("change", updateBriefingTimeRangeLabel);
     }
+    // Client Switcher Switch Click Handler
+    const clientSelectorBtn = document.getElementById("client-selector-btn");
+    const clientDropdownList = document.getElementById("client-dropdown-list");
+    if (clientSelectorBtn && clientDropdownList) {
+        clientSelectorBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            clientDropdownList.classList.toggle("hidden");
+        });
+        
+        document.addEventListener("click", (e) => {
+            if (!clientSelectorBtn.contains(e.target) && !clientDropdownList.contains(e.target)) {
+                clientDropdownList.classList.add("hidden");
+            }
+        });
+        
+        document.querySelectorAll(".client-option").forEach(opt => {
+            opt.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const selectedClient = opt.getAttribute("data-client");
+                switchClient(selectedClient);
+                clientDropdownList.classList.add("hidden");
+            });
+        });
+    }
+
     // Initialize API Key Status display
     updateApiKeyStatus();
+}
+
+// Global Switch Client function
+function switchClient(client) {
+    state.activeClient = client;
+    
+    // Update active dropdown item styles
+    document.querySelectorAll(".client-option").forEach(opt => {
+        opt.classList.toggle("active", opt.getAttribute("data-client") === client);
+    });
+    
+    // Update UI Logos and Titles
+    const activeLogo = document.getElementById("active-client-logo");
+    const activeName = document.getElementById("active-client-name");
+    const sidebarLogo = document.getElementById("sidebar-logo");
+    const sidebarTitle = document.getElementById("sidebar-title");
+    
+    const logoSrc = client === "RVNL" ? "inputs/RVNL (R)logo_vector.png" : "inputs/ldcs logo.png";
+    const displayName = client === "RVNL" ? "RVNL" : "Legrand";
+    
+    if (activeLogo) activeLogo.src = logoSrc;
+    if (activeName) activeName.textContent = displayName;
+    if (sidebarLogo) sidebarLogo.src = logoSrc;
+    if (sidebarTitle) sidebarTitle.textContent = displayName;
+    
+    // Show/hide briefing warning
+    const briefingWarning = document.getElementById("briefing-client-warning");
+    const briefingContent = document.getElementById("briefing-content-container");
+    if (client === "RVNL") {
+        if (briefingWarning) briefingWarning.classList.add("hidden");
+        if (briefingContent) briefingContent.style.display = "block";
+    } else {
+        if (briefingWarning) briefingWarning.classList.remove("hidden");
+        if (briefingContent) briefingContent.style.display = "none";
+    }
+    
+    // Refresh all data displays
+    populateOwnerFilter();
+    updateDashboard();
+    renderTracker();
+    generateReport();
 }
 // Reset all search and drop-down filters
 function resetFilters() {
@@ -755,7 +828,16 @@ function handleFormSubmit(e) {
         image = imageUrl;
     }
 
+    let taskClient = state.activeClient;
+    if (id) {
+        const existingTask = state.tasks.find(t => t.id === id);
+        if (existingTask && existingTask.client) {
+            taskClient = existingTask.client;
+        }
+    }
+
     const taskData = {
+        client: taskClient,
         type,
         subType,
         title,
@@ -837,11 +919,12 @@ function duplicateTask(id) {
 // ====================================================
 
 function updateDashboard() {
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     // 1. Calculate general stats
-    const total = state.tasks.length;
-    const linkedin = state.tasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-    const pr = state.tasks.filter(t => t.type === 'PR Update').length;
-    const wip = state.tasks.filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval').length;
+    const total = clientTasks.length;
+    const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
+    const pr = clientTasks.filter(t => t.type === 'PR Update').length;
+    const wip = clientTasks.filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval').length;
 
     document.getElementById("stat-total-creatives").textContent = total;
     document.getElementById("stat-total-linkedin").textContent = linkedin;
@@ -865,10 +948,11 @@ function renderTrendChart() {
     const prData = [];
     const creativeData = [];
 
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     months.forEach(m => {
-        smData.push(state.tasks.filter(t => t.month === m && t.type === 'Social Media').length);
-        prData.push(state.tasks.filter(t => t.month === m && t.type === 'PR Update').length);
-        creativeData.push(state.tasks.filter(t => t.month === m && t.type === 'Creative / Collateral').length);
+        smData.push(clientTasks.filter(t => t.month === m && t.type === 'Social Media').length);
+        prData.push(clientTasks.filter(t => t.month === m && t.type === 'PR Update').length);
+        creativeData.push(clientTasks.filter(t => t.month === m && t.type === 'Creative / Collateral').length);
     });
 
     // Destroy existing chart if any
@@ -929,11 +1013,12 @@ function renderShareChart() {
     const ctx = document.getElementById('platformShareChart').getContext('2d');
     
     // Categories distribution
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     const categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
     const dataVals = [
-        state.tasks.filter(t => t.type === 'Social Media').length,
-        state.tasks.filter(t => t.type === 'PR Update').length,
-        state.tasks.filter(t => t.type === 'Creative / Collateral').length
+        clientTasks.filter(t => t.type === 'Social Media').length,
+        clientTasks.filter(t => t.type === 'PR Update').length,
+        clientTasks.filter(t => t.type === 'Creative / Collateral').length
     ];
 
     if (state.charts.share) state.charts.share.destroy();
@@ -967,8 +1052,9 @@ function renderShareChart() {
 }
 
 function renderDashboardLists() {
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     // 1. Recent Completed Social Media Posts (Published)
-    const recentCompleted = state.tasks
+    const recentCompleted = clientTasks
         .filter(t => t.type === 'Social Media' && t.status === 'Published/Closed')
         .slice(0, 5); // Take top 5 from array (most recently added/parsed)
         
@@ -1002,7 +1088,7 @@ function renderDashboardLists() {
     }
 
     // 2. Hot Tasks (WIP / Awaiting Review)
-    const hotTasks = state.tasks
+    const hotTasks = clientTasks
         .filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval' || t.status === 'Sent to client')
         .slice(0, 5);
         
@@ -1044,6 +1130,9 @@ function renderDashboardLists() {
 function renderTracker() {
     // Apply filters
     state.filteredTasks = state.tasks.filter(task => {
+        // Client filter
+        const matchesClient = (task.client || "RVNL") === state.activeClient;
+
         // Search filter
         const matchesSearch = !state.filters.search || 
             task.title.toLowerCase().includes(state.filters.search) || 
@@ -1063,7 +1152,7 @@ function renderTracker() {
         // Owner filter
         const matchesOwner = state.filters.owner === 'all' || task.owner === state.filters.owner;
 
-        return matchesSearch && matchesType && matchesMonth && matchesStatus && matchesOwner;
+        return matchesSearch && matchesType && matchesMonth && matchesStatus && matchesOwner && matchesClient;
     });
 
     // Sort tracker items by status priority
@@ -1388,8 +1477,22 @@ function generateReport() {
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
     
-    // Filter database for items in selected month
-    let reportItems = state.tasks.filter(t => t.month === selectedMonth);
+    // Update Report Branding dynamically
+    const reportTitle = document.getElementById("report-client-title");
+    const reportLogo = document.getElementById("report-client-logo");
+    if (reportTitle) {
+        reportTitle.textContent = state.activeClient === "RVNL" 
+            ? "Rail Vikas Nigam Limited (RVNL)" 
+            : "Legrand Data Center Solutions (LDCS)";
+    }
+    if (reportLogo) {
+        reportLogo.src = state.activeClient === "RVNL" 
+            ? "inputs/RVNL logo.png" 
+            : "inputs/ldcs logo.png";
+    }
+
+    // Filter database for items in selected month and active client
+    let reportItems = state.tasks.filter(t => t.month === selectedMonth && (t.client || "RVNL") === state.activeClient);
 
     // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
     if (periodType === "monthly") {
