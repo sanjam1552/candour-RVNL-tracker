@@ -2235,11 +2235,22 @@ async function initBriefingTab() {
     const startDateInput = document.getElementById("briefing-start-date");
     const endDateInput = document.getElementById("briefing-end-date");
     
+    const today = new Date();
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(today.getDate() - 2);
+
+    const formatYYYYMMDD = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+    };
+
     if (startDateInput && !startDateInput.value) {
-        startDateInput.value = "2026-06-01";
+        startDateInput.value = formatYYYYMMDD(twoDaysAgo);
     }
     if (endDateInput && !endDateInput.value) {
-        endDateInput.value = "2026-06-10";
+        endDateInput.value = formatYYYYMMDD(today);
     }
     
     updateBriefingTimeRangeLabel();
@@ -2428,8 +2439,8 @@ async function handleRunBriefing() {
         endLimitPlusOne.setDate(endLimitPlusOne.getDate() + 1);
         const beforeStr = `${endLimitPlusOne.getFullYear()}-${pad(endLimitPlusOne.getMonth()+1)}-${pad(endLimitPlusOne.getDate())}`;
         
-        const query = `RVNL OR "Rail Vikas Nigam" after:${afterStr} before:${beforeStr}`;
-        const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+        const query = `RVNL OR "Rail Vikas Nigam" OR "Joka Metro" OR "Orange Line Metro" OR "Rishikesh-Karnprayag" OR "New Garia Metro" OR "Ruby Metro" after:${afterStr} before:${beforeStr}`;
+        const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
         
         let fetchedData = null;
         
@@ -2447,8 +2458,8 @@ async function handleRunBriefing() {
 
         // Broad Search Fallback if date-bounded search returned nothing
         if (!fetchedData || fetchedData.length === 0) {
-            const fallbackQuery = `RVNL OR "Rail Vikas Nigam"`;
-            const fallbackFeedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-IN&gl=IN&ceid=IN:en`;
+            const fallbackQuery = `RVNL OR "Rail Vikas Nigam" OR "Joka Metro" OR "Orange Line Metro" OR "Rishikesh-Karnprayag" OR "New Garia Metro" OR "Ruby Metro"`;
+            const fallbackFeedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
             try {
                 const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(fallbackFeedUrl)}`);
                 if (res.ok) {
@@ -2473,7 +2484,18 @@ async function handleRunBriefing() {
                 
                 const itemDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth()+1)}-${pad(parsedDate.getDate())}`;
                 const tLower = item.title.toLowerCase();
-                const isRelevant = tLower.includes("rvnl") || tLower.includes("rail vikas") || tLower.includes("railway");
+                const isRelevant = tLower.includes("rvnl") || 
+                                   tLower.includes("rail vikas") || 
+                                   tLower.includes("railway") || 
+                                   tLower.includes("joka metro") || 
+                                   tLower.includes("orange line") || 
+                                   tLower.includes("purple line") || 
+                                   tLower.includes("new garia") || 
+                                   tLower.includes("ruby metro") || 
+                                   tLower.includes("rishikesh") || 
+                                   tLower.includes("karnprayag") || 
+                                   tLower.includes("vande bharat") || 
+                                   tLower.includes("bullet train");
                 
                 if (isRelevant) {
                     const exists = gatheredItems.some(c => c.title.toLowerCase().substring(0, 30) === item.title.toLowerCase().substring(0, 30));
