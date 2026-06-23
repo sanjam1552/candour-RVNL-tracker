@@ -1,5 +1,11 @@
 // RVNL Creative & PR Reporting Hub - Core Application Logic
 
+// Format current date to Month Year (e.g. "June 2026")
+function getCurrentMonthStr() {
+    const options = { month: 'long', year: 'numeric' };
+    return new Date().toLocaleDateString('en-US', options);
+}
+
 // Application State
 const state = {
     tasks: [],
@@ -9,9 +15,10 @@ const state = {
     activeTab: 'dashboard',
     activeView: 'table',
     activeClient: 'RVNL',
+    dashboardMonth: getCurrentMonthStr(),
     filters: {
         type: 'all',
-        month: 'all',
+        month: getCurrentMonthStr(),
         status: 'all',
         owner: 'all',
         search: ''
@@ -50,6 +57,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Set current date in dashboard hero
     document.getElementById("current-time-display").textContent = getFormattedToday();
     document.getElementById("report-meta-date").textContent = getFormattedToday();
+
+    // Set default month selections to current month in UI
+    const currentMonth = getCurrentMonthStr();
+    const filterMonthEl = document.getElementById("filter-month");
+    if (filterMonthEl) filterMonthEl.value = currentMonth;
+    const reportMonthEl = document.getElementById("report-month");
+    if (reportMonthEl) reportMonthEl.value = currentMonth;
+    const dashboardMonthEl = document.getElementById("dashboard-month");
+    if (dashboardMonthEl) dashboardMonthEl.value = currentMonth;
 
     // Load data from Firestore (async)
     loadData();
@@ -137,6 +153,7 @@ async function loadData() {
 
         setSyncStatus('synced');
         populateOwnerFilter();
+        populateMonthDropdowns();
         switchClient(state.activeClient);
         setTimeout(compressExistingLargeImages, 2000);
 
@@ -155,6 +172,7 @@ async function loadData() {
             if (!task.client) task.client = "RVNL";
         });
         populateOwnerFilter();
+        populateMonthDropdowns();
         switchClient(state.activeClient);
     }
 }
@@ -215,6 +233,121 @@ function populateOwnerFilter() {
     });
 }
 
+// Populate Month dropdowns dynamically from existing tasks and the current month
+function populateMonthDropdowns() {
+    const months = new Set();
+    
+    // Always add current month, previous month, and next month dynamically
+    const today = new Date();
+    
+    const prevDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const prevMonthStr = prevDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    months.add(prevMonthStr);
+    
+    const currentMonthStr = getCurrentMonthStr();
+    months.add(currentMonthStr);
+    
+    const nextDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const nextMonthStr = nextDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    months.add(nextMonthStr);
+    
+    // Add months from tasks
+    state.tasks.forEach(task => {
+        if (task.month && task.month.trim() !== "") {
+            months.add(task.month);
+        }
+    });
+
+    const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const sortedMonths = Array.from(months).sort((a, b) => {
+        const partsA = a.split(" ");
+        const partsB = b.split(" ");
+        const monthA = partsA[0];
+        const yearA = partsA[1] ? parseInt(partsA[1], 10) : 0;
+        const monthB = partsB[0];
+        const yearB = partsB[1] ? parseInt(partsB[1], 10) : 0;
+        
+        if (yearA !== yearB) return yearA - yearB;
+        return monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB);
+    });
+
+    // Populate #filter-month
+    const filterMonth = document.getElementById("filter-month");
+    if (filterMonth) {
+        const currentVal = filterMonth.value || state.filters.month;
+        filterMonth.innerHTML = '<option value="all">All Months</option>';
+        sortedMonths.forEach(m => {
+            const option = document.createElement("option");
+            option.value = m;
+            option.textContent = m;
+            filterMonth.appendChild(option);
+        });
+        if (sortedMonths.includes(currentVal)) {
+            filterMonth.value = currentVal;
+        } else {
+            filterMonth.value = currentMonthStr;
+            state.filters.month = currentMonthStr;
+        }
+    }
+
+    // Populate #report-month
+    const reportMonth = document.getElementById("report-month");
+    if (reportMonth) {
+        const currentVal = reportMonth.value;
+        reportMonth.innerHTML = '';
+        sortedMonths.forEach(m => {
+            const option = document.createElement("option");
+            option.value = m;
+            option.textContent = m;
+            reportMonth.appendChild(option);
+        });
+        if (sortedMonths.includes(currentVal)) {
+            reportMonth.value = currentVal;
+        } else {
+            reportMonth.value = currentMonthStr;
+        }
+    }
+
+    // Populate #dashboard-month
+    const dashboardMonth = document.getElementById("dashboard-month");
+    if (dashboardMonth) {
+        const currentVal = dashboardMonth.value || state.dashboardMonth;
+        dashboardMonth.innerHTML = '';
+        sortedMonths.forEach(m => {
+            const option = document.createElement("option");
+            option.value = m;
+            option.textContent = m;
+            option.style.backgroundColor = "var(--bg-secondary)";
+            option.style.color = "var(--text-primary)";
+            dashboardMonth.appendChild(option);
+        });
+        if (sortedMonths.includes(currentVal)) {
+            dashboardMonth.value = currentVal;
+        } else {
+            dashboardMonth.value = currentMonthStr;
+            state.dashboardMonth = currentMonthStr;
+        }
+    }
+
+    // Populate #task-month
+    const taskMonth = document.getElementById("task-month");
+    if (taskMonth) {
+        const currentVal = taskMonth.value;
+        taskMonth.innerHTML = '';
+        sortedMonths.forEach(m => {
+            const option = document.createElement("option");
+            option.value = m;
+            option.textContent = m;
+            taskMonth.appendChild(option);
+        });
+        if (sortedMonths.includes(currentVal)) {
+            taskMonth.value = currentVal;
+        } else {
+            taskMonth.value = currentMonthStr;
+        }
+    }
+}
+
 // Setup Event Listeners
 function setupEventListeners() {
     // 1. Navigation Tab Switching
@@ -262,6 +395,13 @@ function setupEventListeners() {
         state.currentPage = 1;
         renderTracker();
     });
+    const dashboardMonthSelect = document.getElementById("dashboard-month");
+    if (dashboardMonthSelect) {
+        dashboardMonthSelect.addEventListener("change", (e) => {
+            state.dashboardMonth = e.target.value;
+            updateDashboard();
+        });
+    }
     document.getElementById("filter-status").addEventListener("change", (e) => {
         state.filters.status = e.target.value;
         state.currentPage = 1;
@@ -273,6 +413,35 @@ function setupEventListeners() {
         renderTracker();
     });
     document.getElementById("clear-filters-btn").addEventListener("click", resetFilters);
+
+    // 5.5 Clickable Stat Cards to jump to Unified Tracker
+    document.querySelectorAll(".stat-card-clickable").forEach(card => {
+        card.addEventListener("click", () => {
+            const filterType = card.getAttribute("data-filter-type");
+            const filterStatus = card.getAttribute("data-filter-status");
+            const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+            
+            // Set filters in state
+            state.filters.type = filterType;
+            state.filters.status = filterStatus;
+            state.filters.month = selectedMonth;
+            
+            // Sync values to UI inputs
+            const filterTypeEl = document.getElementById("filter-type");
+            if (filterTypeEl) filterTypeEl.value = filterType;
+            
+            const filterStatusEl = document.getElementById("filter-status");
+            if (filterStatusEl) filterStatusEl.value = filterStatus;
+            
+            const filterMonthEl = document.getElementById("filter-month");
+            if (filterMonthEl) filterMonthEl.value = selectedMonth;
+            
+            // Go to tracker tab and render
+            switchTab("tracker");
+            state.currentPage = 1;
+            renderTracker();
+        });
+    });
 
     // 6. Pagination Navigation
     document.getElementById("prev-page-btn").addEventListener("click", () => {
@@ -497,15 +666,16 @@ function switchClient(client) {
 }
 // Reset all search and drop-down filters
 function resetFilters() {
+    const currentMonth = getCurrentMonthStr();
     document.getElementById("filter-type").value = "all";
-    document.getElementById("filter-month").value = "all";
+    document.getElementById("filter-month").value = currentMonth;
     document.getElementById("filter-status").value = "all";
     document.getElementById("filter-owner").value = "all";
     document.getElementById("global-search").value = "";
     
     state.filters = {
         type: 'all',
-        month: 'all',
+        month: currentMonth,
         status: 'all',
         owner: 'all',
         search: ''
@@ -879,6 +1049,7 @@ function handleFormSubmit(e) {
     saveData();
     closeDrawer();
     populateOwnerFilter();
+    populateMonthDropdowns();
     updateDashboard();
     renderTracker();
 }
@@ -897,6 +1068,7 @@ function deleteTask(id) {
         state.tasks = state.tasks.filter(t => t.id !== id);
         saveData();
         populateOwnerFilter();
+        populateMonthDropdowns();
         updateDashboard();
         renderTracker();
     }
@@ -909,6 +1081,7 @@ function duplicateTask(id) {
         const copy = { ...task, id: generateUUID(), title: `${task.title} (Copy)` };
         state.tasks.unshift(copy);
         saveData();
+        populateMonthDropdowns();
         updateDashboard();
         renderTracker();
     }
@@ -919,7 +1092,8 @@ function duplicateTask(id) {
 // ====================================================
 
 function updateDashboard() {
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
+    const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
     // 1. Calculate general stats
     const total = clientTasks.length;
     const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
@@ -1013,7 +1187,8 @@ function renderShareChart() {
     const ctx = document.getElementById('platformShareChart').getContext('2d');
     
     // Categories distribution
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
+    const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
     const categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
     const dataVals = [
         clientTasks.filter(t => t.type === 'Social Media').length,
@@ -1052,7 +1227,8 @@ function renderShareChart() {
 }
 
 function renderDashboardLists() {
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
+    const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
     // 1. Recent Completed Social Media Posts (Published)
     const recentCompleted = clientTasks
         .filter(t => t.type === 'Social Media' && t.status === 'Published/Closed')

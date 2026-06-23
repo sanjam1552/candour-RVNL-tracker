@@ -404,6 +404,15 @@ h1, h2, h3, h4, h5, h6 {
     border-color: var(--text-muted);
 }
 
+.stat-card-clickable:hover {
+    border-color: var(--accent-blue) !important;
+}
+
+.stat-card-clickable:hover .stat-card-arrow {
+    opacity: 1 !important;
+    color: var(--accent-blue) !important;
+}
+
 .stat-icon {
     width: 52px;
     height: 52px;

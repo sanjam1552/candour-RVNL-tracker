@@ -98,43 +98,62 @@
                         <h2>RVNL Creative Portfolio & PR Analytics</h2>
                         <p>Track ongoing work, social traction, and press coverage metrics in one unified space.</p>
                     </div>
-                    <div class="hero-time" id="current-time-display">
-                        June 10, 2026
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                        <div class="hero-time" id="current-time-display">
+                            June 10, 2026
+                        </div>
+                        <div class="dashboard-month-selector" style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.15);">
+                            <label for="dashboard-month" style="font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, 0.85); margin: 0; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--font-heading);">Select Month</label>
+                            <select id="dashboard-month" style="background: transparent; border: none; color: #fff; font-weight: 600; font-size: 12px; outline: none; cursor: pointer; padding-right: 4px; font-family: var(--font-body);">
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Stats Grid -->
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <div class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="all" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-blue"><i class="fa-solid fa-photo-film"></i></div>
                         <div class="stat-info">
                             <h3>Total Creatives</h3>
                             <div class="stat-value" id="stat-total-creatives">0</div>
                             <span class="stat-desc">Ongoing & completed</span>
                         </div>
+                        <div class="stat-card-arrow" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 500; opacity: 0.6; transition: all var(--transition-fast);">
+                            <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
+                        </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-card-clickable" data-filter-type="Social Media" data-filter-status="all" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-green"><i class="fa-solid fa-share-nodes"></i></div>
                         <div class="stat-info">
                             <h3>Social Media Posts</h3>
                             <div class="stat-value" id="stat-total-linkedin">0</div>
                             <span class="stat-desc">Published live updates</span>
                         </div>
+                        <div class="stat-card-arrow" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 500; opacity: 0.6; transition: all var(--transition-fast);">
+                            <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
+                        </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-card-clickable" data-filter-type="PR Update" data-filter-status="all" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-purple"><i class="fa-solid fa-newspaper"></i></div>
                         <div class="stat-info">
                             <h3>PR Coverages</h3>
                             <div class="stat-value" id="stat-total-pr">0</div>
                             <span class="stat-desc">Press releases & interviews</span>
                         </div>
+                        <div class="stat-card-arrow" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 500; opacity: 0.6; transition: all var(--transition-fast);">
+                            <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
+                        </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="WIP" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div class="stat-info">
                             <h3>In Progress</h3>
                             <div class="stat-value" id="stat-total-wip">0</div>
                             <span class="stat-desc">Awaiting feedback or draft</span>
+                        </div>
+                        <div class="stat-card-arrow" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 500; opacity: 0.6; transition: all var(--transition-fast);">
+                            <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
                         </div>
                     </div>
                 </div>
@@ -212,9 +231,6 @@
                         <label for="filter-month">Month</label>
                         <select id="filter-month">
                             <option value="all">All Months</option>
-                            <option value="May 2026">May 2026</option>
-                            <option value="June 2026">June 2026</option>
-                            <option value="July 2026">July 2026</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -344,9 +360,6 @@
                     <div class="filter-group">
                         <label for="report-month">Select Month</label>
                         <select id="report-month">
-                            <option value="June 2026">June 2026</option>
-                            <option value="May 2026">May 2026</option>
-                            <option value="July 2026">July 2026</option>
                         </select>
                     </div>
                     <div class="filter-group" id="report-week-group" style="display: none;">
@@ -781,9 +794,6 @@
                     <div class="form-group col-6">
                         <label for="task-month">Target Month <span class="required">*</span></label>
                         <select id="task-month" required>
-                            <option value="June 2026">June 2026</option>
-                            <option value="May 2026">May 2026</option>
-                            <option value="July 2026">July 2026</option>
                         </select>
                     </div>
                     <div class="form-group col-6">
