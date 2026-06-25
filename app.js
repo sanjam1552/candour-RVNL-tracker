@@ -28,7 +28,9 @@ const state = {
         trend: null,
         share: null
     },
-    pendingImageFile: null
+    pendingImageFile: null,
+    currentUser: "",
+    activityLogs: []
 };
 
 // Target Date helper for weekly mapping
@@ -55,6 +57,7 @@ function getFormattedToday() {
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     setupEventListeners();
+    initUserSession();
     
     // Set current date in dashboard hero
     document.getElementById("current-time-display").textContent = getFormattedToday();
@@ -191,6 +194,7 @@ async function loadData() {
         populateOwnerFilter();
         populateMonthDropdowns();
         switchClient(state.activeClient);
+        loadActivityLogs();
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
         }
@@ -216,6 +220,14 @@ async function loadData() {
         // Offline password fallback
         state.settingsPassword = localStorage.getItem("rvnl_settings_password") || null;
 
+        const localLogs = localStorage.getItem("rvnl_activity_logs");
+        if (localLogs) {
+            try { state.activityLogs = JSON.parse(localLogs); } catch(e) { state.activityLogs = []; }
+        } else {
+            state.activityLogs = [];
+        }
+        renderActivityLogs();
+
         populateOwnerFilter();
         populateMonthDropdowns();
         switchClient(state.activeClient);
@@ -225,6 +237,131 @@ async function loadData() {
         setPreloaderProgress(100);
         hidePreloader();
     }
+}
+
+// Initialize User Session
+function initUserSession() {
+    const savedName = localStorage.getItem("tracker_username");
+    const overlay = document.getElementById("login-modal-overlay");
+    if (savedName) {
+        state.currentUser = savedName;
+        const displayNameEl = document.getElementById("user-display-name");
+        if (displayNameEl) displayNameEl.textContent = savedName;
+        if (overlay) overlay.style.display = "none";
+    } else {
+        if (overlay) overlay.style.display = "flex";
+    }
+}
+
+// Load Activity Logs from Firestore
+async function loadActivityLogs() {
+    const docRef = db.collection('rvnl_tracker').doc('activity_logs_store');
+    try {
+        const snapshot = await docRef.get();
+        if (snapshot.exists && Array.isArray(snapshot.data().logs)) {
+            state.activityLogs = snapshot.data().logs;
+        } else {
+            state.activityLogs = [];
+        }
+        pruneActivityLogs();
+        renderActivityLogs();
+    } catch (err) {
+        console.error('Error loading activity logs:', err);
+    }
+}
+
+// Save Activity Logs to Firestore
+async function saveActivityLogs() {
+    const docRef = db.collection('rvnl_tracker').doc('activity_logs_store');
+    try {
+        pruneActivityLogs();
+        localStorage.setItem("rvnl_activity_logs", JSON.stringify(state.activityLogs));
+        await docRef.set({
+            logs: state.activityLogs,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        renderActivityLogs();
+    } catch (err) {
+        console.error('Error saving activity logs:', err);
+    }
+}
+
+// Prune logs older than 20 days
+function pruneActivityLogs() {
+    const limitMs = 20 * 24 * 60 * 60 * 1000; // 20 days in ms
+    const cutoff = Date.now() - limitMs;
+    state.activityLogs = state.activityLogs.filter(log => {
+        const timestamp = log.timestamp || 0;
+        return timestamp >= cutoff;
+    });
+}
+
+// Log a new activity
+async function logActivity(action, details) {
+    const logEntry = {
+        id: generateUUID(),
+        user: state.currentUser || "Unknown User",
+        action: action, // "created" | "edited" | "deleted"
+        details: details,
+        timestamp: Date.now()
+    };
+    state.activityLogs.unshift(logEntry); // add to top
+    await saveActivityLogs();
+}
+
+// Render the activity logs timeline inside the Settings tab
+function renderActivityLogs() {
+    const timeline = document.getElementById("activity-log-timeline");
+    if (!timeline) return;
+    timeline.innerHTML = "";
+    
+    if (state.activityLogs.length === 0) {
+        timeline.innerHTML = `<p style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 20px 0;">No activities recorded in the last 20 days.</p>`;
+        return;
+    }
+    
+    state.activityLogs.forEach(log => {
+        const div = document.createElement("div");
+        div.style.display = "flex";
+        div.style.gap = "14px";
+        div.style.alignItems = "flex-start";
+        div.style.borderBottom = "1px solid var(--border-color)";
+        div.style.paddingBottom = "10px";
+        div.style.marginTop = "10px";
+        
+        let iconClass = "fa-solid fa-circle-plus";
+        let color = "var(--accent-green)";
+        if (log.action === "edited") {
+            iconClass = "fa-solid fa-pen-to-square";
+            color = "var(--accent-amber)";
+        } else if (log.action === "deleted") {
+            iconClass = "fa-solid fa-trash-can";
+            color = "var(--accent-red)";
+        }
+        
+        const dateStr = new Date(log.timestamp).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        div.innerHTML = `
+            <div style="font-size: 16px; color: ${color}; padding-top: 2px;"><i class="${iconClass}"></i></div>
+            <div style="flex-grow: 1;">
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">
+                    ${log.user} <span style="font-weight: 400; color: var(--text-secondary);">${log.action}</span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    ${log.details}
+                </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; padding-top: 3px;">
+                ${dateStr}
+            </div>
+        `;
+        timeline.appendChild(div);
+    });
 }
 
 // Save current state to Firestore
@@ -685,6 +822,36 @@ function setupEventListeners() {
                 switchClient(selectedClient);
                 clientDropdownList.classList.add("hidden");
             });
+        });
+    }
+
+    // User login event listeners
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const input = document.getElementById("login-username-input");
+            const name = input.value.trim();
+            if (name) {
+                localStorage.setItem("tracker_username", name);
+                state.currentUser = name;
+                document.getElementById("user-display-name").textContent = name;
+                document.getElementById("login-modal-overlay").style.display = "none";
+            }
+        });
+    }
+
+    const userBadge = document.getElementById("user-badge");
+    if (userBadge) {
+        userBadge.addEventListener("click", () => {
+            const newName = prompt("Enter a new username:", state.currentUser);
+            if (newName && newName.trim()) {
+                const trimmed = newName.trim();
+                localStorage.setItem("tracker_username", trimmed);
+                state.currentUser = trimmed;
+                document.getElementById("user-display-name").textContent = trimmed;
+                alert("Username changed successfully!");
+            }
         });
     }
 
@@ -1537,11 +1704,13 @@ function handleFormSubmit(e) {
                 deleteImageFromStorage(oldImage);
             }
             state.tasks[index] = { ...state.tasks[index], ...taskData };
+            logActivity("edited", `Task: "${taskData.title}" (${taskData.client})`);
         }
     } else {
         // Create Mode
         taskData.id = generateUUID();
         state.tasks.unshift(taskData);
+        logActivity("created", `Task: "${taskData.title}" (${taskData.client})`);
     }
 
     const fileToUpload = state.pendingImageFile;
@@ -1572,9 +1741,12 @@ function generateUUID() {
 function deleteTask(id) {
     if (confirm("Are you sure you want to delete this item?")) {
         const taskToDelete = state.tasks.find(t => t.id === id);
-        if (taskToDelete && taskToDelete.image) {
-            // Delete image from Cloud Storage in background
-            deleteImageFromStorage(taskToDelete.image);
+        if (taskToDelete) {
+            if (taskToDelete.image) {
+                // Delete image from Cloud Storage in background
+                deleteImageFromStorage(taskToDelete.image);
+            }
+            logActivity("deleted", `Task: "${taskToDelete.title}" (${taskToDelete.client})`);
         }
         state.tasks = state.tasks.filter(t => t.id !== id);
         saveData();
