@@ -2089,6 +2089,12 @@ h1, h2, h3, h4, h5, h6 {
     50% { transform: scale(1.05); opacity: 1; }
 }
 
+/* Safari macOS Dropdown Color Fix */
+#dashboard-month option {
+    color: #121829 !important;
+    background-color: #ffffff !important;
+}
+
 
 
 
