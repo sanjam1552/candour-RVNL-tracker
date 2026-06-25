@@ -16,6 +16,7 @@ const state = {
     activeView: 'table',
     activeClient: 'RVNL',
     dashboardMonth: getCurrentMonthStr(),
+    settingsPassword: undefined, // undefined: loading, null: no password set, string: password set
     filters: {
         type: 'all',
         month: getCurrentMonthStr(),
@@ -98,6 +99,7 @@ function setSyncStatus(status) {
 async function loadData() {
     setSyncStatus('connecting');
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+    const configRef = db.collection('rvnl_tracker').doc('settings_config');
 
     try {
         const snapshot = await docRef.get();
@@ -133,6 +135,14 @@ async function loadData() {
             }
         }
 
+        // Fetch global settings password from Firestore
+        const configSnapshot = await configRef.get();
+        if (configSnapshot.exists && configSnapshot.data().password) {
+            state.settingsPassword = configSnapshot.data().password;
+        } else {
+            state.settingsPassword = null;
+        }
+
         // Migrate statuses to current schema
         state.tasks.forEach(task => {
             if (!task.client) {
@@ -155,6 +165,9 @@ async function loadData() {
         populateOwnerFilter();
         populateMonthDropdowns();
         switchClient(state.activeClient);
+        if (state.activeTab === 'settings') {
+            checkSettingsPasswordState();
+        }
         setTimeout(compressExistingLargeImages, 2000);
 
     } catch (err) {
@@ -171,9 +184,16 @@ async function loadData() {
         state.tasks.forEach(task => {
             if (!task.client) task.client = "RVNL";
         });
+        
+        // Offline password fallback
+        state.settingsPassword = localStorage.getItem("rvnl_settings_password") || null;
+
         populateOwnerFilter();
         populateMonthDropdowns();
         switchClient(state.activeClient);
+        if (state.activeTab === 'settings') {
+            checkSettingsPasswordState();
+        }
     }
 }
 
@@ -818,7 +838,13 @@ function switchTab(tabName) {
 
 // Password Security logic for Backup & Settings Tab
 function checkSettingsPasswordState() {
-    const password = localStorage.getItem("rvnl_settings_password");
+    if (state.settingsPassword === undefined) {
+        // Wait for Firestore to load the password
+        const statusText = document.getElementById("lock-screen-status");
+        if (statusText) statusText.textContent = "Loading configuration from database...";
+        return;
+    }
+    const password = state.settingsPassword;
     const lockScreen = document.getElementById("settings-lock-screen");
     const actualContent = document.getElementById("settings-actual-content");
     const passwordInput = document.getElementById("settings-password-input");
@@ -869,8 +895,8 @@ function lockSettingsTabSilently() {
     }
 }
 
-function handleSettingsUnlockSubmit() {
-    const password = localStorage.getItem("rvnl_settings_password");
+async function handleSettingsUnlockSubmit() {
+    const password = state.settingsPassword;
     const passwordInput = document.getElementById("settings-password-input");
     const statusText = document.getElementById("lock-screen-status");
     const lockScreen = document.getElementById("settings-lock-screen");
@@ -886,11 +912,26 @@ function handleSettingsUnlockSubmit() {
     
     if (!password) {
         // Setting password for the first time
-        localStorage.setItem("rvnl_settings_password", inputVal);
-        alert("Access password set successfully!");
-        lockScreen.classList.add("hidden");
-        actualContent.style.display = "block";
-        updateStorageIndicator();
+        setSyncStatus('saving');
+        try {
+            state.settingsPassword = inputVal;
+            // Save to Firestore
+            await db.collection('rvnl_tracker').doc('settings_config').set({
+                password: inputVal,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            // Also keep in localStorage as a backup
+            localStorage.setItem("rvnl_settings_password", inputVal);
+            setSyncStatus('synced');
+            alert("Access password set successfully!");
+            lockScreen.classList.add("hidden");
+            actualContent.style.display = "block";
+            updateStorageIndicator();
+        } catch (err) {
+            console.error('Error saving password:', err);
+            statusText.textContent = "Failed to save password to database. Please try again.";
+            setSyncStatus('offline');
+        }
     } else {
         // Verification mode
         if (inputVal === password) {
@@ -904,7 +945,7 @@ function handleSettingsUnlockSubmit() {
     }
 }
 
-function handleUpdatePassword() {
+async function handleUpdatePassword() {
     const changeInput = document.getElementById("change-password-input");
     if (!changeInput) return;
     
@@ -914,17 +955,47 @@ function handleUpdatePassword() {
         return;
     }
     
-    localStorage.setItem("rvnl_settings_password", newPass);
-    alert("Backup & Data access password updated successfully!");
-    changeInput.value = "";
-    checkSettingsPasswordState();
+    setSyncStatus('saving');
+    try {
+        state.settingsPassword = newPass;
+        // Save to Firestore
+        await db.collection('rvnl_tracker').doc('settings_config').set({
+            password: newPass,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Also keep in localStorage as a backup
+        localStorage.setItem("rvnl_settings_password", newPass);
+        setSyncStatus('synced');
+        alert("Backup & Data access password updated successfully!");
+        changeInput.value = "";
+        checkSettingsPasswordState();
+    } catch (err) {
+        console.error('Error updating password:', err);
+        alert("Failed to update password in database. Please check your connection and try again.");
+        setSyncStatus('offline');
+    }
 }
 
-function handleRemovePassword() {
+async function handleRemovePassword() {
     if (confirm("Are you sure you want to disable the password lock? Anyone will be able to access the Backup & Data tab.")) {
-        localStorage.removeItem("rvnl_settings_password");
-        alert("Password lock removed successfully!");
-        checkSettingsPasswordState();
+        setSyncStatus('saving');
+        try {
+            state.settingsPassword = null;
+            // Clear password in Firestore
+            await db.collection('rvnl_tracker').doc('settings_config').set({
+                password: "",
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            // Remove from local storage
+            localStorage.removeItem("rvnl_settings_password");
+            setSyncStatus('synced');
+            alert("Password lock removed successfully!");
+            checkSettingsPasswordState();
+        } catch (err) {
+            console.error('Error removing password:', err);
+            alert("Failed to remove password from database. Please check your connection and try again.");
+            setSyncStatus('offline');
+        }
     }
 }
 
