@@ -193,6 +193,7 @@ async function saveData() {
         // Fallback: keep a local copy so no data is lost
         localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
     }
+    updateStorageIndicator();
 }
 
 // Initialize and Setup Theme Toggle (Dark Mode default)
@@ -537,6 +538,23 @@ function setupEventListeners() {
         restoreLocalBtn.addEventListener("click", restoreLocalBackup);
     }
 
+    // Tab Access Lock listeners
+    const unlockBtn = document.getElementById("unlock-settings-btn");
+    if (unlockBtn) unlockBtn.addEventListener("click", handleSettingsUnlockSubmit);
+    
+    const passInput = document.getElementById("settings-password-input");
+    if (passInput) {
+        passInput.addEventListener("keypress", (e) => {
+            if (e.key === 'Enter') handleSettingsUnlockSubmit();
+        });
+    }
+    
+    const updatePassBtn = document.getElementById("update-password-btn");
+    if (updatePassBtn) updatePassBtn.addEventListener("click", handleUpdatePassword);
+    
+    const removePassBtn = document.getElementById("remove-password-btn");
+    if (removePassBtn) removePassBtn.addEventListener("click", handleRemovePassword);
+
     // 11. API Key & AI Narrative Handlers
     const saveApiKeyBtn = document.getElementById("save-api-key-btn");
     if (saveApiKeyBtn) {
@@ -671,6 +689,43 @@ function adjustClientSpecificOptions(client) {
     }
 }
 
+// Calculate and update the storage limit capacity progress indicator
+function updateStorageIndicator() {
+    const fillEl = document.getElementById("storage-bar-fill");
+    const usageEl = document.getElementById("storage-usage-text");
+    const statusEl = document.getElementById("storage-status-text");
+    
+    if (!fillEl || !usageEl || !statusEl) return;
+    
+    try {
+        // Stringify tasks state to approximate Firestore UTF-8 bytes payload size
+        const payload = JSON.stringify({ tasks: state.tasks });
+        const sizeBytes = new Blob([payload]).size;
+        const sizeKB = (sizeBytes / 1024).toFixed(1);
+        const limitKB = 1024; // 1 MiB limit
+        const percentage = Math.min((sizeBytes / (limitKB * 1024)) * 100, 100).toFixed(1);
+        
+        fillEl.style.width = `${percentage}%`;
+        usageEl.textContent = `${sizeKB} KB of ${limitKB} KB used (${percentage}%)`;
+        
+        if (percentage < 60) {
+            fillEl.style.backgroundColor = "var(--accent-green)";
+            statusEl.textContent = "Safe";
+            statusEl.style.color = "var(--accent-green)";
+        } else if (percentage < 85) {
+            fillEl.style.backgroundColor = "var(--accent-amber)";
+            statusEl.textContent = "Warning: Approaching Limit";
+            statusEl.style.color = "var(--accent-amber)";
+        } else {
+            fillEl.style.backgroundColor = "var(--accent-red)";
+            statusEl.textContent = "Critical: Backup & Reset recommended";
+            statusEl.style.color = "var(--accent-red)";
+        }
+    } catch (err) {
+        console.error("Error updating storage indicator:", err);
+    }
+}
+
 // Global Switch Client function
 function switchClient(client) {
     state.activeClient = client;
@@ -711,6 +766,7 @@ function switchClient(client) {
     updateDashboard();
     renderTracker();
     generateReport();
+    updateStorageIndicator();
 }
 // Reset all search and drop-down filters
 function resetFilters() {
@@ -750,6 +806,125 @@ function switchTab(tabName) {
         generateReport(); // Pre-generate default report
     } else if (tabName === 'briefing') {
         initBriefingTab();
+    } else if (tabName === 'settings') {
+        checkSettingsPasswordState();
+    }
+
+    // Auto-lock settings tab when switching away to another page
+    if (tabName !== 'settings') {
+        lockSettingsTabSilently();
+    }
+}
+
+// Password Security logic for Backup & Settings Tab
+function checkSettingsPasswordState() {
+    const password = localStorage.getItem("rvnl_settings_password");
+    const lockScreen = document.getElementById("settings-lock-screen");
+    const actualContent = document.getElementById("settings-actual-content");
+    const passwordInput = document.getElementById("settings-password-input");
+    const statusText = document.getElementById("lock-screen-status");
+    const titleText = document.getElementById("lock-screen-title");
+    const descText = document.getElementById("lock-screen-desc");
+    const unlockBtn = document.getElementById("unlock-settings-btn");
+    const lockIcon = document.getElementById("lock-screen-icon");
+    const removeBtn = document.getElementById("remove-password-btn");
+    const passwordStatus = document.getElementById("password-control-status");
+    
+    if (!lockScreen || !actualContent) return;
+    
+    statusText.textContent = "";
+    passwordInput.value = "";
+    
+    if (!password) {
+        // No password set yet, prompt to create one
+        lockScreen.classList.remove("hidden");
+        actualContent.style.display = "none";
+        titleText.textContent = "Set Access Password";
+        descText.textContent = "Please set a password to secure your Backup & Data settings.";
+        unlockBtn.textContent = "Set Password";
+        lockIcon.className = "fa-solid fa-lock-open";
+        lockIcon.style.color = "var(--accent-amber)";
+        if (removeBtn) removeBtn.style.display = "none";
+        if (passwordStatus) passwordStatus.textContent = "No password configuration set. Tab is currently open.";
+    } else {
+        // Password is set, show lock overlay screen
+        lockScreen.classList.remove("hidden");
+        actualContent.style.display = "none";
+        titleText.textContent = "Password Protected";
+        descText.textContent = "Please enter your password to access Data Management & Settings.";
+        unlockBtn.textContent = "Unlock Tab";
+        lockIcon.className = "fa-solid fa-lock";
+        lockIcon.style.color = "var(--accent-purple)";
+        if (removeBtn) removeBtn.style.display = "inline-block";
+        if (passwordStatus) passwordStatus.textContent = "Password lock is currently active.";
+    }
+}
+
+function lockSettingsTabSilently() {
+    const lockScreen = document.getElementById("settings-lock-screen");
+    const actualContent = document.getElementById("settings-actual-content");
+    if (lockScreen && actualContent) {
+        lockScreen.classList.remove("hidden");
+        actualContent.style.display = "none";
+    }
+}
+
+function handleSettingsUnlockSubmit() {
+    const password = localStorage.getItem("rvnl_settings_password");
+    const passwordInput = document.getElementById("settings-password-input");
+    const statusText = document.getElementById("lock-screen-status");
+    const lockScreen = document.getElementById("settings-lock-screen");
+    const actualContent = document.getElementById("settings-actual-content");
+    
+    if (!passwordInput || !statusText || !lockScreen || !actualContent) return;
+    
+    const inputVal = passwordInput.value.trim();
+    if (!inputVal) {
+        statusText.textContent = "Password cannot be empty.";
+        return;
+    }
+    
+    if (!password) {
+        // Setting password for the first time
+        localStorage.setItem("rvnl_settings_password", inputVal);
+        alert("Access password set successfully!");
+        lockScreen.classList.add("hidden");
+        actualContent.style.display = "block";
+        updateStorageIndicator();
+    } else {
+        // Verification mode
+        if (inputVal === password) {
+            lockScreen.classList.add("hidden");
+            actualContent.style.display = "block";
+            updateStorageIndicator();
+        } else {
+            statusText.textContent = "Incorrect password. Access denied.";
+            passwordInput.value = "";
+        }
+    }
+}
+
+function handleUpdatePassword() {
+    const changeInput = document.getElementById("change-password-input");
+    if (!changeInput) return;
+    
+    const newPass = changeInput.value.trim();
+    if (!newPass) {
+        alert("Please enter a valid password.");
+        return;
+    }
+    
+    localStorage.setItem("rvnl_settings_password", newPass);
+    alert("Backup & Data access password updated successfully!");
+    changeInput.value = "";
+    checkSettingsPasswordState();
+}
+
+function handleRemovePassword() {
+    if (confirm("Are you sure you want to disable the password lock? Anyone will be able to access the Backup & Data tab.")) {
+        localStorage.removeItem("rvnl_settings_password");
+        alert("Password lock removed successfully!");
+        checkSettingsPasswordState();
     }
 }
 
@@ -960,7 +1135,7 @@ function compressImage(file, maxWidth, maxHeight, quality, callback) {
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (file) {
-        compressImage(file, 400, 400, 0.7, function(compressedBase64) {
+        compressImage(file, 240, 240, 0.5, function(compressedBase64) {
             showImagePreview(compressedBase64);
         });
     }
@@ -970,7 +1145,7 @@ function handleImageUpload(e) {
 function handleReportClippingUpload(e) {
     const file = e.target.files[0];
     if (file && state.currentUploadTaskId) {
-        compressImage(file, 400, 400, 0.7, function(compressedBase64) {
+        compressImage(file, 240, 240, 0.5, function(compressedBase64) {
             const taskId = state.currentUploadTaskId;
             const task = state.tasks.find(t => t.id === taskId);
             if (task) {
@@ -2311,19 +2486,19 @@ function compressExistingLargeImages() {
     const compressPromises = [];
 
     state.tasks.forEach(task => {
-        // Find thumbnails larger than 50KB that are data-URLs
-        if (task.image && task.image.startsWith("data:image/") && task.image.length > 50000) {
+        // Find thumbnails larger than 25KB that are data-URLs
+        if (task.image && task.image.startsWith("data:image/") && task.image.length > 25000) {
             const promise = new Promise((resolve) => {
                 const img = new Image();
                 img.onload = function() {
                     let width = img.width;
                     let height = img.height;
-                    const maxWidth = 400;
-                    const maxHeight = 400;
+                    const maxWidth = 240;
+                    const maxHeight = 240;
                     
                     let needsResize = width > maxWidth || height > maxHeight;
                     // If not JPEG or needs resize, compress it
-                    if (needsResize || !task.image.startsWith("data:image/jpeg")) {
+                    if (needsResize || !task.image.startsWith("data:image/jpeg") || task.image.length > 25000) {
                         if (needsResize) {
                             if (width > height) {
                                 height = Math.round((height * maxWidth) / width);
@@ -2339,7 +2514,7 @@ function compressExistingLargeImages() {
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        task.image = canvas.toDataURL('image/jpeg', 0.7);
+                        task.image = canvas.toDataURL('image/jpeg', 0.5);
                         updated = true;
                     }
                     resolve();

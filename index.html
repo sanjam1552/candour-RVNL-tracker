@@ -659,53 +659,98 @@
 
             <!-- Backup & Settings Tab -->
             <section id="settings" class="tab-content">
-                <div class="section-header">
-                    <div class="section-title">
-                        <h2>Data Management & Backup</h2>
-                        <p>Export your tracked data as a backup file or import existing databases to keep your team interconnected.</p>
+                <!-- PASSWORD SHIELD OVERLAY -->
+                <div id="settings-lock-screen" class="hidden" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; padding: 20px;">
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 20px; padding: 40px; max-width: 400px; width: 100%; box-shadow: var(--glass-shadow); backdrop-filter: blur(10px);">
+                        <div style="font-size: 40px; color: var(--accent-purple); margin-bottom: 20px;"><i class="fa-solid fa-lock" id="lock-screen-icon"></i></div>
+                        <h3 id="lock-screen-title" style="margin-bottom: 10px; font-family: var(--font-heading);">Password Protected</h3>
+                        <p id="lock-screen-desc" style="font-size: 13px; color: var(--text-muted); margin-bottom: 25px;">Please enter your password to access Data Management & Settings.</p>
+                        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                            <input type="password" id="settings-password-input" placeholder="Enter Password..." style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 14px; text-align: center; outline: none; font-family: var(--font-body);">
+                            <button type="button" id="unlock-settings-btn" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 600;">Unlock Tab</button>
+                        </div>
+                        <span id="lock-screen-status" style="display: block; margin-top: 15px; font-size: 12px; color: var(--accent-red); font-family: var(--font-body);"></span>
                     </div>
                 </div>
 
-                <div class="settings-grid">
-                    <!-- EMERGENCY RESTORE CARD -->
-                    <div class="settings-card card-full" style="border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.05);">
-                        <div class="settings-icon" style="color: var(--accent-amber);"><i class="fa-solid fa-rotate-left"></i></div>
-                        <h3 style="color: var(--accent-amber);">Restore My Local Browser Data → Cloud</h3>
-                        <p>If your data (with images and edits) is still saved in <strong>this browser</strong> from before the Firebase migration, click below to push it to the cloud and overwrite the current database.</p>
-                        <button id="restore-local-btn" class="btn" style="margin-top:12px; background-color: var(--accent-amber); color: #000; font-weight:700;"><i class="fa-solid fa-cloud-arrow-up"></i> Restore Local Data to Cloud</button>
-                        <span id="restore-local-status" style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted);"></span>
-                    </div>
-                    <div class="settings-card">
-                        <div class="settings-icon"><i class="fa-solid fa-file-export"></i></div>
-                        <h3>Export Tracker Database</h3>
-                        <p>Save all ongoing work, Canvas links, LinkedIn URLs, and custom metrics as a single JSON file. Use this file to share with teammates or keep offline archives.</p>
-                        <button id="export-db-btn" class="btn btn-primary"><i class="fa-solid fa-download"></i> Export Data (.json)</button>
-                    </div>
-                    <div class="settings-card">
-                        <div class="settings-icon"><i class="fa-solid fa-file-import"></i></div>
-                        <h3>Import Tracker Database</h3>
-                        <p>Load a previously exported JSON backup file into your browser. This will merge or overwrite your current tracker data.</p>
-                        <div class="import-actions">
-                            <input type="file" id="import-db-file" class="hidden-input" accept=".json">
-                            <label for="import-db-file" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Choose Backup File</label>
-                            <button id="import-db-btn" class="btn btn-primary" disabled><i class="fa-solid fa-upload"></i> Load Backup</button>
+                <div id="settings-actual-content">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h2>Data Management & Backup</h2>
+                            <p>Export your tracked data as a backup file or import existing databases to keep your team interconnected.</p>
                         </div>
-                        <span class="file-chosen-name" id="import-file-name">No file selected</span>
                     </div>
-                    <div class="settings-card">
-                        <div class="settings-icon" style="color: var(--accent-purple);"><i class="fa-solid fa-brain"></i></div>
-                        <h3>Gemini AI Integration</h3>
-                        <p>Save your Gemini API key to unlock automated narrative executive summary generation in the report builder.</p>
-                        <div class="api-key-input-group" style="display: flex; gap: 10px; margin-top: 15px; width: 100%;">
-                            <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key..." style="flex-grow: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
-                            <button type="button" id="save-api-key-btn" class="btn btn-primary">Save</button>
+
+                    <div class="settings-grid">
+                        <!-- EMERGENCY RESTORE CARD -->
+                        <div class="settings-card card-full" style="border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.05);">
+                            <div class="settings-icon" style="color: var(--accent-amber);"><i class="fa-solid fa-rotate-left"></i></div>
+                            <h3 style="color: var(--accent-amber);">Restore My Local Browser Data → Cloud</h3>
+                            <p>If your data (with images and edits) is still saved in <strong>this browser</strong> from before the Firebase migration, click below to push it to the cloud and overwrite the current database.</p>
+                            <button id="restore-local-btn" class="btn" style="margin-top:12px; background-color: var(--accent-amber); color: #000; font-weight:700;"><i class="fa-solid fa-cloud-arrow-up"></i> Restore Local Data to Cloud</button>
+                            <span id="restore-local-status" style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted);"></span>
                         </div>
-                        <span id="api-key-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">No API key configured.</span>
-                    </div>
-                    <div class="settings-card card-full">
-                        <h3>Reset to Preloaded Data</h3>
-                        <p>If you wish to wipe out your custom changes and return to the baseline records parsed from your June 2026 reports, click the button below. This action cannot be undone.</p>
-                        <button id="reset-db-btn" class="btn btn-danger"><i class="fa-solid fa-triangle-exclamation"></i> Reset to Factory Baseline</button>
+                        <!-- DATABASE STORAGE MONITOR CARD -->
+                        <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                            <div class="settings-icon" style="color: var(--accent-purple);"><i class="fa-solid fa-hard-drive"></i></div>
+                            <h3>Database Storage Capacity Monitor</h3>
+                            <p>Track how much of your 1 MiB (1024 KB) Firestore document storage limit is currently being used by all tasks in the database.</p>
+                            <div class="storage-bar-wrapper" style="margin-top: 15px; width: 100%;">
+                                <div class="storage-bar-bg" style="width: 100%; height: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                                    <div id="storage-bar-fill" style="width: 0%; height: 100%; background: var(--accent-green); transition: width 0.3s ease;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+                                    <span id="storage-usage-text">Calculating...</span>
+                                    <span id="storage-status-text">Safe</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-card">
+                            <div class="settings-icon"><i class="fa-solid fa-file-export"></i></div>
+                            <h3>Export Tracker Database</h3>
+                            <p>Save all ongoing work, Canvas links, LinkedIn URLs, and custom metrics as a single JSON file. Use this file to share with teammates or keep offline archives.</p>
+                            <button id="export-db-btn" class="btn btn-primary"><i class="fa-solid fa-download"></i> Export Data (.json)</button>
+                        </div>
+                        <div class="settings-card">
+                            <div class="settings-icon"><i class="fa-solid fa-file-import"></i></div>
+                            <h3>Import Tracker Database</h3>
+                            <p>Load a previously exported JSON backup file into your browser. This will merge or overwrite your current tracker data.</p>
+                            <div class="import-actions">
+                                <input type="file" id="import-db-file" class="hidden-input" accept=".json">
+                                <label for="import-db-file" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Choose Backup File</label>
+                                <button id="import-db-btn" class="btn btn-primary" disabled><i class="fa-solid fa-upload"></i> Load Backup</button>
+                            </div>
+                            <span class="file-chosen-name" id="import-file-name">No file selected</span>
+                        </div>
+                        <div class="settings-card">
+                            <div class="settings-icon" style="color: var(--accent-purple);"><i class="fa-solid fa-brain"></i></div>
+                            <h3>Gemini AI Integration</h3>
+                            <p>Save your Gemini API key to unlock automated narrative executive summary generation in the report builder.</p>
+                            <div class="api-key-input-group" style="display: flex; gap: 10px; margin-top: 15px; width: 100%;">
+                                <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key..." style="flex-grow: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                <button type="button" id="save-api-key-btn" class="btn btn-primary">Save</button>
+                            </div>
+                            <span id="api-key-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">No API key configured.</span>
+                        </div>
+                        <!-- PASSWORD LOCK CONTROL CARD -->
+                        <div class="settings-card" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                            <div class="settings-icon" style="color: var(--accent-amber);"><i class="fa-solid fa-key"></i></div>
+                            <h3>Tab Access Lock Security</h3>
+                            <p>Change your Backup & Data tab access password or disable the password lock completely.</p>
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; width: 100%;">
+                                <input type="password" id="change-password-input" placeholder="New Password..." style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <button type="button" id="update-password-btn" class="btn btn-primary" style="flex: 1;">Update Password</button>
+                                    <button type="button" id="remove-password-btn" class="btn btn-danger" style="flex: 1; background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.25);">Remove Lock</button>
+                                </div>
+                            </div>
+                            <span id="password-control-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">Password lock configuration</span>
+                        </div>
+                        <div class="settings-card card-full">
+                            <h3>Reset to Preloaded Data</h3>
+                            <p>If you wish to wipe out your custom changes and return to the baseline records parsed from your June 2026 reports, click the button below. This action cannot be undone.</p>
+                            <button id="reset-db-btn" class="btn btn-danger"><i class="fa-solid fa-triangle-exclamation"></i> Reset to Factory Baseline</button>
+                        </div>
                     </div>
                 </div>
             </section>
