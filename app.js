@@ -239,18 +239,39 @@ async function loadData() {
     }
 }
 
-// Initialize User Session
+// Initialize User Session with Firebase Google Authentication
 function initUserSession() {
-    const savedName = localStorage.getItem("tracker_username");
     const overlay = document.getElementById("login-modal-overlay");
-    if (savedName) {
-        state.currentUser = savedName;
-        const displayNameEl = document.getElementById("user-display-name");
-        if (displayNameEl) displayNameEl.textContent = savedName;
-        if (overlay) overlay.style.display = "none";
-    } else {
-        if (overlay) overlay.style.display = "flex";
-    }
+    const errorMsgEl = document.getElementById("login-error-msg");
+    const displayNameEl = document.getElementById("user-display-name");
+
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+            // Verify email domain constraint
+            const email = user.email || "";
+            if (email.endsWith("@candour.co.in")) {
+                state.currentUser = user.displayName || email.split("@")[0];
+                if (displayNameEl) displayNameEl.textContent = state.currentUser;
+                if (overlay) overlay.style.display = "none";
+                if (errorMsgEl) errorMsgEl.style.display = "none";
+            } else {
+                // Denied domain
+                firebase.auth().signOut().then(() => {
+                    state.currentUser = "";
+                    if (displayNameEl) displayNameEl.textContent = "...";
+                    if (overlay) overlay.style.display = "flex";
+                    if (errorMsgEl) {
+                        errorMsgEl.textContent = `Access Denied: ${email} is unauthorized. Use a @candour.co.in account.`;
+                        errorMsgEl.style.display = "block";
+                    }
+                });
+            }
+        } else {
+            state.currentUser = "";
+            if (displayNameEl) displayNameEl.textContent = "...";
+            if (overlay) overlay.style.display = "flex";
+        }
+    });
 }
 
 // Load Activity Logs from Firestore
@@ -826,31 +847,32 @@ function setupEventListeners() {
     }
 
     // User login event listeners
-    const loginForm = document.getElementById("login-form");
-    if (loginForm) {
-        loginForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const input = document.getElementById("login-username-input");
-            const name = input.value.trim();
-            if (name) {
-                localStorage.setItem("tracker_username", name);
-                state.currentUser = name;
-                document.getElementById("user-display-name").textContent = name;
-                document.getElementById("login-modal-overlay").style.display = "none";
-            }
+    const googleLoginBtn = document.getElementById("google-login-btn");
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener("click", () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.setCustomParameters({ hd: "candour.co.in" });
+            
+            firebase.auth().signInWithPopup(provider).catch((err) => {
+                console.error("Sign-in error:", err);
+                const errorMsgEl = document.getElementById("login-error-msg");
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Authentication failed. Please try again.";
+                    errorMsgEl.style.display = "block";
+                }
+            });
         });
     }
 
     const userBadge = document.getElementById("user-badge");
     if (userBadge) {
         userBadge.addEventListener("click", () => {
-            const newName = prompt("Enter a new username:", state.currentUser);
-            if (newName && newName.trim()) {
-                const trimmed = newName.trim();
-                localStorage.setItem("tracker_username", trimmed);
-                state.currentUser = trimmed;
-                document.getElementById("user-display-name").textContent = trimmed;
-                alert("Username changed successfully!");
+            if (confirm(`Logged in as ${state.currentUser}. Do you want to sign out?`)) {
+                firebase.auth().signOut().then(() => {
+                    alert("Signed out successfully!");
+                }).catch(err => {
+                    console.error("Sign-out error:", err);
+                });
             }
         });
     }
