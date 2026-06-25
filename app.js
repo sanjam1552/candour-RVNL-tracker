@@ -27,7 +27,8 @@ const state = {
     charts: {
         trend: null,
         share: null
-    }
+    },
+    pendingImageFile: null
 };
 
 // Target Date helper for weekly mapping
@@ -95,14 +96,38 @@ function setSyncStatus(status) {
     }
 }
 
+// Update preloader progress bar percentage
+function setPreloaderProgress(percent) {
+    const bar = document.getElementById("preloader-progress-bar");
+    if (bar) {
+        bar.style.width = `${percent}%`;
+    }
+}
+
+// Hide splash preloader screen once database syncs (with a 1.2s delay so it feels solid)
+function hidePreloader() {
+    setTimeout(() => {
+        const preloader = document.getElementById("preloader");
+        if (preloader) {
+            preloader.style.opacity = "0";
+            preloader.style.visibility = "hidden";
+            setTimeout(() => {
+                preloader.style.display = "none";
+            }, 500);
+        }
+    }, 600);
+}
+
 // Load data from Firestore; migrate localStorage on first run
 async function loadData() {
     setSyncStatus('connecting');
+    setPreloaderProgress(20);
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
     const configRef = db.collection('rvnl_tracker').doc('settings_config');
 
     try {
         const snapshot = await docRef.get();
+        setPreloaderProgress(50);
 
         if (snapshot.exists && Array.isArray(snapshot.data().tasks) && snapshot.data().tasks.length > 0) {
             // Data already in Firestore — use it
@@ -137,6 +162,7 @@ async function loadData() {
 
         // Fetch global settings password from Firestore
         const configSnapshot = await configRef.get();
+        setPreloaderProgress(75);
         if (configSnapshot.exists && configSnapshot.data().password) {
             state.settingsPassword = configSnapshot.data().password;
         } else {
@@ -168,7 +194,9 @@ async function loadData() {
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
         }
-        setTimeout(compressExistingLargeImages, 2000);
+        setPreloaderProgress(100);
+        hidePreloader();
+        setTimeout(migrateBase64ImagesToStorage, 2000);
 
     } catch (err) {
         console.error('Firestore load error:', err);
@@ -194,6 +222,8 @@ async function loadData() {
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
         }
+        setPreloaderProgress(100);
+        hidePreloader();
     }
 }
 
@@ -710,39 +740,86 @@ function adjustClientSpecificOptions(client) {
 }
 
 // Calculate and update the storage limit capacity progress indicator
-function updateStorageIndicator() {
+async function updateStorageIndicator() {
     const fillEl = document.getElementById("storage-bar-fill");
     const usageEl = document.getElementById("storage-usage-text");
     const statusEl = document.getElementById("storage-status-text");
     
-    if (!fillEl || !usageEl || !statusEl) return;
-    
-    try {
-        // Stringify tasks state to approximate Firestore UTF-8 bytes payload size
-        const payload = JSON.stringify({ tasks: state.tasks });
-        const sizeBytes = new Blob([payload]).size;
-        const sizeKB = (sizeBytes / 1024).toFixed(1);
-        const limitKB = 1024; // 1 MiB limit
-        const percentage = Math.min((sizeBytes / (limitKB * 1024)) * 100, 100).toFixed(1);
-        
-        fillEl.style.width = `${percentage}%`;
-        usageEl.textContent = `${sizeKB} KB of ${limitKB} KB used (${percentage}%)`;
-        
-        if (percentage < 60) {
-            fillEl.style.backgroundColor = "var(--accent-green)";
-            statusEl.textContent = "Safe";
-            statusEl.style.color = "var(--accent-green)";
-        } else if (percentage < 85) {
-            fillEl.style.backgroundColor = "var(--accent-amber)";
-            statusEl.textContent = "Warning: Approaching Limit";
-            statusEl.style.color = "var(--accent-amber)";
-        } else {
-            fillEl.style.backgroundColor = "var(--accent-red)";
-            statusEl.textContent = "Critical: Backup & Reset recommended";
-            statusEl.style.color = "var(--accent-red)";
+    if (fillEl && usageEl && statusEl) {
+        try {
+            // Stringify tasks state to approximate Firestore UTF-8 bytes payload size
+            const payload = JSON.stringify({ tasks: state.tasks });
+            const sizeBytes = new Blob([payload]).size;
+            const sizeKB = (sizeBytes / 1024).toFixed(1);
+            const limitKB = 1024; // 1 MiB limit
+            const percentage = Math.min((sizeBytes / (limitKB * 1024)) * 100, 100).toFixed(1);
+            
+            fillEl.style.width = `${percentage}%`;
+            usageEl.textContent = `${sizeKB} KB of ${limitKB} KB used (${percentage}%)`;
+            
+            if (percentage < 60) {
+                fillEl.style.backgroundColor = "var(--accent-green)";
+                statusEl.textContent = "Safe";
+                statusEl.style.color = "var(--accent-green)";
+            } else if (percentage < 85) {
+                fillEl.style.backgroundColor = "var(--accent-amber)";
+                statusEl.textContent = "Warning: Approaching Limit";
+                statusEl.style.color = "var(--accent-amber)";
+            } else {
+                fillEl.style.backgroundColor = "var(--accent-red)";
+                statusEl.textContent = "Critical: Backup & Reset recommended";
+                statusEl.style.color = "var(--accent-red)";
+            }
+        } catch (err) {
+            console.error("Error updating database storage indicator:", err);
         }
-    } catch (err) {
-        console.error("Error updating storage indicator:", err);
+    }
+
+    // Now calculate Firebase Storage usage
+    const fFillEl = document.getElementById("firebase-storage-bar-fill");
+    const fUsageEl = document.getElementById("firebase-storage-usage-text");
+    const fStatusEl = document.getElementById("firebase-storage-status-text");
+
+    if (fFillEl && fUsageEl && fStatusEl) {
+        try {
+            // Fetch list of files from Storage task_images folder
+            const storageRef = firebase.storage().ref().child('task_images');
+            const listResult = await storageRef.listAll();
+            
+            let totalSizeBytes = 0;
+            const metadataPromises = listResult.items.map(async (itemRef) => {
+                const metadata = await itemRef.getMetadata();
+                totalSizeBytes += metadata.size;
+            });
+            
+            await Promise.all(metadataPromises);
+            
+            const sizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2);
+            const limitMB = 5120; // 5 GB limit in MB
+            const percentage = Math.min((totalSizeBytes / (limitMB * 1024 * 1024)) * 100, 100).toFixed(2);
+
+            fFillEl.style.width = `${percentage}%`;
+            fUsageEl.textContent = `${sizeMB} MB of 5120 MB used (${percentage}%)`;
+
+            if (percentage < 60) {
+                fFillEl.style.backgroundColor = "var(--accent-green)";
+                fStatusEl.textContent = "Safe";
+                fStatusEl.style.color = "var(--accent-green)";
+            } else if (percentage < 85) {
+                fFillEl.style.backgroundColor = "var(--accent-amber)";
+                fStatusEl.textContent = "Warning: Approaching Limit";
+                fStatusEl.style.color = "var(--accent-amber)";
+            } else {
+                fFillEl.style.backgroundColor = "var(--accent-red)";
+                fStatusEl.textContent = "Critical";
+                fStatusEl.style.color = "var(--accent-red)";
+            }
+        } catch (err) {
+            console.error("Error updating Firebase Storage indicator:", err);
+            fUsageEl.textContent = "Error calculating storage";
+            fStatusEl.textContent = "Unavailable";
+            fStatusEl.style.color = "var(--accent-red)";
+        }
     }
 }
 
@@ -1087,6 +1164,7 @@ function openDrawer(taskId = null, prefillData = null) {
     form.reset();
     document.getElementById("task-id").value = "";
     removeImagePreview();
+    state.pendingImageFile = null; // Clear any pending uploaded file object
 
     // Reset WIP comment fields
     const wipWhoInput = document.getElementById("task-wip-who");
@@ -1202,32 +1280,110 @@ function compressImage(file, maxWidth, maxHeight, quality, callback) {
     reader.readAsDataURL(file);
 }
 
-// Convert Uploaded Image File to Base64 with compression
-function handleImageUpload(e) {
-    const file = e.target.files[0];
-    if (file) {
-        compressImage(file, 240, 240, 0.5, function(compressedBase64) {
-            showImagePreview(compressedBase64);
+// Helper to convert base64 data URL back to a binary Blob for Cloud Storage
+function dataURLtoBlob(dataurl) {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+}
+
+// Compress and upload a file directly to Firebase Cloud Storage, then return its public download URL
+function uploadImageToStorage(fileObject) {
+    return new Promise((resolve, reject) => {
+        // Compress the image to max 800x800 resolution at 0.7 quality (crisp but small size)
+        compressImage(fileObject, 800, 800, 0.7, async function(compressedBase64) {
+            try {
+                const compressedBlob = dataURLtoBlob(compressedBase64);
+                // Ensure extension is .jpg since we compress to JPEG
+                const baseName = fileObject.name.replace(/\.[^/.]+$/, "");
+                const uniqueFilename = `${Date.now()}_${baseName}.jpg`;
+                const storageRef = firebase.storage().ref().child(`task_images/${uniqueFilename}`);
+                const snapshot = await storageRef.put(compressedBlob);
+                const downloadURL = await snapshot.ref.getDownloadURL();
+                resolve(downloadURL);
+            } catch (err) {
+                reject(err);
+            }
         });
+    });
+}
+
+// Delete an image file from Firebase Storage using its download URL
+async function deleteImageFromStorage(imageUrl) {
+    if (!imageUrl || !imageUrl.startsWith("https://firebasestorage.googleapis.com")) {
+        return;
+    }
+    try {
+        const storageRef = firebase.storage().refFromURL(imageUrl);
+        await storageRef.delete();
+        console.log("Successfully deleted associated image from Cloud Storage.");
+    } catch (err) {
+        console.error("Failed to delete image from Cloud Storage:", err);
     }
 }
 
-// Convert Uploaded Image File to Base64 (from Report Preview) with compression
+// Perform Firebase Storage uploading in the background
+async function uploadImageInBackground(fileObject, taskId) {
+    try {
+        console.log(`Starting background upload for task ${taskId}...`);
+        const downloadURL = await uploadImageToStorage(fileObject);
+        
+        // Find task and replace its temporary local URL with the public storage URL
+        const task = state.tasks.find(t => t.id === taskId);
+        if (task) {
+            task.image = downloadURL;
+            await saveData();
+            renderTracker();
+            console.log(`Background upload succeeded for task: ${task.title}`);
+        }
+    } catch (err) {
+        console.error(`Background upload failed for task ${taskId}:`, err);
+    }
+}
+
+// Convert Uploaded Image File to Firebase Storage and preview it
+async function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (file) {
+        // Create an Object URL for instantaneous local preview
+        const localURL = URL.createObjectURL(file);
+        showImagePreview(localURL);
+        
+        // Save the file object in the state to upload in the background on form submit
+        state.pendingImageFile = file;
+    }
+}
+
+// Convert Uploaded Image File to Cloud Storage (from Report Preview) in background
 function handleReportClippingUpload(e) {
     const file = e.target.files[0];
     if (file && state.currentUploadTaskId) {
-        compressImage(file, 240, 240, 0.5, function(compressedBase64) {
-            const taskId = state.currentUploadTaskId;
-            const task = state.tasks.find(t => t.id === taskId);
-            if (task) {
-                task.image = compressedBase64;
-                saveData();
-                generateReport(); // Reload report preview
+        const taskId = state.currentUploadTaskId;
+        const task = state.tasks.find(t => t.id === taskId);
+        if (task) {
+            // Delete old image from Storage if it exists
+            const oldImage = task.image;
+            if (oldImage) {
+                deleteImageFromStorage(oldImage);
             }
-            // Reset input and state
-            e.target.value = "";
-            state.currentUploadTaskId = null;
-        });
+            
+            // Generate a local object URL for instant preview
+            const localURL = URL.createObjectURL(file);
+            task.image = localURL;
+            saveData();
+            generateReport(); // Reload report preview instantly!
+            
+            // Upload in the background
+            uploadImageInBackground(file, taskId);
+        }
+        e.target.value = "";
+        state.currentUploadTaskId = null;
     }
 }
 
@@ -1330,6 +1486,11 @@ function handleFormSubmit(e) {
         // Edit Mode
         const index = state.tasks.findIndex(t => t.id === id);
         if (index !== -1) {
+            // Delete old image from Storage if it was replaced/removed
+            const oldImage = state.tasks[index].image;
+            if (oldImage && oldImage !== taskData.image) {
+                deleteImageFromStorage(oldImage);
+            }
             state.tasks[index] = { ...state.tasks[index], ...taskData };
         }
     } else {
@@ -1338,12 +1499,20 @@ function handleFormSubmit(e) {
         state.tasks.unshift(taskData);
     }
 
+    const fileToUpload = state.pendingImageFile;
+    state.pendingImageFile = null; // Clear it immediately
+
     saveData();
     closeDrawer();
     populateOwnerFilter();
     populateMonthDropdowns();
     updateDashboard();
     renderTracker();
+
+    // Trigger background upload so UI remains instant
+    if (fileToUpload) {
+        uploadImageInBackground(fileToUpload, taskData.id);
+    }
 }
 
 // Generate simple client-side UUID
@@ -1357,6 +1526,11 @@ function generateUUID() {
 // Delete item
 function deleteTask(id) {
     if (confirm("Are you sure you want to delete this item?")) {
+        const taskToDelete = state.tasks.find(t => t.id === id);
+        if (taskToDelete && taskToDelete.image) {
+            // Delete image from Cloud Storage in background
+            deleteImageFromStorage(taskToDelete.image);
+        }
         state.tasks = state.tasks.filter(t => t.id !== id);
         saveData();
         populateOwnerFilter();
@@ -2551,64 +2725,74 @@ async function callGemini(apiKey, prompt) {
     throw lastError || new Error("All Gemini model configurations failed.");
 }
 
-// Scan and compress any large historical thumbnails to reclaim localStorage space
-function compressExistingLargeImages() {
+// Scan and migrate any historical base64 images to Cloud Storage to reclaim database space
+async function migrateBase64ImagesToStorage() {
+    const tasksToMigrate = state.tasks.filter(task => task.image && task.image.startsWith("data:image/"));
+    if (tasksToMigrate.length === 0) return;
+    
+    console.log(`Starting migration of ${tasksToMigrate.length} base64 images to Cloud Storage...`);
     let updated = false;
-    const compressPromises = [];
 
-    state.tasks.forEach(task => {
-        // Find thumbnails larger than 25KB that are data-URLs
-        if (task.image && task.image.startsWith("data:image/") && task.image.length > 25000) {
-            const promise = new Promise((resolve) => {
+    for (const task of tasksToMigrate) {
+        try {
+            await new Promise((resolve, reject) => {
                 const img = new Image();
-                img.onload = function() {
-                    let width = img.width;
-                    let height = img.height;
-                    const maxWidth = 240;
-                    const maxHeight = 240;
-                    
-                    let needsResize = width > maxWidth || height > maxHeight;
-                    // If not JPEG or needs resize, compress it
-                    if (needsResize || !task.image.startsWith("data:image/jpeg") || task.image.length > 25000) {
-                        if (needsResize) {
-                            if (width > height) {
+                img.onload = async function() {
+                    try {
+                        let width = img.width;
+                        let height = img.height;
+                        const maxWidth = 800;
+                        const maxHeight = 800;
+                        
+                        if (width > height) {
+                            if (width > maxWidth) {
                                 height = Math.round((height * maxWidth) / width);
                                 width = maxWidth;
-                            } else {
+                            }
+                        } else {
+                            if (height > maxHeight) {
                                 width = Math.round((width * maxHeight) / height);
                                 height = maxHeight;
                             }
                         }
+                        
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        task.image = canvas.toDataURL('image/jpeg', 0.5);
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                        const blob = dataURLtoBlob(compressedBase64);
+                        
+                        const uniqueFilename = `migrated_${task.id}.jpg`;
+                        const storageRef = firebase.storage().ref().child(`task_images/${uniqueFilename}`);
+                        const snapshot = await storageRef.put(blob);
+                        const downloadURL = await snapshot.ref.getDownloadURL();
+                        
+                        task.image = downloadURL;
                         updated = true;
+                        console.log(`Successfully migrated image for: ${task.title}`);
+                        resolve();
+                    } catch (innerErr) {
+                        reject(innerErr);
                     }
-                    resolve();
                 };
                 img.onerror = function() {
-                    resolve();
+                    reject(new Error("Image failed to load"));
                 };
                 img.src = task.image;
             });
-            compressPromises.push(promise);
+        } catch (err) {
+            console.error(`Failed to migrate image for task ${task.title}:`, err);
         }
-    });
+    }
 
-    if (compressPromises.length > 0) {
-        console.log(`Optimizing ${compressPromises.length} historical thumbnails in background...`);
-        Promise.all(compressPromises).then(() => {
-            if (updated) {
-                console.log("Historical thumbnail optimization complete. Saving database.");
-                saveData();
-                updateDashboard();
-                renderTracker();
-            }
-        });
+    if (updated) {
+        await saveData();
+        updateDashboard();
+        renderTracker();
+        console.log("Base64 images migration completed successfully!");
     }
 }
 

@@ -21,6 +21,18 @@
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
+    <!-- PRELOADER OVERLAY -->
+    <div id="preloader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0b0f19; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease, visibility 0.5s ease;">
+        <div style="text-align: center;">
+            <img src="inputs/candour logo.png" alt="Candour Logo" style="height: 80px; margin-bottom: 25px; animation: pulse 2s infinite ease-in-out;">
+            <div style="font-family: 'Outfit', sans-serif; color: #f3f4f6; font-size: 18px; font-weight: 600; letter-spacing: 1px; margin-bottom: 10px;">Candour Reporting Hub</div>
+            <div style="font-family: 'Inter', sans-serif; color: #9ca3af; font-size: 13px; margin-bottom: 20px;" id="preloader-text">Syncing with database...</div>
+            <div class="preloader-progress-container" style="width: 200px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; margin: 20px auto 0; overflow: hidden; position: relative;">
+                <div id="preloader-progress-bar" style="width: 5%; height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: 2px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar no-print">
@@ -70,9 +82,12 @@
                     <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Daily Briefing</span>
                 </button>
             </nav>
-            <div class="sidebar-footer">
-                <p>Candour Communications</p>
-                <div class="sync-status" id="sync-status-indicator">
+            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <img src="inputs/candour logo.png" alt="Candour Logo" style="height: 18px; width: 18px; border-radius: 4px; object-fit: cover;">
+                    <span style="font-size: 11px; font-weight: 600; color: var(--text-primary);">Candour Communications</span>
+                </div>
+                <div class="sync-status" id="sync-status-indicator" style="margin-top: 4px;">
                     <span class="sync-dot" id="sync-dot"></span>
                     <span id="sync-status-text">Connecting...</span>
                 </div>
@@ -705,6 +720,21 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- FIREBASE STORAGE MONITOR CARD -->
+                        <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                            <div class="settings-icon" style="color: var(--accent-blue);"><i class="fa-solid fa-cloud"></i></div>
+                            <h3>Cloud Storage Capacity Monitor (Images)</h3>
+                            <p>Track how much of your 5 GB (5120 MB) Firebase Cloud Storage free tier is currently being used by uploaded files.</p>
+                            <div class="storage-bar-wrapper" style="margin-top: 15px; width: 100%;">
+                                <div class="storage-bar-bg" style="width: 100%; height: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                                    <div id="firebase-storage-bar-fill" style="width: 0%; height: 100%; background: var(--accent-green); transition: width 0.3s ease;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+                                    <span id="firebase-storage-usage-text">Calculating...</span>
+                                    <span id="firebase-storage-status-text">Safe</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="settings-card">
                             <div class="settings-icon"><i class="fa-solid fa-file-export"></i></div>
                             <h3>Export Tracker Database</h3>
@@ -875,7 +905,7 @@
                     <label for="task-image-file"><i class="fa-solid fa-image"></i> Press Clipping / Image Attachment</label>
                     <div class="image-upload-wrapper">
                         <input type="file" id="task-image-file" accept="image/*" class="hidden-input">
-                        <label for="task-image-file" class="btn btn-secondary btn-full"><i class="fa-solid fa-upload"></i> Upload Clipping (Base64)</label>
+                        <label for="task-image-file" class="btn btn-secondary btn-full" id="upload-label"><i class="fa-solid fa-upload"></i> Upload Clipping (Cloud Storage)</label>
                         <input type="text" id="task-image-url" placeholder="Or enter Image URL directly..." style="margin-top: 10px;">
                     </div>
                     <div class="image-preview-box hidden" id="task-image-preview">
@@ -912,6 +942,7 @@
     <!-- Firebase SDK (compat mode — no build tools required) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
     <!-- Firebase Project Config -->
     <script src="firebase-config.js"></script>
     <!-- Preloaded initial data script -->
