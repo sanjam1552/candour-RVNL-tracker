@@ -121,14 +121,12 @@ function hidePreloader() {
 
 // Load data from Firestore; migrate localStorage on first run
 async function loadData() {
-    console.log("loadData started. Current auth user:", firebase.auth().currentUser ? firebase.auth().currentUser.email : "none");
     setSyncStatus('connecting');
     setPreloaderProgress(20);
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
     const configRef = db.collection('rvnl_tracker').doc('settings_config');
 
     try {
-        console.log("Requesting tasks_store document...");
         const snapshot = await docRef.get();
         setPreloaderProgress(50);
 
@@ -275,11 +273,10 @@ function initUserSession() {
     }
 
     firebase.auth().onAuthStateChanged((user) => {
-        console.log("onAuthStateChanged triggered. User:", user ? user.email : "null");
         if (user) {
-            // Verify email domain constraint
+            // Verify email domain constraint (case-insensitive)
             const email = user.email || "";
-            if (email.endsWith("@candour.co.in")) {
+            if (email.toLowerCase().endsWith("@candour.co.in")) {
                 state.currentUser = user.displayName || email.split("@")[0];
                 if (displayNameEl) displayNameEl.textContent = state.currentUser;
                 if (overlay) overlay.style.display = "none";
@@ -893,7 +890,7 @@ function setupEventListeners() {
             const infoMsgEl = document.getElementById("login-info-msg");
             const submitBtn = document.getElementById("login-submit-btn");
 
-            if (!email.endsWith("@candour.co.in")) {
+            if (!email.toLowerCase().endsWith("@candour.co.in")) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: Only @candour.co.in email addresses are permitted.";
                     errorMsgEl.style.display = "block";
