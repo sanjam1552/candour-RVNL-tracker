@@ -70,10 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const reportMonthEl = document.getElementById("report-month");
     if (reportMonthEl) reportMonthEl.value = currentMonth;
     const dashboardMonthEl = document.getElementById("dashboard-month");
-    if (dashboardMonthEl) dashboardMonthEl.value = currentMonth;
-
-    // Load data from Firestore (async)
-    loadData();
+    // Removed loadData() call from here. It is now called inside initUserSession()
+    // once user authentication state is resolved and domain is verified.
 });
 // ====================================================
 // SYNC STATUS INDICATOR
@@ -284,6 +282,9 @@ function initUserSession() {
                 if (overlay) overlay.style.display = "none";
                 if (errorMsgEl) errorMsgEl.style.display = "none";
                 if (infoMsgEl) infoMsgEl.style.display = "none";
+                
+                // Safely load data from Firestore now that the session is authenticated
+                loadData();
             } else {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
