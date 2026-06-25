@@ -697,43 +697,45 @@ function adjustClientSpecificOptions(client) {
     // 1. Task Type Filter Dropdown
     const filterType = document.getElementById("filter-type");
     if (filterType) {
-        const creativeFilterOpt = filterType.querySelector('option[value="Creative / Collateral"]');
-        if (client === "Legrand") {
-            if (creativeFilterOpt) {
-                creativeFilterOpt.remove();
-            }
-            if (filterType.value === "Creative / Collateral") {
-                filterType.value = "all";
-                filterType.dispatchEvent(new Event('change'));
-            }
+        if (client === "iCode") {
+            filterType.innerHTML = `
+                <option value="all">All Campaigns</option>
+                <option value="Organic">Organic Campaign</option>
+                <option value="Paid">Paid Campaign</option>
+            `;
+        } else if (client === "Legrand") {
+            filterType.innerHTML = `
+                <option value="all">All Types</option>
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update</option>
+            `;
         } else {
-            if (!creativeFilterOpt) {
-                const opt = document.createElement("option");
-                opt.value = "Creative / Collateral";
-                opt.textContent = "Creative / Collateral";
-                filterType.appendChild(opt);
-            }
+            filterType.innerHTML = `
+                <option value="all">All Types</option>
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update</option>
+                <option value="Creative / Collateral">Creative / Collateral</option>
+            `;
         }
     }
 
     // 2. Task Drawer Type Dropdown
     const taskTypeSelect = document.getElementById("task-type");
     if (taskTypeSelect) {
-        const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
-        if (client === "Legrand") {
-            if (creativeDrawerOpt) {
-                creativeDrawerOpt.remove();
-            }
-            if (taskTypeSelect.value === "Creative / Collateral") {
-                taskTypeSelect.value = "Social Media";
-                taskTypeSelect.dispatchEvent(new Event('change'));
-            }
+        if (client === "iCode") {
+            taskTypeSelect.innerHTML = `
+                <option value="Organic">Organic Campaign</option>
+                <option value="Paid">Paid Campaign</option>
+            `;
         } else {
-            if (!creativeDrawerOpt) {
-                const opt = document.createElement("option");
-                opt.value = "Creative / Collateral";
-                opt.textContent = "Creative / Collateral (Ads, Magazines, Newsletter)";
-                taskTypeSelect.appendChild(opt);
+            taskTypeSelect.innerHTML = `
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update (Press Release / Media)</option>
+                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+            `;
+            if (client === "Legrand") {
+                const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
+                if (creativeDrawerOpt) creativeDrawerOpt.remove();
             }
         }
     }
@@ -826,6 +828,10 @@ async function updateStorageIndicator() {
 // Global Switch Client function
 function switchClient(client) {
     state.activeClient = client;
+    state.filters.type = "all";
+    const filterTypeEl = document.getElementById("filter-type");
+    if (filterTypeEl) filterTypeEl.value = "all";
+
     adjustClientSpecificOptions(client);
     
     // Update active dropdown item styles
@@ -839,8 +845,15 @@ function switchClient(client) {
     const sidebarLogo = document.getElementById("sidebar-logo");
     const sidebarTitle = document.getElementById("sidebar-title");
     
-    const logoSrc = client === "RVNL" ? "inputs/RVNL (R)logo_vector.png" : "inputs/ldcs logo.png";
-    const displayName = client === "RVNL" ? "RVNL" : "Legrand";
+    let logoSrc = "inputs/RVNL (R)logo_vector.png";
+    let displayName = "RVNL";
+    if (client === "Legrand") {
+        logoSrc = "inputs/ldcs logo.png";
+        displayName = "Legrand";
+    } else if (client === "iCode") {
+        logoSrc = "inputs/icode black.png";
+        displayName = "iCode";
+    }
     
     if (activeLogo) activeLogo.src = logoSrc;
     if (activeName) activeName.textContent = displayName;
@@ -1098,6 +1111,19 @@ function togglePRFormFields(type) {
     const subTypeGroupEl = subTypeSelect.closest('.form-group');
     if (subTypeGroupEl) subTypeGroupEl.classList.remove('hidden');
 
+    if (state.activeClient === "iCode") {
+        prFields.classList.add("hidden");
+        lblSubType.textContent = "Creative Format";
+        subTypeSelect.innerHTML = `
+            <option value="Social Media Post">Social Media Post</option>
+            <option value="Reel">Reel</option>
+            <option value="Video">Video</option>
+            <option value="Story">Story</option>
+            <option value="Other">Other</option>
+        `;
+        return;
+    }
+
     if (type === "PR Update") {
         prFields.classList.remove("hidden");
         lblSubType.textContent = "PR Category";
@@ -1180,7 +1206,13 @@ function openDrawer(taskId = null, prefillData = null) {
     document.getElementById("task-week").value = "Week 1";
     document.getElementById("task-status").value = "WIP";
     
-    togglePRFormFields("Social Media"); // default reset
+    if (state.activeClient === "iCode") {
+        document.getElementById("task-type").value = "Organic";
+        togglePRFormFields("Social Media");
+    } else {
+        document.getElementById("task-type").value = "Social Media";
+        togglePRFormFields("Social Media");
+    }
     toggleWipCommentFields("WIP"); // default status is WIP
 
     if (taskId) {
@@ -1188,8 +1220,13 @@ function openDrawer(taskId = null, prefillData = null) {
         const task = state.tasks.find(t => t.id === taskId);
         if (task) {
             document.getElementById("task-id").value = task.id;
-            document.getElementById("task-type").value = task.type;
-            togglePRFormFields(task.type);
+            if (task.client === "iCode") {
+                document.getElementById("task-type").value = task.campaignType || "Organic";
+                togglePRFormFields("Social Media");
+            } else {
+                document.getElementById("task-type").value = task.type;
+                togglePRFormFields(task.type);
+            }
             
             document.getElementById("task-sub-type").value = task.subType || "";
             document.getElementById("task-title").value = task.title || "";
@@ -1454,9 +1491,17 @@ function handleFormSubmit(e) {
         }
     }
 
+    let finalType = type;
+    let campaignType = "";
+    if (taskClient === "iCode") {
+        finalType = "Social Media";
+        campaignType = type; // "Organic" or "Paid"
+    }
+
     const taskData = {
         client: taskClient,
-        type,
+        type: finalType,
+        campaignType: campaignType,
         subType,
         title,
         status,
@@ -1602,28 +1647,52 @@ function renderTrendChart() {
     const labelColor = isDark ? "#9ca3af" : "#4b5563";
     const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
 
-    const datasets = [
-        {
-            label: 'Social Media',
-            data: smData,
-            backgroundColor: '#3b82f6',
-            borderRadius: 4
-        },
-        {
-            label: 'PR Activities',
-            data: prData,
-            backgroundColor: '#8b5cf6',
-            borderRadius: 4
-        }
-    ];
-
-    if (state.activeClient !== "Legrand") {
-        datasets.push({
-            label: 'Creative Collateral',
-            data: creativeData,
-            backgroundColor: '#f59e0b',
-            borderRadius: 4
+    let datasets = [];
+    if (state.activeClient === "iCode") {
+        const organicData = [];
+        const paidData = [];
+        months.forEach(m => {
+            organicData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Organic').length);
+            paidData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Paid').length);
         });
+        datasets = [
+            {
+                label: 'Organic Campaigns',
+                data: organicData,
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            },
+            {
+                label: 'Paid Campaigns',
+                data: paidData,
+                backgroundColor: '#ef4444',
+                borderRadius: 4
+            }
+        ];
+    } else {
+        datasets = [
+            {
+                label: 'Social Media',
+                data: smData,
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            },
+            {
+                label: 'PR Activities',
+                data: prData,
+                backgroundColor: '#8b5cf6',
+                borderRadius: 4
+            }
+        ];
+
+        if (state.activeClient !== "Legrand") {
+            datasets.push({
+                label: 'Creative Collateral',
+                data: creativeData,
+                backgroundColor: '#f59e0b',
+                borderRadius: 4
+            });
+        }
     }
 
     state.charts.trend = new Chart(ctx, {
@@ -1660,19 +1729,33 @@ function renderShareChart() {
     // Categories distribution
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
-    const categories = state.activeClient === "Legrand"
-        ? ['Social Media', 'PR Update']
-        : ['Social Media', 'PR Update', 'Creative / Collateral'];
-    const dataVals = state.activeClient === "Legrand"
-        ? [
+    let categories = [];
+    let dataVals = [];
+    let bgColors = [];
+    
+    if (state.activeClient === "iCode") {
+        categories = ['Organic Campaigns', 'Paid Campaigns'];
+        dataVals = [
+            clientTasks.filter(t => t.campaignType === 'Organic').length,
+            clientTasks.filter(t => t.campaignType === 'Paid').length
+        ];
+        bgColors = ['#3b82f6', '#ef4444'];
+    } else if (state.activeClient === "Legrand") {
+        categories = ['Social Media', 'PR Update'];
+        dataVals = [
             clientTasks.filter(t => t.type === 'Social Media').length,
             clientTasks.filter(t => t.type === 'PR Update').length
-          ]
-        : [
+        ];
+        bgColors = ['#10b981', '#8b5cf6'];
+    } else {
+        categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
+        dataVals = [
             clientTasks.filter(t => t.type === 'Social Media').length,
             clientTasks.filter(t => t.type === 'PR Update').length,
             clientTasks.filter(t => t.type === 'Creative / Collateral').length
-          ];
+        ];
+        bgColors = ['#10b981', '#8b5cf6', '#f59e0b'];
+    }
 
     if (state.charts.share) state.charts.share.destroy();
 
@@ -1685,9 +1768,7 @@ function renderShareChart() {
             labels: categories,
             datasets: [{
                 data: dataVals,
-                backgroundColor: state.activeClient === "Legrand"
-                    ? ['#10b981', '#8b5cf6']
-                    : ['#10b981', '#8b5cf6', '#f59e0b'],
+                backgroundColor: bgColors,
                 borderWidth: isDark ? 2 : 1,
                 borderColor: isDark ? '#121829' : '#ffffff'
             }]
@@ -1736,7 +1817,7 @@ function renderDashboardLists() {
                     </div>
                 </div>
                 <div class="item-right">
-                    <span class="badge badge-social">All Platforms</span>
+                    <span class="badge badge-social">${item.subType || 'All Platforms'}</span>
                 </div>
             `;
             completedList.appendChild(itemEl);
@@ -1797,7 +1878,12 @@ function renderTracker() {
             (task.publication && task.publication.toLowerCase().includes(state.filters.search));
 
         // Type filter
-        const matchesType = state.filters.type === 'all' || task.type === state.filters.type;
+        let matchesType = false;
+        if (state.activeClient === "iCode") {
+            matchesType = state.filters.type === 'all' || task.campaignType === state.filters.type;
+        } else {
+            matchesType = state.filters.type === 'all' || task.type === state.filters.type;
+        }
         
         // Month filter
         const matchesMonth = state.filters.month === 'all' || task.month === state.filters.month;
@@ -1864,7 +1950,13 @@ function renderTrackerTable() {
         
         // Type Badge
         let typeBadge = "";
-        if (task.type === "Social Media") {
+        if (state.activeClient === "iCode" || task.client === "iCode") {
+            if (task.campaignType === "Paid") {
+                typeBadge = `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-dollar-to-slot" style="color: var(--accent-red);"></i> Paid</span>`;
+            } else {
+                typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
+            }
+        } else if (task.type === "Social Media") {
             typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
         } else if (task.type === "PR Update") {
             typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
@@ -2031,9 +2123,21 @@ function renderTrackerKanban() {
         });
 
         // Tag label
+        // Tag label
         let tagColor = "var(--accent-blue)";
-        if (task.type === "PR Update") tagColor = "var(--accent-purple)";
-        if (task.type === "Creative / Collateral") tagColor = "var(--accent-amber)";
+        let tagLabel = task.subType || task.type;
+        if (state.activeClient === "iCode" || task.client === "iCode") {
+            if (task.campaignType === "Paid") {
+                tagColor = "var(--accent-red)";
+                tagLabel = task.subType ? `Paid: ${task.subType}` : "Paid Campaign";
+            } else {
+                tagColor = "var(--accent-blue)";
+                tagLabel = task.subType ? `Organic: ${task.subType}` : "Organic Campaign";
+            }
+        } else {
+            if (task.type === "PR Update") tagColor = "var(--accent-purple)";
+            if (task.type === "Creative / Collateral") tagColor = "var(--accent-amber)";
+        }
 
         // Links html quick view
         let linksQuick = "";
@@ -2069,7 +2173,7 @@ function renderTrackerKanban() {
 
         card.innerHTML = `
             ${kanbanCoverHtml}
-            <span class="card-tag" style="color:${tagColor};">${task.subType || task.type}</span>
+            <span class="card-tag" style="color:${tagColor};">${tagLabel}</span>
             <div class="card-title" style="font-weight: 600; margin-bottom: 8px;">${task.title}</div>
             ${kanbanCommentHtml}
             <div class="card-links-quick">${linksQuick}</div>
@@ -2137,20 +2241,30 @@ function generateReport() {
     const reportTitle = document.getElementById("report-client-title");
     const reportLogo = document.getElementById("report-client-logo");
     if (reportTitle) {
-        reportTitle.textContent = state.activeClient === "RVNL" 
-            ? "Rail Vikas Nigam Limited (RVNL)" 
-            : "Legrand Data Center Solutions (LDCS)";
+        if (state.activeClient === "RVNL") {
+            reportTitle.textContent = "Rail Vikas Nigam Limited (RVNL)";
+        } else if (state.activeClient === "Legrand") {
+            reportTitle.textContent = "Legrand Data Center Solutions (LDCS)";
+        } else if (state.activeClient === "iCode") {
+            reportTitle.textContent = "iCode";
+        }
     }
     if (reportLogo) {
-        reportLogo.src = state.activeClient === "RVNL" 
-            ? "inputs/RVNL logo.png" 
-            : "inputs/ldcs logo.png";
+        if (state.activeClient === "RVNL") {
+            reportLogo.src = "inputs/RVNL logo.png";
+        } else if (state.activeClient === "Legrand") {
+            reportLogo.src = "inputs/ldcs logo.png";
+        } else if (state.activeClient === "iCode") {
+            reportLogo.src = "inputs/icode black.png";
+        }
     }
 
     // Filter database for items in selected month and active client
     let reportItems = state.tasks.filter(t => t.month === selectedMonth && (t.client || "RVNL") === state.activeClient);
     if (state.activeClient === "Legrand") {
         reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
+    } else if (state.activeClient === "iCode") {
+        reportItems = reportItems.filter(t => t.type === "Social Media");
     }
 
     // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
@@ -2213,10 +2327,16 @@ function generateReport() {
     if (smTable) {
         const smThead = smTable.querySelector("thead");
         if (smThead) {
+            let platformHeader = "Platform";
+            let platformWidth = "90px";
+            if (state.activeClient === "iCode") {
+                platformHeader = "Campaign Type";
+                platformWidth = "120px";
+            }
             smThead.innerHTML = `
                 <tr>
                     <th style="width: 50px;">Sl.</th>
-                    <th style="width: 90px;">Platform</th>
+                    <th style="width: ${platformWidth};">${platformHeader}</th>
                     <th>Activity Details</th>
                     <th style="width: 140px;">Status / Date</th>
                     <th>Live Verification Link</th>
@@ -2294,9 +2414,17 @@ function generateReport() {
                      ${noPrintButtons}
                    </div>`;
 
+            let platformColHtml = `<i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms`;
+            if (state.activeClient === "iCode" || task.client === "iCode") {
+                const label = task.campaignType === "Paid" ? "Paid Campaign" : "Organic Campaign";
+                const color = task.campaignType === "Paid" ? "var(--accent-red)" : "var(--accent-blue)";
+                const icon = task.campaignType === "Paid" ? "fa-solid fa-circle-dollar-to-slot" : "fa-solid fa-share-nodes";
+                platformColHtml = `<span style="color:${color}; font-weight: 600;"><i class="${icon}"></i> ${label}</span>`;
+            }
+
             tr.innerHTML = `
                 <td style="text-align:center;">${idx + 1}</td>
-                <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
+                <td class="platform-name">${platformColHtml}</td>
                 <td>${activityDetailsHtml}</td>
                 <td>${timelineDisplay}</td>
                 <td>${verificationLink}</td>
@@ -2309,12 +2437,17 @@ function generateReport() {
     const prBody = document.getElementById("report-pr-table-body");
     prBody.innerHTML = "";
 
-    if (prItems.length === 0) {
-        document.getElementById("report-sec-pr").classList.add("no-print");
-        prBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#6b7280;">No PR media coverage items recorded.</td></tr>`;
+    const prSec = document.getElementById("report-sec-pr");
+    if (state.activeClient === "iCode") {
+        if (prSec) prSec.style.display = "none";
     } else {
-        document.getElementById("report-sec-pr").classList.remove("no-print");
-        prItems.forEach((task, idx) => {
+        if (prSec) prSec.style.display = "";
+        if (prItems.length === 0) {
+            if (prSec) prSec.classList.add("no-print");
+            prBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#6b7280;">No PR media coverage items recorded.</td></tr>`;
+        } else {
+            if (prSec) prSec.classList.remove("no-print");
+            prItems.forEach((task, idx) => {
             const tr = document.createElement("tr");
 
             // Inline Thumbnail block beside or below the title
@@ -2358,6 +2491,7 @@ function generateReport() {
             prBody.appendChild(tr);
         });
     }
+    }
 
     // RENDER CREATIVE COLLATERALS TABLE
     const creativeBody = document.getElementById("report-creative-table-body");
@@ -2365,7 +2499,7 @@ function generateReport() {
     if (creativeBody && creativeSec) {
         creativeBody.innerHTML = "";
 
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "iCode") {
             creativeSec.style.display = "none";
         } else {
             creativeSec.style.display = "";

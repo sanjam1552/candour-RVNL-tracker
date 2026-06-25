@@ -63,6 +63,10 @@
                         <img src="inputs/ldcs logo.png" alt="Legrand Logo" style="width: 20px; height: 20px; object-fit: contain;">
                         <span style="font-weight: 500;">Legrand</span>
                     </div>
+                    <div class="client-option" data-client="iCode" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
+                        <img src="inputs/icode black.png" alt="iCode Logo" style="width: 20px; height: 20px; object-fit: contain;">
+                        <span style="font-weight: 500;">iCode</span>
+                    </div>
                 </div>
             </div>
             <nav class="nav-links">
@@ -82,12 +86,13 @@
                     <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Daily Briefing</span>
                 </button>
             </nav>
-            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start; padding: 20px 20px;">
-                <div style="display: flex; flex-direction: column; gap: 0px; align-items: flex-start; width: 100%;">
-                    <img src="inputs/candour logo.png" alt="Candour Logo" style="width: 140px; height: auto; object-fit: contain;">
-                    <span style="font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading); margin-top: -12px; letter-spacing: 0.5px;">Candour Communications</span>
-                </div>
-                <div class="sync-status" id="sync-status-indicator" style="margin-top: 2px;">
+            <!-- Candour Logo (Above footer line) -->
+            <div style="padding: 15px 20px 0; display: flex; align-items: center; justify-content: flex-start; width: 100%; box-sizing: border-box;">
+                <img src="inputs/candour logo.png" alt="Candour Logo" style="width: 110px; height: auto; object-fit: contain; opacity: 0.8;">
+            </div>
+
+            <div class="sidebar-footer" style="padding: 15px 20px; display: flex; align-items: center; justify-content: flex-start; box-sizing: border-box;">
+                <div class="sync-status" id="sync-status-indicator">
                     <span class="sync-dot" id="sync-dot"></span>
                     <span id="sync-status-text">Connecting...</span>
                 </div>
