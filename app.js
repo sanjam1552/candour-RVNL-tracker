@@ -239,11 +239,40 @@ async function loadData() {
     }
 }
 
-// Initialize User Session with Firebase Google Authentication
+// Initialize User Session with Firebase Email Link (Passwordless) Authentication
 function initUserSession() {
     const overlay = document.getElementById("login-modal-overlay");
     const errorMsgEl = document.getElementById("login-error-msg");
+    const infoMsgEl = document.getElementById("login-info-msg");
     const displayNameEl = document.getElementById("user-display-name");
+
+    // Check if the current URL is a sign-in link
+    if (firebase.auth().isSignInWithEmailLink(window.location.href)) {
+        let email = window.localStorage.getItem('emailForSignIn');
+        if (!email) {
+            email = window.prompt('Please confirm your email address to complete sign in:');
+        }
+        if (email) {
+            if (infoMsgEl) {
+                infoMsgEl.textContent = "Verifying email link and logging in...";
+                infoMsgEl.style.display = "block";
+            }
+            firebase.auth().signInWithEmailLink(email, window.location.href)
+                .then(() => {
+                    window.localStorage.removeItem('emailForSignIn');
+                    // Clean up address bar URL
+                    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+                })
+                .catch((error) => {
+                    console.error("Error signing in with email link:", error);
+                    if (infoMsgEl) infoMsgEl.style.display = "none";
+                    if (errorMsgEl) {
+                        errorMsgEl.textContent = `Sign-in link failed or expired: ${error.message}`;
+                        errorMsgEl.style.display = "block";
+                    }
+                });
+        }
+    }
 
     firebase.auth().onAuthStateChanged((user) => {
         if (user) {
@@ -254,6 +283,7 @@ function initUserSession() {
                 if (displayNameEl) displayNameEl.textContent = state.currentUser;
                 if (overlay) overlay.style.display = "none";
                 if (errorMsgEl) errorMsgEl.style.display = "none";
+                if (infoMsgEl) infoMsgEl.style.display = "none";
             } else {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
@@ -846,21 +876,59 @@ function setupEventListeners() {
         });
     }
 
-    // User login event listeners
-    const googleLoginBtn = document.getElementById("google-login-btn");
-    if (googleLoginBtn) {
-        googleLoginBtn.addEventListener("click", () => {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            provider.setCustomParameters({ hd: "candour.co.in" });
-            
-            firebase.auth().signInWithPopup(provider).catch((err) => {
-                console.error("Sign-in error:", err);
-                const errorMsgEl = document.getElementById("login-error-msg");
+    // User login event listeners (Email Link passwordless sign-in)
+    const emailLoginForm = document.getElementById("email-login-form");
+    if (emailLoginForm) {
+        emailLoginForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById("login-email-input");
+            const email = emailInput.value.trim();
+            const errorMsgEl = document.getElementById("login-error-msg");
+            const infoMsgEl = document.getElementById("login-info-msg");
+            const submitBtn = document.getElementById("login-submit-btn");
+
+            if (!email.endsWith("@candour.co.in")) {
                 if (errorMsgEl) {
-                    errorMsgEl.textContent = "Authentication failed. Please try again.";
+                    errorMsgEl.textContent = "Access Denied: Only @candour.co.in email addresses are permitted.";
                     errorMsgEl.style.display = "block";
                 }
-            });
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
+
+            if (errorMsgEl) errorMsgEl.style.display = "none";
+            if (infoMsgEl) {
+                infoMsgEl.textContent = "Sending secure login link...";
+                infoMsgEl.style.color = "var(--accent-blue)";
+                infoMsgEl.style.display = "block";
+            }
+            if (submitBtn) submitBtn.disabled = true;
+
+            const actionCodeSettings = {
+                url: window.location.origin + window.location.pathname,
+                handleCodeInApp: true
+            };
+
+            firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+                .then(() => {
+                    // Save email locally to avoid asking on same device
+                    window.localStorage.setItem('emailForSignIn', email);
+                    if (infoMsgEl) {
+                        infoMsgEl.textContent = `Success! A login link has been sent to ${email}. Please check your inbox (and spam folder) and click the link to sign in.`;
+                        infoMsgEl.style.color = "var(--accent-blue)";
+                    }
+                    if (submitBtn) submitBtn.disabled = false;
+                    emailInput.value = "";
+                })
+                .catch((error) => {
+                    console.error("Error sending email link:", error);
+                    if (infoMsgEl) infoMsgEl.style.display = "none";
+                    if (errorMsgEl) {
+                        errorMsgEl.textContent = `Failed to send link: ${error.message}`;
+                        errorMsgEl.style.display = "block";
+                    }
+                    if (submitBtn) submitBtn.disabled = false;
+                });
         });
     }
 
