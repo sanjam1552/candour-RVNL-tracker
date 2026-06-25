@@ -624,9 +624,57 @@ function setupEventListeners() {
     updateApiKeyStatus();
 }
 
+// Adjust UI dropdown options dynamically based on client capabilities
+function adjustClientSpecificOptions(client) {
+    // 1. Task Type Filter Dropdown
+    const filterType = document.getElementById("filter-type");
+    if (filterType) {
+        const creativeFilterOpt = filterType.querySelector('option[value="Creative / Collateral"]');
+        if (client === "Legrand") {
+            if (creativeFilterOpt) {
+                creativeFilterOpt.remove();
+            }
+            if (filterType.value === "Creative / Collateral") {
+                filterType.value = "all";
+                filterType.dispatchEvent(new Event('change'));
+            }
+        } else {
+            if (!creativeFilterOpt) {
+                const opt = document.createElement("option");
+                opt.value = "Creative / Collateral";
+                opt.textContent = "Creative / Collateral";
+                filterType.appendChild(opt);
+            }
+        }
+    }
+
+    // 2. Task Drawer Type Dropdown
+    const taskTypeSelect = document.getElementById("task-type");
+    if (taskTypeSelect) {
+        const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
+        if (client === "Legrand") {
+            if (creativeDrawerOpt) {
+                creativeDrawerOpt.remove();
+            }
+            if (taskTypeSelect.value === "Creative / Collateral") {
+                taskTypeSelect.value = "Social Media";
+                taskTypeSelect.dispatchEvent(new Event('change'));
+            }
+        } else {
+            if (!creativeDrawerOpt) {
+                const opt = document.createElement("option");
+                opt.value = "Creative / Collateral";
+                opt.textContent = "Creative / Collateral (Ads, Magazines, Newsletter)";
+                taskTypeSelect.appendChild(opt);
+            }
+        }
+    }
+}
+
 // Global Switch Client function
 function switchClient(client) {
     state.activeClient = client;
+    adjustClientSpecificOptions(client);
     
     // Update active dropdown item styles
     document.querySelectorAll(".client-option").forEach(opt => {
@@ -829,8 +877,6 @@ function openDrawer(taskId = null, prefillData = null) {
             document.getElementById("task-canva-link").value = task.canvaLink || "";
             document.getElementById("task-live-link").value = task.liveLink || "";
             document.getElementById("task-remarks").value = task.remarks || "";
-            document.getElementById("task-impressions").value = task.impressions || "";
-            document.getElementById("task-engagement").value = task.engagement || "";
             
             if (wipWhoInput) wipWhoInput.value = task.wipWho || "";
             if (wipWhyInput) wipWhyInput.value = task.wipWhy || "";
@@ -979,8 +1025,8 @@ function handleFormSubmit(e) {
     const canvaLink = document.getElementById("task-canva-link").value;
     const liveLink = document.getElementById("task-live-link").value;
     const remarks = document.getElementById("task-remarks").value;
-    const impressions = document.getElementById("task-impressions").value;
-    const engagement = document.getElementById("task-engagement").value;
+    const impressions = "";
+    const engagement = "";
     
     // WIP comment fields
     const wipWho = (status === "WIP" || status === "Sent for internal approval") ? (document.getElementById("task-wip-who") ? document.getElementById("task-wip-who").value.trim() : "") : "";
@@ -1136,30 +1182,35 @@ function renderTrendChart() {
     const labelColor = isDark ? "#9ca3af" : "#4b5563";
     const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
 
+    const datasets = [
+        {
+            label: 'Social Media',
+            data: smData,
+            backgroundColor: '#3b82f6',
+            borderRadius: 4
+        },
+        {
+            label: 'PR Activities',
+            data: prData,
+            backgroundColor: '#8b5cf6',
+            borderRadius: 4
+        }
+    ];
+
+    if (state.activeClient !== "Legrand") {
+        datasets.push({
+            label: 'Creative Collateral',
+            data: creativeData,
+            backgroundColor: '#f59e0b',
+            borderRadius: 4
+        });
+    }
+
     state.charts.trend = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ["May 2026", "June 2026", "July 2026"],
-            datasets: [
-                {
-                    label: 'Social Media',
-                    data: smData,
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4
-                },
-                {
-                    label: 'PR Activities',
-                    data: prData,
-                    backgroundColor: '#8b5cf6',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Creative Collateral',
-                    data: creativeData,
-                    backgroundColor: '#f59e0b',
-                    borderRadius: 4
-                }
-            ]
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -1189,12 +1240,19 @@ function renderShareChart() {
     // Categories distribution
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
-    const categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
-    const dataVals = [
-        clientTasks.filter(t => t.type === 'Social Media').length,
-        clientTasks.filter(t => t.type === 'PR Update').length,
-        clientTasks.filter(t => t.type === 'Creative / Collateral').length
-    ];
+    const categories = state.activeClient === "Legrand"
+        ? ['Social Media', 'PR Update']
+        : ['Social Media', 'PR Update', 'Creative / Collateral'];
+    const dataVals = state.activeClient === "Legrand"
+        ? [
+            clientTasks.filter(t => t.type === 'Social Media').length,
+            clientTasks.filter(t => t.type === 'PR Update').length
+          ]
+        : [
+            clientTasks.filter(t => t.type === 'Social Media').length,
+            clientTasks.filter(t => t.type === 'PR Update').length,
+            clientTasks.filter(t => t.type === 'Creative / Collateral').length
+          ];
 
     if (state.charts.share) state.charts.share.destroy();
 
@@ -1207,7 +1265,9 @@ function renderShareChart() {
             labels: categories,
             datasets: [{
                 data: dataVals,
-                backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b'],
+                backgroundColor: state.activeClient === "Legrand"
+                    ? ['#10b981', '#8b5cf6']
+                    : ['#10b981', '#8b5cf6', '#f59e0b'],
                 borderWidth: isDark ? 2 : 1,
                 borderColor: isDark ? '#121829' : '#ffffff'
             }]
@@ -1669,6 +1729,9 @@ function generateReport() {
 
     // Filter database for items in selected month and active client
     let reportItems = state.tasks.filter(t => t.month === selectedMonth && (t.client || "RVNL") === state.activeClient);
+    if (state.activeClient === "Legrand") {
+        reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
+    }
 
     // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
     if (periodType === "monthly") {
@@ -1710,7 +1773,18 @@ function generateReport() {
     document.getElementById("rep-stat-total").textContent = reportItems.length;
     document.getElementById("rep-stat-sm").textContent = smItems.length;
     document.getElementById("rep-stat-pr").textContent = prItems.length;
-    document.getElementById("rep-stat-collateral").textContent = creativeItems.length;    // RENDER SOCIAL MEDIA TABLE
+    document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+
+    const collateralBox = document.getElementById("rep-stat-collateral-box");
+    if (collateralBox) {
+        if (state.activeClient === "Legrand") {
+            collateralBox.style.display = "none";
+        } else {
+            collateralBox.style.display = "";
+        }
+    }
+
+    // RENDER SOCIAL MEDIA TABLE
     const smBody = document.getElementById("report-social-table-body");
     smBody.innerHTML = "";
     
@@ -1719,34 +1793,21 @@ function generateReport() {
     if (smTable) {
         const smThead = smTable.querySelector("thead");
         if (smThead) {
-            if (periodType === "weekly") {
-                smThead.innerHTML = `
-                    <tr>
-                        <th style="width: 50px;">Sl.</th>
-                        <th style="width: 90px;">Platform</th>
-                        <th>Activity Details</th>
-                        <th style="width: 140px;">Status / Date</th>
-                        <th>Live Verification Link</th>
-                    </tr>
-                `;
-            } else {
-                smThead.innerHTML = `
-                    <tr>
-                        <th style="width: 50px;">Sl.</th>
-                        <th style="width: 90px;">Platform</th>
-                        <th>Activity Details</th>
-                        <th style="width: 140px;">Status / Date</th>
-                        <th style="width: 130px;">Metrics</th>
-                        <th>Live Verification Link</th>
-                    </tr>
-                `;
-            }
+            smThead.innerHTML = `
+                <tr>
+                    <th style="width: 50px;">Sl.</th>
+                    <th style="width: 90px;">Platform</th>
+                    <th>Activity Details</th>
+                    <th style="width: 140px;">Status / Date</th>
+                    <th>Live Verification Link</th>
+                </tr>
+            `;
         }
     }
     
     if (smItems.length === 0) {
         document.getElementById("report-sec-social").classList.add("no-print");
-        const colspanVal = periodType === "weekly" ? 5 : 6;
+        const colspanVal = 5;
         smBody.innerHTML = `<tr><td colspan="${colspanVal}" style="text-align:center; padding:15px; color:#6b7280;">No social media activities recorded in this timeframe.</td></tr>`;
     } else {
         document.getElementById("report-sec-social").classList.remove("no-print");
@@ -1813,36 +1874,13 @@ function generateReport() {
                      ${noPrintButtons}
                    </div>`;
 
-            // Metrics Display
-            let metricsDisplay = "-";
-            if (task.impressions || task.engagement) {
-                metricsDisplay = `
-                    <div style="font-size: 11px; line-height: 1.4;">
-                        ${task.impressions ? `<strong>Imps:</strong> ${Number(task.impressions).toLocaleString()}` : ''}
-                        ${task.impressions && task.engagement ? '<br>' : ''}
-                        ${task.engagement ? `<strong>Eng:</strong> ${Number(task.engagement).toLocaleString()}` : ''}
-                    </div>
-                `;
-            }
-
-            if (periodType === "weekly") {
-                tr.innerHTML = `
-                    <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
-                    <td>${activityDetailsHtml}</td>
-                    <td>${timelineDisplay}</td>
-                    <td>${verificationLink}</td>
-                `;
-            } else {
-                tr.innerHTML = `
-                    <td style="text-align:center;">${idx + 1}</td>
-                    <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
-                    <td>${activityDetailsHtml}</td>
-                    <td>${timelineDisplay}</td>
-                    <td>${metricsDisplay}</td>
-                    <td>${verificationLink}</td>
-                `;
-            }
+            tr.innerHTML = `
+                <td style="text-align:center;">${idx + 1}</td>
+                <td class="platform-name"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms</td>
+                <td>${activityDetailsHtml}</td>
+                <td>${timelineDisplay}</td>
+                <td>${verificationLink}</td>
+            `;
             smBody.appendChild(tr);
         });
     }
@@ -1903,16 +1941,21 @@ function generateReport() {
 
     // RENDER CREATIVE COLLATERALS TABLE
     const creativeBody = document.getElementById("report-creative-table-body");
-    if (creativeBody) {
+    const creativeSec = document.getElementById("report-sec-creative");
+    if (creativeBody && creativeSec) {
         creativeBody.innerHTML = "";
 
-        if (creativeItems.length === 0) {
-            document.getElementById("report-sec-creative").classList.add("no-print");
-            creativeBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No creative collaterals recorded.</td></tr>`;
+        if (state.activeClient === "Legrand") {
+            creativeSec.style.display = "none";
         } else {
-            document.getElementById("report-sec-creative").classList.remove("no-print");
-            creativeItems.forEach((task, idx) => {
-                const tr = document.createElement("tr");
+            creativeSec.style.display = "";
+            if (creativeItems.length === 0) {
+                creativeSec.classList.add("no-print");
+                creativeBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No creative collaterals recorded.</td></tr>`;
+            } else {
+                creativeSec.classList.remove("no-print");
+                creativeItems.forEach((task, idx) => {
+                    const tr = document.createElement("tr");
                 
                 // Format status badge or remarks
                 let statusDisplay = task.status || "Completed";
@@ -1973,6 +2016,7 @@ function generateReport() {
             });
         }
     }
+}
 
     // Attach click listeners to all add thumbnail and autopull buttons globally
     document.querySelectorAll(".btn-add-report-clipping").forEach(btn => {
@@ -2173,16 +2217,28 @@ async function handleAiNarrativeGeneration() {
     statusEl.textContent = "⚡ Gemini is writing narrative executive summary...";
     
     try {
+        const clientFullName = state.activeClient === "RVNL"
+            ? "Rail Vikas Nigam Limited (RVNL)"
+            : "Legrand Data Center Solutions (LDCS)";
+
+        const summaryHighlights = state.activeClient === "Legrand"
+            ? "overall output, key social milestones, and press/PR coverages"
+            : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
+
+        let creativeMetricsPrompt = "";
+        if (state.activeClient !== "Legrand") {
+            creativeMetricsPrompt = `\n- Creative Collaterals: ${repCollateral} (Titles: ${clippingsTitles.slice(0, 10).join(", ")})`;
+        }
+
         const prompt = `
 You are a senior PR director partner at Candour Communications.
-Draft a professional, executive summary narrative paragraph (3-4 sentences, max 100 words) for our client Rail Vikas Nigam Limited (RVNL) summarizing the work done in the report period "${periodText}".
-The summary should highlight the overall output, key social milestones, press/PR coverages, and collaterals delivered, with a positive, business-driven corporate tone.
+Draft a professional, executive summary narrative paragraph (3-4 sentences, max 100 words) for our client ${clientFullName} summarizing the work done in the report period "${periodText}".
+The summary should highlight the ${summaryHighlights}, with a positive, business-driven corporate tone.
 
 Report metrics:
 - Total Activities: ${repTotal}
 - Social Media Posts: ${repSm} (Titles: ${smTitles.slice(0, 10).join(", ")})
-- PR Coverage Items: ${repPr} (Titles: ${prTitles.slice(0, 10).join(", ")})
-- Creative Collaterals: ${repCollateral} (Titles: ${clippingsTitles.slice(0, 10).join(", ")})
+- PR Coverage Items: ${repPr} (Titles: ${prTitles.slice(0, 10).join(", ")})${creativeMetricsPrompt}
 
 Write ONLY the final paragraph. Do not write any greetings or explanations.
 `;
