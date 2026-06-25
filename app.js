@@ -295,12 +295,14 @@ function initUserSession() {
                         errorMsgEl.textContent = `Access Denied: ${email} is unauthorized. Use a @candour.co.in account.`;
                         errorMsgEl.style.display = "block";
                     }
+                    hidePreloader();
                 });
             }
         } else {
             state.currentUser = "";
             if (displayNameEl) displayNameEl.textContent = "...";
             if (overlay) overlay.style.display = "flex";
+            hidePreloader();
         }
     });
 }
