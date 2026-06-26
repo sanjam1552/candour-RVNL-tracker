@@ -2071,8 +2071,29 @@ function updateDashboard() {
 function renderTrendChart() {
     const ctx = document.getElementById('outputTrendChart').getContext('2d');
     
-    // Group tasks by Month for Social Media and PR
-    const months = ["May 2026", "June 2026", "July 2026"];
+    // Dynamically calculate the previous, current, and next months centering around the selected month
+    const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+    const parts = selectedMonth.split(" ");
+    const monthName = parts[0];
+    const year = parseInt(parts[1], 10) || new Date().getFullYear();
+    
+    const monthsMap = {
+        "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
+        "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
+    };
+    const monthNum = monthsMap[monthName] !== undefined ? monthsMap[monthName] : new Date().getMonth();
+    
+    const prevDate = new Date(year, monthNum - 1, 1);
+    const nextDate = new Date(year, monthNum + 1, 1);
+    const currDate = new Date(year, monthNum, 1);
+    
+    const formatOptions = { month: 'long', year: 'numeric' };
+    const months = [
+        prevDate.toLocaleDateString('en-US', formatOptions),
+        currDate.toLocaleDateString('en-US', formatOptions),
+        nextDate.toLocaleDateString('en-US', formatOptions)
+    ];
+
     const smData = [];
     const prData = [];
     const creativeData = [];
@@ -2142,7 +2163,7 @@ function renderTrendChart() {
     state.charts.trend = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ["May 2026", "June 2026", "July 2026"],
+            labels: months,
             datasets: datasets
         },
         options: {
