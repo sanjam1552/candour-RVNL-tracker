@@ -677,6 +677,28 @@ function setupEventListeners() {
     }
     document.getElementById("clear-filters-btn").addEventListener("click", resetFilters);
 
+    // Handle pasting images from clipboard inside the drawer
+    document.addEventListener("paste", (e) => {
+        const overlay = document.getElementById("task-drawer-overlay");
+        if (overlay && overlay.classList.contains("active")) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (const item of items) {
+                if (item.type.indexOf("image") === 0) {
+                    const file = item.getAsFile();
+                    if (file) {
+                        const name = `clipboard_screenshot_${Date.now()}.jpg`;
+                        const clipboardFile = new File([file], name, { type: file.type });
+                        const localURL = URL.createObjectURL(clipboardFile);
+                        showImagePreview(localURL);
+                        state.pendingImageFile = clipboardFile;
+                        e.preventDefault();
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
     // 5.5 Clickable Stat Cards to jump to Unified Tracker
     document.querySelectorAll(".stat-card-clickable").forEach(card => {
         card.addEventListener("click", () => {
@@ -2155,28 +2177,40 @@ function renderShareChart() {
     let dataVals = [];
     let bgColors = [];
     
+    const titleEl = document.getElementById("share-chart-title");
+    const subTitleEl = document.getElementById("share-chart-subtitle");
+
     if (state.activeClient === "iCode") {
-        categories = ['Organic Campaigns', 'Paid Campaigns'];
+        if (titleEl) titleEl.textContent = "Center Share";
+        if (subTitleEl) subTitleEl.textContent = "Distribution by centers";
+        
+        categories = ['Plano', 'Murphy', 'Redmond'];
         dataVals = [
-            clientTasks.filter(t => t.campaignType === 'Organic').length,
-            clientTasks.filter(t => t.campaignType === 'Paid').length
+            clientTasks.filter(t => t.centers && t.centers.includes('Plano')).length,
+            clientTasks.filter(t => t.centers && t.centers.includes('Murphy')).length,
+            clientTasks.filter(t => t.centers && t.centers.includes('Redmond')).length
         ];
-        bgColors = ['#3b82f6', '#ef4444'];
-    } else if (state.activeClient === "Legrand") {
-        categories = ['Social Media', 'PR Update'];
-        dataVals = [
-            clientTasks.filter(t => t.type === 'Social Media').length,
-            clientTasks.filter(t => t.type === 'PR Update').length
-        ];
-        bgColors = ['#10b981', '#8b5cf6'];
+        bgColors = ['#3b82f6', '#f59e0b', '#ef4444'];
     } else {
-        categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
-        dataVals = [
-            clientTasks.filter(t => t.type === 'Social Media').length,
-            clientTasks.filter(t => t.type === 'PR Update').length,
-            clientTasks.filter(t => t.type === 'Creative / Collateral').length
-        ];
-        bgColors = ['#10b981', '#8b5cf6', '#f59e0b'];
+        if (titleEl) titleEl.textContent = "Category Share";
+        if (subTitleEl) subTitleEl.textContent = "Distribution of assets";
+        
+        if (state.activeClient === "Legrand") {
+            categories = ['Social Media', 'PR Update'];
+            dataVals = [
+                clientTasks.filter(t => t.type === 'Social Media').length,
+                clientTasks.filter(t => t.type === 'PR Update').length
+            ];
+            bgColors = ['#10b981', '#8b5cf6'];
+        } else {
+            categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
+            dataVals = [
+                clientTasks.filter(t => t.type === 'Social Media').length,
+                clientTasks.filter(t => t.type === 'PR Update').length,
+                clientTasks.filter(t => t.type === 'Creative / Collateral').length
+            ];
+            bgColors = ['#10b981', '#8b5cf6', '#f59e0b'];
+        }
     }
 
     if (state.charts.share) state.charts.share.destroy();
