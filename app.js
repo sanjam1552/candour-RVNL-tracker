@@ -175,6 +175,9 @@ async function loadData() {
             if (!task.client) {
                 task.client = "RVNL";
             }
+            if (task.image && task.image.startsWith("blob:")) {
+                task.image = "";
+            }
             if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
             else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
             else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
@@ -422,9 +425,18 @@ function renderActivityLogs() {
 async function saveData() {
     setSyncStatus('saving');
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+    
+    // Clean up temporary blob URLs before persisting to database
+    const tasksToSave = state.tasks.map(task => {
+        if (task.image && task.image.startsWith("blob:")) {
+            return { ...task, image: "" };
+        }
+        return task;
+    });
+
     try {
         await docRef.set({
-            tasks: state.tasks,
+            tasks: tasksToSave,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         });
         setSyncStatus('synced');
@@ -432,7 +444,7 @@ async function saveData() {
         console.error('Firestore save error:', err);
         setSyncStatus('offline');
         // Fallback: keep a local copy so no data is lost
-        localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
+        localStorage.setItem('rvnl_tracker_data', JSON.stringify(tasksToSave));
     }
     updateStorageIndicator();
 }
@@ -1641,6 +1653,11 @@ async function uploadImageInBackground(fileObject, taskId) {
         }
     } catch (err) {
         console.error(`Background upload failed for task ${taskId}:`, err);
+        const task = state.tasks.find(t => t.id === taskId);
+        if (task && task.image && task.image.startsWith("blob:")) {
+            task.image = "";
+            renderTracker();
+        }
     }
 }
 
@@ -1818,7 +1835,7 @@ function handleFormSubmit(e) {
 
     // Trigger background upload so UI remains instant
     if (fileToUpload) {
-        uploadImageInBackground(fileToUpload, taskData.id);
+        uploadImageInBackground(fileToUpload, id || taskData.id);
     }
 }
 
