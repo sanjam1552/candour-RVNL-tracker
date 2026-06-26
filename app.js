@@ -22,6 +22,7 @@ const state = {
         month: getCurrentMonthStr(),
         status: 'all',
         owner: 'all',
+        center: 'all',
         search: ''
     },
     charts: {
@@ -666,6 +667,14 @@ function setupEventListeners() {
         state.currentPage = 1;
         renderTracker();
     });
+    const filterCenterEl = document.getElementById("filter-center");
+    if (filterCenterEl) {
+        filterCenterEl.addEventListener("change", (e) => {
+            state.filters.center = e.target.value;
+            state.currentPage = 1;
+            renderTracker();
+        });
+    }
     document.getElementById("clear-filters-btn").addEventListener("click", resetFilters);
 
     // 5.5 Clickable Stat Cards to jump to Unified Tracker
@@ -1169,8 +1178,21 @@ async function cleanupOrphanedImages() {
 function switchClient(client) {
     state.activeClient = client;
     state.filters.type = "all";
+    state.filters.center = "all";
     const filterTypeEl = document.getElementById("filter-type");
     if (filterTypeEl) filterTypeEl.value = "all";
+    const filterCenterEl = document.getElementById("filter-center");
+    if (filterCenterEl) filterCenterEl.value = "all";
+
+    // Toggle center filter visibility
+    const filterCenterGroup = document.getElementById("filter-center-group");
+    if (filterCenterGroup) {
+        if (client === "iCode") {
+            filterCenterGroup.classList.remove("hidden");
+        } else {
+            filterCenterGroup.classList.add("hidden");
+        }
+    }
 
     adjustClientSpecificOptions(client);
     
@@ -1225,6 +1247,8 @@ function resetFilters() {
     document.getElementById("filter-month").value = currentMonth;
     document.getElementById("filter-status").value = "all";
     document.getElementById("filter-owner").value = "all";
+    const filterCenterEl = document.getElementById("filter-center");
+    if (filterCenterEl) filterCenterEl.value = "all";
     document.getElementById("global-search").value = "";
     
     state.filters = {
@@ -1232,6 +1256,7 @@ function resetFilters() {
         month: currentMonth,
         status: 'all',
         owner: 'all',
+        center: 'all',
         search: ''
     };
     state.currentPage = 1;
@@ -1957,7 +1982,12 @@ function deleteTask(id) {
 function duplicateTask(id) {
     const task = state.tasks.find(t => t.id === id);
     if (task) {
-        const copy = { ...task, id: generateUUID(), title: `${task.title} (Copy)` };
+        const copy = { 
+            ...task, 
+            id: generateUUID(), 
+            title: `${task.title} (Copy)`,
+            centers: task.centers ? [...task.centers] : []
+        };
         state.tasks.unshift(copy);
         saveData();
         populateMonthDropdowns();
@@ -2262,7 +2292,13 @@ function renderTracker() {
         // Owner filter
         const matchesOwner = state.filters.owner === 'all' || task.owner === state.filters.owner;
 
-        return matchesSearch && matchesType && matchesMonth && matchesStatus && matchesOwner && matchesClient;
+        // Center filter (iCode only)
+        let matchesCenter = true;
+        if (state.activeClient === "iCode" && state.filters.center && state.filters.center !== 'all') {
+            matchesCenter = task.centers && task.centers.includes(state.filters.center);
+        }
+
+        return matchesSearch && matchesType && matchesMonth && matchesStatus && matchesOwner && matchesClient && matchesCenter;
     });
 
     // Sort tracker items by status priority
