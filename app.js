@@ -1036,6 +1036,17 @@ function adjustClientSpecificOptions(client) {
         }
     }
 }
+    // Helper to recursively list all files in Firebase Storage
+async function listAllFilesRecursively(ref) {
+    const listResult = await ref.listAll();
+    let files = [...listResult.items];
+    const subDirPromises = listResult.prefixes.map(async (prefixRef) => {
+        const subFiles = await listAllFilesRecursively(prefixRef);
+        files = files.concat(subFiles);
+    });
+    await Promise.all(subDirPromises);
+    return files;
+}
 
 // Calculate and update the storage limit capacity progress indicator
 async function updateStorageIndicator() {
@@ -1047,14 +1058,14 @@ async function updateStorageIndicator() {
         try {
             // Stringify tasks state to approximate Firestore UTF-8 bytes payload size
             const payload = JSON.stringify({ tasks: state.tasks });
-            const sizeBytes = new Blob([payload]).size;
-            const sizeKB = (sizeBytes / 1024).toFixed(1);
-            const limitKB = 1024; // 1 MiB limit
-            const percentage = Math.min((sizeBytes / (limitKB * 1024)) * 100, 100).toFixed(1);
-            
+            const totalSizeBytes = new Blob([payload]).size;
+            const sizeKB = (totalSizeBytes / 1024).toFixed(2);
+            const limitKB = 1024; // 1 MB limit in Firestore for single document payload
+            const percentage = Math.min((totalSizeBytes / (limitKB * 1024)) * 100, 100).toFixed(2);
+
             fillEl.style.width = `${percentage}%`;
-            usageEl.textContent = `${sizeKB} KB of ${limitKB} KB used (${percentage}%)`;
-            
+            usageEl.textContent = `${sizeKB} KB of 1024 KB used (${percentage}%)`;
+
             if (percentage < 60) {
                 fillEl.style.backgroundColor = "var(--accent-green)";
                 statusEl.textContent = "Safe";
@@ -1080,12 +1091,12 @@ async function updateStorageIndicator() {
 
     if (fFillEl && fUsageEl && fStatusEl) {
         try {
-            // Fetch list of files from Storage task_images folder
+            // Fetch list of files from Storage task_images folder recursively
             const storageRef = firebase.storage().ref().child('task_images');
-            const listResult = await storageRef.listAll();
+            const allFiles = await listAllFilesRecursively(storageRef);
             
             let totalSizeBytes = 0;
-            const metadataPromises = listResult.items.map(async (itemRef) => {
+            const metadataPromises = allFiles.map(async (itemRef) => {
                 const metadata = await itemRef.getMetadata();
                 totalSizeBytes += metadata.size;
             });
@@ -1136,7 +1147,7 @@ async function cleanupOrphanedImages() {
     
     try {
         const storageRef = firebase.storage().ref().child('task_images');
-        const listResult = await storageRef.listAll();
+        const allFiles = await listAllFilesRecursively(storageRef);
         
         // Collect all currently referenced images
         const activeImages = new Set(
@@ -1146,7 +1157,7 @@ async function cleanupOrphanedImages() {
         );
         
         let deletedCount = 0;
-        const deletePromises = listResult.items.map(async (itemRef) => {
+        const deletePromises = allFiles.map(async (itemRef) => {
             try {
                 const downloadURL = await itemRef.getDownloadURL();
                 if (!activeImages.has(downloadURL)) {
@@ -1707,16 +1718,23 @@ function dataURLtoBlob(dataurl) {
 }
 
 // Compress and upload a file directly to Firebase Cloud Storage, then return its public download URL
-function uploadImageToStorage(fileObject) {
+function uploadImageToStorage(fileObject, client = "General", taskTitle = "") {
     return new Promise((resolve, reject) => {
         // Compress the image to max 800x800 resolution at 0.7 quality (crisp but small size)
         compressImage(fileObject, 800, 800, 0.7, async function(compressedBase64) {
             try {
                 const compressedBlob = dataURLtoBlob(compressedBase64);
-                // Ensure extension is .jpg since we compress to JPEG
-                const baseName = fileObject.name.replace(/\.[^/.]+$/, "");
-                const uniqueFilename = `${Date.now()}_${baseName}.jpg`;
-                const storageRef = firebase.storage().ref().child(`task_images/${uniqueFilename}`);
+                
+                // Sanitize the task title for filename
+                const cleanTitle = (taskTitle || "unnamed_task")
+                    .trim()
+                    .replace(/[^a-zA-Z0-9\s-_]/g, '') // remove special characters
+                    .replace(/\s+/g, '_');             // replace spaces with underscores
+                
+                const clientFolder = (client || "General").trim();
+                const uniqueFilename = `${cleanTitle}_${Date.now()}.jpg`;
+                
+                const storageRef = firebase.storage().ref().child(`task_images/${clientFolder}/${uniqueFilename}`);
                 const snapshot = await storageRef.put(compressedBlob);
                 const downloadURL = await snapshot.ref.getDownloadURL();
                 resolve(downloadURL);
@@ -1745,15 +1763,21 @@ async function deleteImageFromStorage(imageUrl) {
 async function uploadImageInBackground(fileObject, taskId) {
     try {
         console.log(`Starting background upload for task ${taskId}...`);
-        const downloadURL = await uploadImageToStorage(fileObject);
         
-        // Find task and replace its temporary local URL with the public storage URL
+        // Find task to get client and title info for folder grouping and file naming
         const task = state.tasks.find(t => t.id === taskId);
-        if (task) {
-            task.image = downloadURL;
+        const client = task ? task.client : state.activeClient;
+        const title = task ? task.title : "";
+        
+        const downloadURL = await uploadImageToStorage(fileObject, client, title);
+        
+        // Refind task and replace its temporary local URL with the public storage URL
+        const freshTask = state.tasks.find(t => t.id === taskId);
+        if (freshTask) {
+            freshTask.image = downloadURL;
             await saveData();
             renderTracker();
-            console.log(`Background upload succeeded for task: ${task.title}`);
+            console.log(`Background upload succeeded for task: ${freshTask.title}`);
         }
     } catch (err) {
         console.error(`Background upload failed for task ${taskId}:`, err);
