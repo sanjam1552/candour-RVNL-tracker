@@ -70,10 +70,84 @@ document.addEventListener("DOMContentLoaded", () => {
     if (filterMonthEl) filterMonthEl.value = currentMonth;
     const reportMonthEl = document.getElementById("report-month");
     if (reportMonthEl) reportMonthEl.value = currentMonth;
-    const dashboardMonthEl = document.getElementById("dashboard-month");
-    // Removed loadData() call from here. It is now called inside initUserSession()
-    // once user authentication state is resolved and domain is verified.
+    // Initialize hero background waves animation
+    initHeroCanvas();
 });
+
+// Generative background wave lines animation inside dashboard hero banner
+function initHeroCanvas() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+
+    function resize() {
+        const rect = canvas.parentNode.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    let offset = 0;
+    function draw() {
+        // Dynamic dimension check to handle initial container load timing issues
+        const rect = canvas.parentNode.getBoundingClientRect();
+        if (canvas.width !== rect.width || canvas.height !== rect.height) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (canvas.width === 0 || canvas.height === 0) {
+            animationFrameId = requestAnimationFrame(draw);
+            return;
+        }
+
+        const linesCount = 15; // Parallel mesh ribbon lines
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        ctx.lineWidth = 1.1;
+        
+        for (let i = 0; i < linesCount; i++) {
+            ctx.beginPath();
+            
+            // Phase and amplitude calculations for organic movement
+            const phase = offset + (i * 0.06);
+            const amplitude = 32 + Math.sin(offset * 0.3 + i * 0.18) * 15;
+            const yCenter = height / 2 + Math.sin(offset * 0.12 + i * 0.06) * 10;
+            
+            // Pronounced opacity values starting at 0.15 up to 0.38 for maximum visibility
+            const lineOpacity = 0.14 + (i * 0.016);
+            const grad = ctx.createLinearGradient(0, 0, width, 0);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            grad.addColorStop(0.18, `rgba(255, 255, 255, ${lineOpacity})`);
+            grad.addColorStop(0.82, `rgba(255, 255, 255, ${lineOpacity})`);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.strokeStyle = grad;
+            
+            for (let x = 0; x <= width; x += 6) {
+                const angle = (x / width) * Math.PI * 2 * 0.95 + phase;
+                const y = yCenter + Math.sin(angle) * amplitude + Math.cos(angle * 0.45) * (amplitude * 0.35);
+                
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+        
+        offset += 0.0025; // Elegant, slow-flowing wave movement
+        animationFrameId = requestAnimationFrame(draw);
+    }
+
+    draw();
+}
 // ====================================================
 // SYNC STATUS INDICATOR
 // ====================================================
@@ -450,11 +524,18 @@ async function saveData() {
     updateStorageIndicator();
 }
 
-// Initialize and Setup Theme Toggle (Dark Mode default)
+// Initialize and Setup Theme Toggle (Dark Mode default) and Color Themes
 function initTheme() {
     const activeTheme = localStorage.getItem("rvnl_theme") || "dark";
     document.documentElement.setAttribute("data-theme", activeTheme);
     updateThemeToggleIcon(activeTheme);
+    
+    const activeColorTheme = localStorage.getItem("rvnl_color_theme") || "default";
+    document.documentElement.setAttribute("data-theme-color", activeColorTheme);
+    const colorThemeSelect = document.getElementById("color-theme-select");
+    if (colorThemeSelect) {
+        colorThemeSelect.value = activeColorTheme;
+    }
 }
 
 function updateThemeToggleIcon(theme) {
@@ -631,6 +712,18 @@ function setupEventListeners() {
         // Redraw charts to align colors
         updateDashboard();
     });
+
+    // 3.5 Color theme select change
+    const colorThemeSelect = document.getElementById("color-theme-select");
+    if (colorThemeSelect) {
+        colorThemeSelect.addEventListener("change", (e) => {
+            const selectedColorTheme = e.target.value;
+            document.documentElement.setAttribute("data-theme-color", selectedColorTheme);
+            localStorage.setItem("rvnl_color_theme", selectedColorTheme);
+            // Redraw charts to align colors
+            updateDashboard();
+        });
+    }
 
     // 4. Global Search Handler
     document.getElementById("global-search").addEventListener("input", (e) => {

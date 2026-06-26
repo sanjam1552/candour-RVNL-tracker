@@ -134,6 +134,15 @@
                     <button id="quick-add-btn" class="btn btn-primary">
                         <i class="fa-solid fa-plus"></i> Add Creative/PR
                     </button>
+                    <div class="color-theme-select-wrapper" style="display: flex; align-items: center;">
+                        <select id="color-theme-select" style="padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; outline: none; transition: border-color var(--transition-fast);">
+                            <option value="default">Default Blue</option>
+                            <option value="green">Emerald Green</option>
+                            <option value="purple">Royal Purple</option>
+                            <option value="amber">Warm Amber</option>
+                            <option value="crimson">Crimson Red</option>
+                        </select>
+                    </div>
                     <div class="theme-toggle" id="theme-toggle">
                         <i class="fa-solid fa-moon"></i>
                     </div>
@@ -143,11 +152,14 @@
             <!-- Dashboard Tab -->
             <section id="dashboard" class="tab-content active">
                 <div class="dashboard-hero">
-                    <div class="hero-text">
+                    <!-- Generative AI Waves Canvas -->
+                    <canvas id="hero-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></canvas>
+                    
+                    <div class="hero-text" style="position: relative; z-index: 2;">
                         <h2>RVNL Creative Portfolio & PR Analytics</h2>
                         <p>Track ongoing work, social traction, and press coverage metrics in one unified space.</p>
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; position: relative; z-index: 2;">
                         <div class="hero-time" id="current-time-display">
                             June 10, 2026
                         </div>
