@@ -785,6 +785,11 @@ function setupEventListeners() {
     document.getElementById("import-db-btn").addEventListener("click", importDatabase);
     document.getElementById("reset-db-btn").addEventListener("click", resetDatabase);
 
+    const cleanupStorageBtn = document.getElementById("cleanup-storage-btn");
+    if (cleanupStorageBtn) {
+        cleanupStorageBtn.addEventListener("click", cleanupOrphanedImages);
+    }
+
     // Restore local localStorage data → Firestore
     const restoreLocalBtn = document.getElementById("restore-local-btn");
     if (restoreLocalBtn) {
@@ -1094,6 +1099,59 @@ async function updateStorageIndicator() {
             fStatusEl.textContent = "Unavailable";
             fStatusEl.style.color = "var(--accent-red)";
         }
+    }
+}
+
+// Clean up orphaned images in Firebase Storage that are not referenced in the tasks database
+async function cleanupOrphanedImages() {
+    const btn = document.getElementById("cleanup-storage-btn");
+    if (!btn) return;
+    
+    if (!confirm("Are you sure you want to clean up orphaned images? This will delete all files in Cloud Storage that are not associated with any active task.")) {
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cleaning...`;
+    
+    try {
+        const storageRef = firebase.storage().ref().child('task_images');
+        const listResult = await storageRef.listAll();
+        
+        // Collect all currently referenced images
+        const activeImages = new Set(
+            state.tasks
+                .map(t => t.image)
+                .filter(img => img && img.startsWith("https://firebasestorage.googleapis.com"))
+        );
+        
+        let deletedCount = 0;
+        const deletePromises = listResult.items.map(async (itemRef) => {
+            try {
+                const downloadURL = await itemRef.getDownloadURL();
+                if (!activeImages.has(downloadURL)) {
+                    await itemRef.delete();
+                    deletedCount++;
+                }
+            } catch (err) {
+                console.error("Failed to process storage item:", itemRef.name, err);
+            }
+        });
+        
+        await Promise.all(deletePromises);
+        
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Cleaned ${deletedCount} Images!`;
+        alert(`Clean up complete! Deleted ${deletedCount} orphaned images from storage.`);
+        await updateStorageIndicator();
+    } catch (err) {
+        console.error("Storage clean up failed:", err);
+        alert("Failed to clean up orphaned images: " + err.message);
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }, 3000);
     }
 }
 
