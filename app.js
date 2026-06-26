@@ -1016,6 +1016,16 @@ function adjustClientSpecificOptions(client) {
             }
         }
     }
+
+    // 3. iCode Centers Field Group Visibility
+    const icodeCentersGroup = document.getElementById("icode-centers-group");
+    if (icodeCentersGroup) {
+        if (client === "iCode") {
+            icodeCentersGroup.classList.remove("hidden");
+        } else {
+            icodeCentersGroup.classList.add("hidden");
+        }
+    }
 }
 
 // Calculate and update the storage limit capacity progress indicator
@@ -1522,6 +1532,11 @@ function openDrawer(taskId = null, prefillData = null) {
     removeImagePreview();
     state.pendingImageFile = null; // Clear any pending uploaded file object
 
+    // Reset iCode centers checkboxes
+    document.querySelectorAll('input[name="icode-center"]').forEach(cb => {
+        cb.checked = false;
+    });
+
     // Reset WIP comment fields
     const wipWhoInput = document.getElementById("task-wip-who");
     const wipWhyInput = document.getElementById("task-wip-why");
@@ -1553,6 +1568,12 @@ function openDrawer(taskId = null, prefillData = null) {
             if (task.client === "iCode") {
                 document.getElementById("task-type").value = task.campaignType || "Organic";
                 togglePRFormFields("Social Media");
+                
+                // Prefill checkboxes for iCode centers
+                const centers = task.centers || [];
+                document.querySelectorAll('input[name="icode-center"]').forEach(cb => {
+                    cb.checked = centers.includes(cb.value);
+                });
             } else {
                 document.getElementById("task-type").value = task.type;
                 togglePRFormFields(task.type);
@@ -1828,15 +1849,22 @@ function handleFormSubmit(e) {
 
     let finalType = type;
     let campaignType = "";
+    let centers = [];
     if (taskClient === "iCode") {
         finalType = "Social Media";
         campaignType = type; // "Organic" or "Paid"
+        centers = Array.from(document.querySelectorAll('input[name="icode-center"]:checked')).map(cb => cb.value);
+        if (centers.length === 0) {
+            alert("Please select at least one iCode center.");
+            return;
+        }
     }
 
     const taskData = {
         client: taskClient,
         type: finalType,
         campaignType: campaignType,
+        centers: centers,
         subType,
         title,
         status,
@@ -2352,6 +2380,14 @@ function renderTrackerTable() {
             </div>`;
         }
 
+        // iCode Centers tags
+        let centersHtml = "";
+        if ((state.activeClient === "iCode" || task.client === "iCode") && task.centers && task.centers.length > 0) {
+            centersHtml = `<div style="display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap;">` + 
+                task.centers.map(c => `<span style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><i class="fa-solid fa-location-dot" style="font-size: 9px; margin-right: 2px;"></i> ${c}</span>`).join('') + 
+                `</div>`;
+        }
+
         const titleAndImageHtml = trackerImageHtml 
             ? `<div class="tracker-item-flex">
                  ${trackerImageHtml}
@@ -2359,12 +2395,14 @@ function renderTrackerTable() {
                      <div style="font-weight:600;">${task.title}</div>
                      ${prDetails}
                      ${wipDetailsHtml}
+                     ${centersHtml}
                  </div>
                </div>`
             : `<div class="tracker-item-details">
                  <div style="font-weight:600;">${task.title}</div>
                  ${prDetails}
                  ${wipDetailsHtml}
+                 ${centersHtml}
                </div>`;
 
         tr.innerHTML = `
@@ -2511,10 +2549,19 @@ function renderTrackerKanban() {
             `;
         }
 
+        // iCode Centers tags for Kanban
+        let kanbanCentersHtml = "";
+        if ((state.activeClient === "iCode" || task.client === "iCode") && task.centers && task.centers.length > 0) {
+            kanbanCentersHtml = `<div style="display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap;">` + 
+                task.centers.map(c => `<span style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); color: var(--accent-blue); padding: 1px 5px; border-radius: 4px; font-size: 9.5px; font-weight: 600;"><i class="fa-solid fa-location-dot" style="font-size: 8px; margin-right: 1px;"></i> ${c}</span>`).join('') + 
+                `</div>`;
+        }
+
         card.innerHTML = `
             ${kanbanCoverHtml}
             <span class="card-tag" style="color:${tagColor};">${tagLabel}</span>
             <div class="card-title" style="font-weight: 600; margin-bottom: 8px;">${task.title}</div>
+            ${kanbanCentersHtml}
             ${kanbanCommentHtml}
             <div class="card-links-quick">${linksQuick}</div>
             <div class="card-meta">
