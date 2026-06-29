@@ -354,7 +354,7 @@ function initUserSession() {
         if (user) {
             // Verify email domain constraint (case-insensitive)
             const email = user.email || "";
-            if (email.toLowerCase().endsWith("@candour.co.in")) {
+            if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
                 if (displayNameEl) displayNameEl.textContent = state.currentUser;
                 if (overlay) overlay.style.display = "none";
@@ -370,7 +370,7 @@ function initUserSession() {
                     if (displayNameEl) displayNameEl.textContent = "...";
                     if (overlay) overlay.style.display = "flex";
                     if (errorMsgEl) {
-                        errorMsgEl.textContent = `Access Denied: ${email} is unauthorized. Use a @candour.co.in account.`;
+                        errorMsgEl.textContent = `Access Denied: ${email} is unauthorized. Use an authorized account.`;
                         errorMsgEl.style.display = "block";
                     }
                     hidePreloader();
@@ -1031,9 +1031,10 @@ function setupEventListeners() {
             const infoMsgEl = document.getElementById("login-info-msg");
             const submitBtn = document.getElementById("login-submit-btn");
 
-            if (!email.toLowerCase().endsWith("@candour.co.in")) {
+            const lowerEmail = email.toLowerCase();
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
                 if (errorMsgEl) {
-                    errorMsgEl.textContent = "Access Denied: Only @candour.co.in email addresses are permitted.";
+                    errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
                 }
                 if (infoMsgEl) infoMsgEl.style.display = "none";
