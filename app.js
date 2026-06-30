@@ -30,6 +30,7 @@ const state = {
         share: null
     },
     pendingImageFile: null,
+    currentTaskPublications: [],
     currentUser: "",
     activityLogs: []
 };
@@ -52,6 +53,61 @@ function getWeekFromDateStr(dateStr) {
 function getFormattedToday() {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date().toLocaleDateString('en-US', options);
+}
+
+// Calculate total count of publications across a set of tasks (counting items in publicationsList)
+function getPRPublicationsCount(tasks) {
+    let count = 0;
+    tasks.forEach(t => {
+        if (t.type === 'PR Update') {
+            if (t.publicationsList && t.publicationsList.length > 0) {
+                count += t.publicationsList.length;
+            } else if (t.publication) {
+                count += t.publication.split(',').map(s => s.trim()).filter(Boolean).length || 1;
+            }
+        }
+    });
+    return count;
+}
+
+// Open any image in a new window with proper styling
+function viewImageInNewWindow(imageUrl) {
+    if (!imageUrl) return;
+    const newWin = window.open();
+    if (newWin) {
+        newWin.document.write(`
+            <html>
+            <head>
+                <title>Media Clipping Preview</title>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                <style>
+                    body {
+                        margin: 0;
+                        background: #0b0f19;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
+                        overflow: hidden;
+                        font-family: 'Inter', sans-serif;
+                    }
+                    img {
+                        max-width: 95%;
+                        max-height: 90vh;
+                        object-fit: contain;
+                        border-radius: 8px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                        border: 1px solid rgba(255,255,255,0.05);
+                    }
+                </style>
+            </head>
+            <body>
+                <img src="${imageUrl}" alt="Media Clipping">
+            </body>
+            </html>
+        `);
+        newWin.document.close();
+    }
 }
 
 // Initialize Application
@@ -860,6 +916,23 @@ function setupEventListeners() {
         togglePRFormFields(e.target.value);
     });
 
+    // Add publication coverage row
+    const btnAddPub = document.getElementById("btn-add-publication");
+    if (btnAddPub) {
+        btnAddPub.addEventListener("click", () => {
+            if (!state.currentTaskPublications) {
+                state.currentTaskPublications = [];
+            }
+            state.currentTaskPublications.push({
+                id: generateUUID(),
+                name: "",
+                link: "",
+                image: ""
+            });
+            renderDrawerPublications();
+        });
+    }
+
     // Toggle WIP/Approval fields on status selection
     document.getElementById("task-status").addEventListener("change", (e) => {
         toggleWipCommentFields(e.target.value);
@@ -1266,11 +1339,19 @@ async function cleanupOrphanedImages() {
         const allFiles = await listAllFilesRecursively(storageRef);
         
         // Collect all currently referenced images
-        const activeImages = new Set(
-            state.tasks
-                .map(t => t.image)
-                .filter(img => img && img.startsWith("https://firebasestorage.googleapis.com"))
-        );
+        const activeImages = new Set();
+        state.tasks.forEach(t => {
+            if (t.image && t.image.startsWith("https://firebasestorage.googleapis.com")) {
+                activeImages.add(t.image);
+            }
+            if (t.publicationsList && t.publicationsList.length > 0) {
+                t.publicationsList.forEach(pub => {
+                    if (pub.image && pub.image.startsWith("https://firebasestorage.googleapis.com")) {
+                        activeImages.add(pub.image);
+                    }
+                });
+            }
+        });
         
         let deletedCount = 0;
         const deletePromises = allFiles.map(async (itemRef) => {
@@ -1598,6 +1679,17 @@ function togglePRFormFields(type) {
     const prFields = document.getElementById("pr-only-fields");
     const subTypeSelect = document.getElementById("task-sub-type");
     const lblSubType = document.getElementById("lbl-sub-type");
+    const prPubsSection = document.getElementById("pr-publications-section");
+    
+    const liveLinkGroup = document.getElementById("task-live-link").closest(".form-group");
+    const canvaLinkGroup = document.getElementById("task-canva-link").closest(".form-group");
+    const imageGroup = document.getElementById("task-image-file").closest(".form-group");
+    const oldPubGroup = document.getElementById("task-publication").closest(".form-group");
+    const spokespersonGroup = document.getElementById("task-spokesperson").closest(".form-group");
+    
+    const taskWeekGroup = document.getElementById("task-week").closest(".form-group");
+    const taskMonthGroup = document.getElementById("task-month").closest(".form-group");
+    const taskDateGroup = document.getElementById("task-date").closest(".form-group");
 
     // Always show sub-type group first (will be hidden for Social Media)
     const subTypeGroupEl = subTypeSelect.closest('.form-group');
@@ -1605,6 +1697,13 @@ function togglePRFormFields(type) {
 
     if (state.activeClient === "iCode") {
         prFields.classList.add("hidden");
+        prPubsSection.classList.add("hidden");
+        if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
+        if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
+        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
+        if (taskDateGroup) taskDateGroup.classList.remove("hidden");
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
         lblSubType.textContent = "Creative Format";
         subTypeSelect.innerHTML = `
             <option value="Social Media Post">Social Media Post</option>
@@ -1618,6 +1717,21 @@ function togglePRFormFields(type) {
 
     if (type === "PR Update") {
         prFields.classList.remove("hidden");
+        prPubsSection.classList.remove("hidden");
+        
+        // Hide standard singular fields for PR
+        if (liveLinkGroup) liveLinkGroup.classList.add("hidden");
+        if (canvaLinkGroup) canvaLinkGroup.classList.add("hidden");
+        if (imageGroup) imageGroup.classList.add("hidden");
+        if (taskWeekGroup) taskWeekGroup.classList.add("hidden");
+        if (taskDateGroup) taskDateGroup.classList.add("hidden");
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-12";
+        if (oldPubGroup) {
+            oldPubGroup.classList.add("hidden");
+            // Change spokesperson to full width since pub is hidden
+            if (spokespersonGroup) spokespersonGroup.className = "form-group col-12";
+        }
+
         lblSubType.textContent = "PR Category";
         subTypeSelect.innerHTML = `
             <option value="Press Release">Press Release</option>
@@ -1627,6 +1741,18 @@ function togglePRFormFields(type) {
         `;
     } else if (type === "Social Media") {
         prFields.classList.add("hidden");
+        prPubsSection.classList.add("hidden");
+        if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
+        if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
+        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
+        if (taskDateGroup) taskDateGroup.classList.remove("hidden");
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
+        if (oldPubGroup) {
+            oldPubGroup.classList.remove("hidden");
+            if (spokespersonGroup) spokespersonGroup.className = "form-group col-6";
+        }
+        
         // Social media posts go to ALL platforms — hide sub-type selector
         const subTypeGroup = subTypeSelect.closest('.form-group');
         if (subTypeGroup) subTypeGroup.classList.add('hidden');
@@ -1634,6 +1760,18 @@ function togglePRFormFields(type) {
         return; // early return to avoid showing sub-type group below
     } else {
         prFields.classList.add("hidden");
+        prPubsSection.classList.add("hidden");
+        if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
+        if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
+        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
+        if (taskDateGroup) taskDateGroup.classList.remove("hidden");
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
+        if (oldPubGroup) {
+            oldPubGroup.classList.remove("hidden");
+            if (spokespersonGroup) spokespersonGroup.className = "form-group col-6";
+        }
+        
         lblSubType.textContent = "Asset Sub-category";
         subTypeSelect.innerHTML = `
             <option value="Magazine Ad">Magazine Ad</option>
@@ -1646,6 +1784,146 @@ function togglePRFormFields(type) {
             <option value="Other">Other / Misc</option>
         `;
     }
+}
+
+// Render publications list inside the task drawer
+function renderDrawerPublications() {
+    const container = document.getElementById("pr-publications-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const list = state.currentTaskPublications || [];
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 12px; color: var(--text-muted); font-size: 12px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-radius: 8px;">No publications added yet. Click "Add Publication" to list coverages.</div>`;
+        return;
+    }
+
+    list.forEach((pub, idx) => {
+        const row = document.createElement("div");
+        row.className = "pr-pub-row";
+        row.style.cssText = "background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative;";
+        
+        row.innerHTML = `
+            <button type="button" class="btn-remove-pub" data-index="${idx}" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 13px;" title="Remove Publication">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+            
+            <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 0;">
+                <div style="flex: 1; min-width: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Publication Name</label>
+                    <input type="text" class="pub-name-input" data-index="${idx}" value="${pub.name || ''}" placeholder="e.g. The Hindu" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Live / Verification Link</label>
+                    <input type="url" class="pub-link-input" data-index="${idx}" value="${pub.link || ''}" placeholder="https://..." style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Pub Date</label>
+                    <input type="text" class="pub-date-input" data-index="${idx}" value="${pub.date || ''}" placeholder="e.g. 5th June" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+                <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Press Clipping Image</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" class="pub-file-input" id="pub-file-${pub.id}" data-index="${idx}" accept="image/*" style="display: none;">
+                    <label for="pub-file-${pub.id}" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; border-radius: 8px; margin: 0; box-sizing: border-box; white-space: nowrap;"><i class="fa-solid fa-upload"></i> Upload</label>
+                    <input type="text" class="pub-image-url-input" data-index="${idx}" value="${pub.image || ''}" placeholder="Or enter Image URL..." style="flex: 1; font-size: 12px; padding: 6px 10px; height: 32px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                    
+                    ${pub.image ? `
+                    <div class="pub-img-preview-container" style="position: relative; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; background: var(--bg-primary); flex-shrink: 0;">
+                        <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="pub-img-preview-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')">
+                            <i class="fa-solid fa-eye" style="font-size: 10px; color: #fff;"></i>
+                        </div>
+                    </div>` : ''}
+                </div>
+                <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">Uploading clipping to storage...</div>
+            </div>
+        `;
+        
+        // Add hover effects for eye preview
+        const previewCont = row.querySelector(".pub-img-preview-container");
+        if (previewCont) {
+            const overlay = previewCont.querySelector(".pub-img-preview-overlay");
+            previewCont.addEventListener("mouseenter", () => overlay.style.opacity = "1");
+            previewCont.addEventListener("mouseleave", () => overlay.style.opacity = "0");
+        }
+        
+        container.appendChild(row);
+    });
+
+    // Wire up events for inputs and buttons inside the newly rendered rows
+    container.querySelectorAll(".pub-name-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].name = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-link-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].link = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-date-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].date = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-image-url-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].image = e.target.value;
+            // Update preview thumbnail if URL changes
+            setTimeout(() => {
+                if (document.activeElement !== input) {
+                    renderDrawerPublications();
+                }
+            }, 1500);
+        });
+        input.addEventListener("blur", () => {
+            renderDrawerPublications();
+        });
+    });
+
+    container.querySelectorAll(".pub-file-input").forEach(input => {
+        input.addEventListener("change", async (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const rowEl = e.target.closest(".pr-pub-row");
+            const statusEl = rowEl.querySelector(".pub-upload-status");
+            if (statusEl) statusEl.style.display = "block";
+            
+            try {
+                const taskTitle = document.getElementById("task-title").value || "PR_Coverage";
+                const client = state.activeClient || "General";
+                const downloadURL = await uploadImageToStorage(file, client, taskTitle);
+                
+                state.currentTaskPublications[idx].image = downloadURL;
+                if (statusEl) statusEl.style.display = "none";
+                renderDrawerPublications();
+            } catch (err) {
+                console.error("Publication image upload failed:", err);
+                alert("Upload failed: " + err.message);
+                if (statusEl) statusEl.style.display = "none";
+            }
+        });
+    });
+
+    container.querySelectorAll(".btn-remove-pub").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const idx = parseInt(btn.getAttribute("data-index"));
+            state.currentTaskPublications.splice(idx, 1);
+            renderDrawerPublications();
+        });
+    });
 }
 
 // Returns { icon, color, label } for a given social media platform subType
@@ -1711,6 +1989,8 @@ function openDrawer(taskId = null, prefillData = null) {
         togglePRFormFields("Social Media");
     }
     toggleWipCommentFields("WIP"); // default status is WIP
+    state.currentTaskPublications = [];
+    renderDrawerPublications();
 
     if (taskId) {
         title.textContent = "Edit Tracked Item";
@@ -1749,6 +2029,20 @@ function openDrawer(taskId = null, prefillData = null) {
             if (task.type === "PR Update") {
                 document.getElementById("task-spokesperson").value = task.spokesperson || "";
                 document.getElementById("task-publication").value = task.publication || "";
+                
+                let publicationsList = [];
+                if (task.publicationsList && task.publicationsList.length > 0) {
+                    publicationsList = JSON.parse(JSON.stringify(task.publicationsList));
+                } else if (task.publication || task.liveLink || task.image) {
+                    publicationsList = [{
+                        id: generateUUID(),
+                        name: task.publication || "",
+                        link: task.liveLink || "",
+                        image: task.image || ""
+                    }];
+                }
+                state.currentTaskPublications = publicationsList;
+                renderDrawerPublications();
             }
 
             // Image clipping preview if it exists
@@ -2049,10 +2343,16 @@ function handleFormSubmit(e) {
 
     if (type === "PR Update") {
         taskData.spokesperson = document.getElementById("task-spokesperson").value;
-        taskData.publication = document.getElementById("task-publication").value;
+        taskData.publicationsList = state.currentTaskPublications || [];
+        taskData.publication = taskData.publicationsList.map(p => p.name).filter(Boolean).join(", ");
+        taskData.liveLink = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].link : "";
+        taskData.image = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].image : "";
+        taskData.date = taskData.publicationsList.length > 0 ? (taskData.publicationsList[0].date || "") : "";
+        taskData.week = taskData.date ? getWeekFromDateStr(taskData.date) : "Week 1";
     } else {
         taskData.spokesperson = "";
         taskData.publication = "";
+        taskData.publicationsList = [];
     }
 
     if (id) {
@@ -2107,6 +2407,14 @@ function deleteTask(id) {
                 // Delete image from Cloud Storage in background
                 deleteImageFromStorage(taskToDelete.image);
             }
+            if (taskToDelete.publicationsList && taskToDelete.publicationsList.length > 0) {
+                taskToDelete.publicationsList.forEach(pub => {
+                    // Only delete if it's not the same URL as the main image (to prevent duplicate delete attempts)
+                    if (pub.image && pub.image !== taskToDelete.image) {
+                        deleteImageFromStorage(pub.image);
+                    }
+                });
+            }
             logActivity("deleted", `Task: "${taskToDelete.title}" (${taskToDelete.client})`);
         }
         state.tasks = state.tasks.filter(t => t.id !== id);
@@ -2146,7 +2454,7 @@ function updateDashboard() {
     // 1. Calculate general stats
     const total = clientTasks.length;
     const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-    const pr = clientTasks.filter(t => t.type === 'PR Update').length;
+    const pr = getPRPublicationsCount(clientTasks);
     const wip = clientTasks.filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval').length;
 
     document.getElementById("stat-total-creatives").textContent = total;
@@ -2195,7 +2503,7 @@ function renderTrendChart() {
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     months.forEach(m => {
         smData.push(clientTasks.filter(t => t.month === m && t.type === 'Social Media').length);
-        prData.push(clientTasks.filter(t => t.month === m && t.type === 'PR Update').length);
+        prData.push(getPRPublicationsCount(clientTasks.filter(t => t.month === m)));
         creativeData.push(clientTasks.filter(t => t.month === m && t.type === 'Creative / Collateral').length);
     });
 
@@ -2314,14 +2622,14 @@ function renderShareChart() {
             categories = ['Social Media', 'PR Update'];
             dataVals = [
                 clientTasks.filter(t => t.type === 'Social Media').length,
-                clientTasks.filter(t => t.type === 'PR Update').length
+                getPRPublicationsCount(clientTasks)
             ];
             bgColors = ['#10b981', '#8b5cf6'];
         } else {
             categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
             dataVals = [
                 clientTasks.filter(t => t.type === 'Social Media').length,
-                clientTasks.filter(t => t.type === 'PR Update').length,
+                getPRPublicationsCount(clientTasks),
                 clientTasks.filter(t => t.type === 'Creative / Collateral').length
             ];
             bgColors = ['#10b981', '#8b5cf6', '#f59e0b'];
@@ -2564,16 +2872,40 @@ function renderTrackerTable() {
 
         // PR Specific details to display
         let prDetails = "";
-        if (task.type === "PR Update" && (task.spokesperson || task.publication)) {
-            prDetails = `<div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
-                ${task.spokesperson ? 'Spokesperson: ' + task.spokesperson : ''} 
-                ${task.publication ? ' | Pub: ' + task.publication : ''}
+        if (task.type === "PR Update") {
+            let pubsListHtml = "";
+            const list = task.publicationsList || [];
+            if (list.length > 0) {
+                pubsListHtml = `<div class="pr-pubs-list-tracker" style="display:flex; flex-direction:column; gap:6px; margin-top:6px; background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:8px; padding:8px 10px;">`;
+                list.forEach((pub, pIdx) => {
+                    pubsListHtml += `
+                        <div class="pr-pub-tracker-item" style="display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:11px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                ${pub.image ? `
+                                <div style="position:relative; width:22px; height:22px; border-radius:4px; overflow:hidden; border:1px solid var(--border-color); cursor:pointer;" onclick="viewImageInNewWindow('${pub.image}')" title="Click to view media clipping">
+                                    <img src="${pub.image}" style="width:100%; height:100%; object-fit:cover;">
+                                </div>` : `<div style="width:22px; height:22px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color);"></div>`}
+                                <span style="font-weight:600; color:var(--text-primary);">${pub.name || 'Unnamed Publication'}</span>
+                                ${pub.date ? `<span style="font-size:10px; color:var(--text-muted); margin-left:6px;">(${pub.date})</span>` : ''}
+                            </div>
+                            ${pub.link ? `<a href="${pub.link}" target="_blank" style="color:var(--accent-blue); text-decoration:none; font-size:10px; display:inline-flex; align-items:center; gap:2px;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i> Live Link</a>` : ''}
+                        </div>
+                    `;
+                });
+                pubsListHtml += `</div>`;
+            } else if (task.publication) {
+                pubsListHtml = `<div style="font-size:11px; color:var(--text-muted); margin-top:4px;"><strong>Pub:</strong> ${task.publication}</div>`;
+            }
+            
+            prDetails = `<div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">
+                ${task.spokesperson ? '<strong>Spokesperson:</strong> ' + task.spokesperson : ''}
+                ${pubsListHtml}
             </div>`;
         }
 
         // Inline Image for Tracker Table
         let trackerImageHtml = "";
-        if (task.image) {
+        if (task.image && task.type !== "PR Update") {
             trackerImageHtml = `
                 <div class="tracker-item-thumbnail btn-view-image" data-id="${task.id}">
                     <img src="${task.image}" alt="thumbnail">
@@ -2651,9 +2983,7 @@ function renderTrackerTable() {
             const id = btn.getAttribute("data-id");
             const task = state.tasks.find(t => t.id === id);
             if (task && task.image) {
-                // Open visual in new window/tab
-                const newWin = window.open();
-                newWin.document.write(`<img src="${task.image}" style="max-width:100%; height:auto;" alt="Media Clipping">`);
+                viewImageInNewWindow(task.image);
             }
         });
     });
@@ -2817,8 +3147,7 @@ function renderTrackerKanban() {
             const id = btn.getAttribute("data-id");
             const task = state.tasks.find(t => t.id === id);
             if (task && task.image) {
-                const newWin = window.open();
-                newWin.document.write(`<img src="${task.image}" style="max-width:100%; height:auto;" alt="Media Clipping">`);
+                viewImageInNewWindow(task.image);
             }
         });
     });
@@ -2900,9 +3229,10 @@ function generateReport() {
     const creativeItems = reportItems.filter(t => t.type === "Creative / Collateral");
 
     // Update stats counters on report
-    document.getElementById("rep-stat-total").textContent = reportItems.length;
+    const totalPrPublications = getPRPublicationsCount(reportItems);
+    document.getElementById("rep-stat-pr").textContent = totalPrPublications;
+    document.getElementById("rep-stat-total").textContent = smItems.length + totalPrPublications + creativeItems.length;
     document.getElementById("rep-stat-sm").textContent = smItems.length;
-    document.getElementById("rep-stat-pr").textContent = prItems.length;
     document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
 
     const collateralBox = document.getElementById("rep-stat-collateral-box");
@@ -3038,17 +3368,35 @@ function generateReport() {
         if (prSec) prSec.style.display = "none";
     } else {
         if (prSec) prSec.style.display = "";
+        
+        // Rewrite the PR table headers to remove Spokesperson and Coverage Status
+        const prTable = document.querySelector("#report-sec-pr table");
+        if (prTable) {
+            const prThead = prTable.querySelector("thead");
+            if (prThead) {
+                prThead.innerHTML = `
+                    <tr>
+                        <th style="width: 50px;">Sl.</th>
+                        <th style="width: 120px;">Category</th>
+                        <th style="width: 320px;">Topics / Announcements</th>
+                        <th>Publications & Coverage</th>
+                    </tr>
+                `;
+            }
+        }
+
         if (prItems.length === 0) {
             if (prSec) prSec.classList.add("no-print");
-            prBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#6b7280;">No PR media coverage items recorded.</td></tr>`;
+            prBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No PR media coverage items recorded.</td></tr>`;
         } else {
             if (prSec) prSec.classList.remove("no-print");
             prItems.forEach((task, idx) => {
             const tr = document.createElement("tr");
 
-            // Inline Thumbnail block beside or below the title
+            // Inline Thumbnail block beside or below the title (fallback for old tasks only)
             let reportThumbnailHtml = "";
-            if (task.image) {
+            const list = task.publicationsList || [];
+            if (list.length === 0 && task.image) {
                 reportThumbnailHtml = `
                     <div class="report-item-thumbnail">
                         <img src="${task.image}" alt="thumbnail">
@@ -3073,16 +3421,37 @@ function generateReport() {
                    </div>`
                 : `<div class="report-item-details">
                      <strong>${task.title}</strong>
-                     ${noPrintButtons}
+                     ${list.length === 0 ? noPrintButtons : ''}
                    </div>`;
+
+            let pubColHtml = "";
+            if (list.length > 0) {
+                pubColHtml = `<div style="display:flex; flex-direction:column; gap:10px;">`;
+                list.forEach(pub => {
+                    pubColHtml += `
+                        <div class="report-pub-coverage-card" style="display: flex; gap: 12px; margin-bottom: 6px; align-items: flex-start; background: rgba(0, 0, 0, 0.01); border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; box-sizing: border-box;">
+                            ${pub.image ? `
+                            <div style="width: 180px; height: 110px; border-radius: 6px; border: 1px solid #ddd; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
+                                <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: contain;">
+                            </div>` : ''}
+                            <div style="display: flex; flex-direction: column; gap: 4px; justify-content: center; padding-top: 4px;">
+                                <div style="font-weight: 700; font-size: 12.5px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
+                                ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>${pub.date}</div>` : ''}
+                                ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 1px; margin-top: 4px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px; margin-right: 2px;"></i> View Article</a>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                pubColHtml += `</div>`;
+            } else {
+                pubColHtml = `<div>${task.publication || 'Mainlines & Financials'}</div>`;
+            }
 
             tr.innerHTML = `
                 <td style="text-align:center;">${idx + 1}</td>
                 <td style="font-weight:600;">${task.subType || 'Press Release'}</td>
                 <td>${titleAndImageHtml}</td>
-                <td>${task.publication || 'Mainlines & Financials'}</td>
-                <td>${task.spokesperson || 'CMD'}</td>
-                <td>${task.status || 'Release shared'}</td>
+                <td>${pubColHtml}</td>
             `;
             prBody.appendChild(tr);
         });
