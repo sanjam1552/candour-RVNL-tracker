@@ -1797,6 +1797,16 @@ h1, h2, h3, h4, h5, h6 {
 /* ==================================================== */
 
 @media print {
+    :root {
+        --bg-primary: #ffffff !important;
+        --bg-secondary: #f9fafb !important;
+        --text-primary: #111827 !important;
+        --text-secondary: #4b5563 !important;
+        --text-muted: #6b7280 !important;
+        --border-color: #e5e7eb !important;
+        --accent-blue: #2563eb !important;
+    }
+
     /* Hide all browser-level navigation and input controls */
     .sidebar, 
     .app-header, 
