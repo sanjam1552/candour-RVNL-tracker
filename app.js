@@ -3290,7 +3290,17 @@ function generateReport() {
             
             let verificationLink = task.status || "Published";
             if (task.liveLink && task.liveLink.startsWith("http")) {
-                verificationLink = `<a href="${task.liveLink}" target="_blank">${task.liveLink}</a>`;
+                let btnLabel = "View Post";
+                const subTypeLower = (task.subType || "").toLowerCase();
+                const platformLower = (task.platform || "").toLowerCase();
+                if (subTypeLower.includes("youtube") || platformLower.includes("youtube") || subTypeLower.includes("video")) {
+                    btnLabel = "View Video";
+                }
+                verificationLink = `
+                    <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap;">
+                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> ${btnLabel}
+                    </a>
+                `;
             } else if (task.liveLink) {
                 verificationLink = task.liveLink;
             }
@@ -3442,7 +3452,10 @@ function generateReport() {
                                         <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
                                             <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub1.name || 'Unnamed Pub'}</div>
                                             ${pub1.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub1.date}</div>` : ''}
-                                            ${pub1.link ? `<a href="${pub1.link}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 4px;">View Article</a>` : ''}
+                                            ${pub1.link ? `
+                                                <a href="${pub1.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                </a>` : ''}
                                         </div>
                                     </div>
                                 </td>
@@ -3460,7 +3473,10 @@ function generateReport() {
                                             <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
                                                 <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub2.name || 'Unnamed Pub'}</div>
                                                 ${pub2.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub2.date}</div>` : ''}
-                                                ${pub2.link ? `<a href="${pub2.link}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 4px;">View Article</a>` : ''}
+                                                ${pub2.link ? `
+                                                    <a href="${pub2.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                    </a>` : ''}
                                             </div>
                                         </div>
                                     </td>
@@ -3485,7 +3501,10 @@ function generateReport() {
                                             </div>` : ''}
                                             <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; min-width: 0;">
                                                 <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
-                                                ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="color: #2563eb; text-decoration: underline; display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600;">View Article</a>` : ''}
+                                                ${task.liveLink ? `
+                                                    <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 6px; width: fit-content;">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                    </a>` : ''}
                                             </div>
                                         </div>
                                     </td>
