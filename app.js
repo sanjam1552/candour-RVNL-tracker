@@ -927,7 +927,8 @@ function setupEventListeners() {
                 id: generateUUID(),
                 name: "",
                 link: "",
-                image: ""
+                image: "",
+                date: ""
             });
             renderDrawerPublications();
         });
@@ -2038,7 +2039,8 @@ function openDrawer(taskId = null, prefillData = null) {
                         id: generateUUID(),
                         name: task.publication || "",
                         link: task.liveLink || "",
-                        image: task.image || ""
+                        image: task.image || "",
+                        date: task.date || ""
                     }];
                 }
                 state.currentTaskPublications = publicationsList;
@@ -2343,7 +2345,13 @@ function handleFormSubmit(e) {
 
     if (type === "PR Update") {
         taskData.spokesperson = document.getElementById("task-spokesperson").value;
-        taskData.publicationsList = state.currentTaskPublications || [];
+        taskData.publicationsList = (state.currentTaskPublications || []).map(p => ({
+            id: p.id || generateUUID(),
+            name: p.name || "",
+            link: p.link || "",
+            image: p.image || "",
+            date: p.date || ""
+        }));
         taskData.publication = taskData.publicationsList.map(p => p.name).filter(Boolean).join(", ");
         taskData.liveLink = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].link : "";
         taskData.image = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].image : "";
@@ -3377,8 +3385,8 @@ function generateReport() {
                 prThead.innerHTML = `
                     <tr>
                         <th style="width: 50px;">Sl.</th>
-                        <th style="width: 120px;">Category</th>
-                        <th style="width: 320px;">Topics / Announcements</th>
+                        <th style="width: 100px;">Category</th>
+                        <th style="width: 200px;">Topics / Announcements</th>
                         <th>Publications & Coverage</th>
                     </tr>
                 `;
@@ -3429,15 +3437,15 @@ function generateReport() {
                 pubColHtml = `<div style="display:flex; flex-direction:column; gap:10px;">`;
                 list.forEach(pub => {
                     pubColHtml += `
-                        <div class="report-pub-coverage-card" style="display: flex; gap: 12px; margin-bottom: 6px; align-items: flex-start; background: rgba(0, 0, 0, 0.01); border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; box-sizing: border-box;">
+                        <div class="report-pub-coverage-card" style="display: flex; gap: 14px; margin-bottom: 6px; align-items: flex-start; background: rgba(0, 0, 0, 0.01); border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; box-sizing: border-box;">
                             ${pub.image ? `
-                            <div style="width: 180px; height: 110px; border-radius: 6px; border: 1px solid #ddd; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
+                            <div style="width: 250px; height: 155px; border-radius: 6px; border: 1px solid #ddd; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
                                 <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: contain;">
                             </div>` : ''}
-                            <div style="display: flex; flex-direction: column; gap: 4px; justify-content: center; padding-top: 4px;">
-                                <div style="font-weight: 700; font-size: 12.5px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px;">
+                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
                                 ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>${pub.date}</div>` : ''}
-                                ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 1px; margin-top: 4px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px; margin-right: 2px;"></i> View Article</a>` : ''}
+                                ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 1px; margin-top: 4px; font-size: 11.5px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px; margin-right: 2px;"></i> View Article</a>` : ''}
                             </div>
                         </div>
                     `;
