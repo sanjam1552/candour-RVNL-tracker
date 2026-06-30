@@ -3239,7 +3239,7 @@ function generateReport() {
     // Update stats counters on report
     const totalPrPublications = getPRPublicationsCount(reportItems);
     document.getElementById("rep-stat-pr").textContent = totalPrPublications;
-    document.getElementById("rep-stat-total").textContent = smItems.length + totalPrPublications + creativeItems.length;
+    document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
     document.getElementById("rep-stat-sm").textContent = smItems.length;
     document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
 
@@ -3718,9 +3718,9 @@ async function handleAiNarrativeGeneration() {
     
     // Gather all active report tasks
     const periodText = document.getElementById("report-meta-period").textContent;
-    const repTotal = document.getElementById("rep-stat-total").textContent;
     const repSm = document.getElementById("rep-stat-sm").textContent;
     const repPr = document.getElementById("rep-stat-pr").textContent;
+    const repPrReleases = document.getElementById("rep-stat-pr-releases").textContent;
     const repCollateral = document.getElementById("rep-stat-collateral").textContent;
 
     // Get a list of task titles in the report
@@ -3732,7 +3732,8 @@ async function handleAiNarrativeGeneration() {
     const prTitles = prTableRows.map(r => r.querySelector("strong")?.textContent).filter(Boolean);
     const clippingsTitles = clippingsCards.map(c => c.textContent).filter(Boolean);
 
-    if (parseInt(repTotal) === 0) {
+    const totalActivitiesCount = smTitles.length + prTitles.length + clippingsTitles.length;
+    if (totalActivitiesCount === 0) {
         alert("There are no activities listed in this report period to summarize.");
         return;
     }
@@ -3761,8 +3762,9 @@ Draft a professional, executive summary narrative paragraph (3-4 sentences, max 
 The summary should highlight the ${summaryHighlights}, with a positive, business-driven corporate tone.
 
 Report metrics:
-- Total Activities: ${repTotal}
+- Total Activities: ${totalActivitiesCount}
 - Social Media Posts: ${repSm} (Titles: ${smTitles.slice(0, 10).join(", ")})
+- PR Releases Issued: ${repPrReleases}
 - PR Coverage Items: ${repPr} (Titles: ${prTitles.slice(0, 10).join(", ")})${creativeMetricsPrompt}
 
 Write ONLY the final paragraph. Do not write any greetings or explanations.
