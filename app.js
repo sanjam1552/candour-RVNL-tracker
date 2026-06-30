@@ -3424,36 +3424,73 @@ function generateReport() {
                     let publicationsHtml = "";
                     
                     if (list.length > 0) {
-                        publicationsHtml = `<div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; box-sizing: border-box;">`;
-                        list.forEach(pub => {
+                        publicationsHtml = `<table style="width: 100%; border-collapse: separate; border-spacing: 14px; padding: 0; margin: 0; background: transparent; border: none; table-layout: fixed;">`;
+                        for (let i = 0; i < list.length; i += 2) {
+                            const pub1 = list[i];
+                            const pub2 = list[i + 1];
+                            
+                            publicationsHtml += `<tr>`;
+                            
+                            // Card 1
                             publicationsHtml += `
-                                <div class="report-pub-coverage-card" style="width: calc(50% - 7px); display: flex; gap: 14px; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; box-sizing: border-box; align-items: flex-start;">
-                                    ${pub.image ? `
-                                    <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
-                                        <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: contain;">
-                                    </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
-                                    <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1;">
-                                        <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
-                                        ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
-                                        ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Article</a>` : ''}
+                                <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
+                                    <div style="display: flex; gap: 14px; align-items: flex-start;">
+                                        ${pub1.image ? `
+                                        <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                            <a href="${pub1.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub1.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                        </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                        <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub1.name || 'Unnamed Pub'}</div>
+                                            ${pub1.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub1.date}</div>` : ''}
+                                            ${pub1.link ? `<a href="${pub1.link}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 4px;">View Article</a>` : ''}
+                                        </div>
                                     </div>
-                                </div>
+                                </td>
                             `;
-                        });
-                        publicationsHtml += `</div>`;
+                            
+                            // Card 2 (or empty space if odd number of items)
+                            if (pub2) {
+                                publicationsHtml += `
+                                    <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
+                                        <div style="display: flex; gap: 14px; align-items: flex-start;">
+                                            ${pub2.image ? `
+                                            <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                                <a href="${pub2.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub2.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                            </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
+                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub2.name || 'Unnamed Pub'}</div>
+                                                ${pub2.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub2.date}</div>` : ''}
+                                                ${pub2.link ? `<a href="${pub2.link}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 4px;">View Article</a>` : ''}
+                                            </div>
+                                        </div>
+                                    </td>
+                                `;
+                            } else {
+                                publicationsHtml += `<td style="width: 50%; border: none; background: transparent;"></td>`;
+                            }
+                            
+                            publicationsHtml += `</tr>`;
+                        }
+                        publicationsHtml += `</table>`;
                     } else {
                         // Fallback for old tasks that might only have task.image and task.publication
                         publicationsHtml = `
-                            <div style="display: flex; gap: 16px; padding: 16px; align-items: flex-start; box-sizing: border-box;">
-                                ${task.image ? `
-                                <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${task.image}')">
-                                    <img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;">
-                                </div>` : ''}
-                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px;">
-                                    <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
-                                    ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Article</a>` : ''}
-                                </div>
-                            </div>
+                            <table style="width: 100%; border-collapse: collapse; background: transparent; border: none;">
+                                <tr>
+                                    <td style="padding: 16px; vertical-align: top; box-sizing: border-box;">
+                                        <div style="display: flex; gap: 16px; align-items: flex-start;">
+                                            ${task.image ? `
+                                            <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                                ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>` : `<img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;" onclick="viewImageInNewWindow('${task.image}')">`}
+                                            </div>` : ''}
+                                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; min-width: 0;">
+                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
+                                                ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="color: #2563eb; text-decoration: underline; display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600;">View Article</a>` : ''}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
                         `;
                     }
                     

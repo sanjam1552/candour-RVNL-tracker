@@ -1870,6 +1870,7 @@ h1, h2, h3, h4, h5, h6 {
     
     .report-print-table tr {
         page-break-inside: avoid !important;
+        break-inside: avoid !important;
         page-break-after: auto !important;
     }
     
@@ -1905,6 +1906,18 @@ h1, h2, h3, h4, h5, h6 {
     
     .clipping-info-box h5 {
         color: #000000 !important;
+    }
+
+    /* Prevent PR Update groups and publication cards from splitting across pages */
+    .report-pr-group {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .report-pub-coverage-card {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
     
     .summary-stat-box {
