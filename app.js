@@ -3367,103 +3367,101 @@ function generateReport() {
         });
     }
 
-    // RENDER PR UPDATE TABLE
-    const prBody = document.getElementById("report-pr-table-body");
-    prBody.innerHTML = "";
-
+    // RENDER PR UPDATE SECTION
     const prSec = document.getElementById("report-sec-pr");
-    if (state.activeClient === "iCode") {
-        if (prSec) prSec.style.display = "none";
-    } else {
-        if (prSec) prSec.style.display = "";
-        
-        // Rewrite the PR table headers to remove Spokesperson and Coverage Status
-        const prTable = document.querySelector("#report-sec-pr table");
-        if (prTable) {
-            const prThead = prTable.querySelector("thead");
-            if (prThead) {
-                prThead.innerHTML = `
-                    <tr>
-                        <th style="width: 50px;">Sl.</th>
-                        <th style="width: 100px;">Category</th>
-                        <th style="width: 200px;">Topics / Announcements</th>
-                        <th>Publications & Coverage</th>
-                    </tr>
-                `;
-            }
-        }
-
-        if (prItems.length === 0) {
-            if (prSec) prSec.classList.add("no-print");
-            prBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No PR media coverage items recorded.</td></tr>`;
+    if (prSec) {
+        if (state.activeClient === "iCode") {
+            prSec.style.display = "none";
         } else {
-            if (prSec) prSec.classList.remove("no-print");
-            prItems.forEach((task, idx) => {
-            const tr = document.createElement("tr");
-
-            // Inline Thumbnail block beside or below the title (fallback for old tasks only)
-            let reportThumbnailHtml = "";
-            const list = task.publicationsList || [];
-            if (list.length === 0 && task.image) {
-                reportThumbnailHtml = `
-                    <div class="report-item-thumbnail">
-                        <img src="${task.image}" alt="thumbnail">
-                    </div>
-                `;
+            prSec.style.display = "";
+            
+            // Get or create the new list container
+            let listContainer = prSec.querySelector(".report-pr-list-container");
+            const tableResponsive = prSec.querySelector(".table-responsive");
+            
+            if (!listContainer) {
+                listContainer = document.createElement("div");
+                listContainer.className = "report-pr-list-container";
+                prSec.appendChild(listContainer);
             }
+            
+            if (tableResponsive) {
+                tableResponsive.style.display = "none"; // Hide the old table layout completely
+            }
+            listContainer.style.display = "block";
+            listContainer.innerHTML = "";
 
-            const noPrintButtons = `
-                <div class="no-print" style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
-                     <button class="btn btn-secondary btn-sm btn-add-report-clipping" data-id="${task.id}" style="font-size: 10px; padding: 2px 8px; height: 24px;">
-                         <i class="fa-solid fa-plus"></i> Add Thumbnail
-                     </button>
-                </div>
-            `;
-
-            const titleAndImageHtml = reportThumbnailHtml
-                ? `<div class="report-item-flex">
-                     ${reportThumbnailHtml}
-                     <div class="report-item-details">
-                         <strong>${task.title}</strong>
-                     </div>
-                   </div>`
-                : `<div class="report-item-details">
-                     <strong>${task.title}</strong>
-                     ${list.length === 0 ? noPrintButtons : ''}
-                   </div>`;
-
-            let pubColHtml = "";
-            if (list.length > 0) {
-                pubColHtml = `<div style="display:flex; flex-direction:column; gap:10px;">`;
-                list.forEach(pub => {
-                    pubColHtml += `
-                        <div class="report-pub-coverage-card" style="display: flex; gap: 14px; margin-bottom: 6px; align-items: flex-start; background: rgba(0, 0, 0, 0.01); border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; box-sizing: border-box;">
-                            ${pub.image ? `
-                            <div style="width: 250px; height: 155px; border-radius: 6px; border: 1px solid #ddd; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
-                                <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: contain;">
-                            </div>` : ''}
-                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px;">
-                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
-                                ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>${pub.date}</div>` : ''}
-                                ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 1px; margin-top: 4px; font-size: 11.5px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px; margin-right: 2px;"></i> View Article</a>` : ''}
+            if (prItems.length === 0) {
+                prSec.classList.add("no-print");
+                listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#6b7280; border:1px solid var(--border-color); border-radius:8px;">No PR media coverage items recorded.</div>`;
+            } else {
+                prSec.classList.remove("no-print");
+                prItems.forEach((task, idx) => {
+                    const itemDiv = document.createElement("div");
+                    itemDiv.className = "report-pr-group";
+                    itemDiv.style.marginBottom = "25px";
+                    itemDiv.style.border = "1px solid var(--border-color)";
+                    itemDiv.style.borderRadius = "8px";
+                    itemDiv.style.overflow = "hidden";
+                    itemDiv.style.backgroundColor = "var(--bg-secondary)";
+                    
+                    // Group Header (Announcements / Topic Title)
+                    const headerHtml = `
+                        <div style="background: var(--bg-primary); border-bottom: 1px solid var(--border-color); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${task.subType || 'Press Release'}</span>
+                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4;">${task.title}</h4>
                             </div>
+                            ${task.date ? `
+                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                <i class="fa-regular fa-calendar-days"></i> ${task.date}
+                            </div>` : ''}
                         </div>
                     `;
+                    
+                    // Publications Grid
+                    const list = task.publicationsList || [];
+                    let publicationsHtml = "";
+                    
+                    if (list.length > 0) {
+                        publicationsHtml = `<div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; box-sizing: border-box;">`;
+                        list.forEach(pub => {
+                            publicationsHtml += `
+                                <div class="report-pub-coverage-card" style="width: calc(50% - 7px); display: flex; gap: 14px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-sizing: border-box; align-items: flex-start;">
+                                    ${pub.image ? `
+                                    <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')" class="report-pub-thumbnail-container">
+                                        <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: contain;">
+                                    </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                    <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1;">
+                                        <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${pub.name || 'Unnamed Pub'}</div>
+                                        ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
+                                        ${pub.link ? `<a href="${pub.link}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Article</a>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        publicationsHtml += `</div>`;
+                    } else {
+                        // Fallback for old tasks that might only have task.image and task.publication
+                        publicationsHtml = `
+                            <div style="display: flex; gap: 16px; padding: 16px; align-items: flex-start; box-sizing: border-box;">
+                                ${task.image ? `
+                                <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;" onclick="viewImageInNewWindow('${task.image}')">
+                                    <img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;">
+                                </div>` : ''}
+                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px;">
+                                    <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
+                                    ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" class="no-print" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Article</a>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    itemDiv.innerHTML = headerHtml + publicationsHtml;
+                    listContainer.appendChild(itemDiv);
                 });
-                pubColHtml += `</div>`;
-            } else {
-                pubColHtml = `<div>${task.publication || 'Mainlines & Financials'}</div>`;
             }
-
-            tr.innerHTML = `
-                <td style="text-align:center;">${idx + 1}</td>
-                <td style="font-weight:600;">${task.subType || 'Press Release'}</td>
-                <td>${titleAndImageHtml}</td>
-                <td>${pubColHtml}</td>
-            `;
-            prBody.appendChild(tr);
-        });
-    }
+        }
     }
 
     // RENDER CREATIVE COLLATERALS TABLE
