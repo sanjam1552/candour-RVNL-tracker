@@ -2865,7 +2865,21 @@ function renderTrackerTable() {
         } else if (task.type === "PR Update") {
             typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
         } else {
-            typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-palette"></i> Design</span>`;
+            if (task.subType === "Video") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-video"></i> Video</span>`;
+            } else if (task.subType === "Newsletter") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-envelope-open-text"></i> Newsletter</span>`;
+            } else if (task.subType === "Magazine Ad") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-rectangle-ad"></i> Ad</span>`;
+            } else if (task.subType === "Blog") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-blog"></i> Blog</span>`;
+            } else if (task.subType === "Website") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-globe"></i> Website</span>`;
+            } else if (task.subType === "Other") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-file-lines"></i> Document</span>`;
+            } else {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-palette"></i> Design</span>`;
+            }
         }
 
         // Status Pill
@@ -3061,7 +3075,7 @@ function renderTrackerKanban() {
         // Tag label
         // Tag label
         let tagColor = "var(--accent-blue)";
-        let tagLabel = task.subType || task.type;
+        let tagLabel = task.subType === "Other" ? "Document" : (task.subType || task.type);
         if (state.activeClient === "iCode" || task.client === "iCode") {
             if (task.campaignType === "Paid") {
                 tagColor = "var(--accent-red)";
@@ -3600,7 +3614,7 @@ function generateReport() {
 
                 tr.innerHTML = `
                     <td style="text-align:center;">${idx + 1}</td>
-                    <td style="font-weight:600;">${task.subType || 'Design'}</td>
+                    <td style="font-weight:600;">${task.subType === "Other" ? "Document" : (task.subType || 'Design')}</td>
                     <td>${titleAndImageHtml}</td>
                     <td>${statusBadge}</td>
                 `;
