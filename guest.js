@@ -350,13 +350,13 @@ function renderCharts(published, progress, other) {
     });
 
     // 2. Category Share Bar Chart
-    const categories = ['Creative Asset', 'PR Update', 'Social Media'];
+    const categories = ['Creative / Collateral', 'PR Update', 'Social Media'];
     const counts = categories.map(cat => state.filteredTasks.filter(t => t.type === cat).length);
 
     state.charts.category = new Chart(categoryCtx, {
         type: 'bar',
         data: {
-            labels: ['Creative Assets', 'PR Updates', 'Social Media'],
+            labels: ['Creatives & Collaterals', 'PR Updates', 'Social Media'],
             datasets: [{
                 label: 'Deliverables Count',
                 data: counts,
