@@ -264,7 +264,7 @@ function renderTable() {
     taskTableBody.innerHTML = "";
     
     if (state.filteredTasks.length === 0) {
-        taskTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found for this month/category.</td></tr>`;
+        taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found for this month/category.</td></tr>`;
         return;
     }
 
@@ -282,24 +282,27 @@ function renderTable() {
         } else if (task.status === "Sent to client") {
             statusBadge = `<span class="badge badge-approved"><i class="fa-solid fa-paper-plane"></i> Awaiting Client</span>`;
         } else {
-            statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.12); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold</span>`;
+            statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.1); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold</span>`;
         }
 
-        // Format Image preview or media list
+        // Format Image preview or media list (larger preview)
         let mediaHtml = "-";
         if (task.image) {
-            mediaHtml = `<img src="${task.image}" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')">`;
+            mediaHtml = `
+                <div class="thumbnail-preview-container">
+                    <img src="${task.image}" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')">
+                </div>
+            `;
         }
 
         tr.innerHTML = `
-            <td style="font-weight: 600; color: var(--accent-blue);">${task.type}</td>
             <td>
-                <div style="font-weight: 500;">${task.description || "-"}</div>
-                ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color);">${task.subType}</span>` : ""}
+                <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${task.title || "-"}</div>
+                ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 4px;">${task.subType}</span>` : ""}
             </td>
             <td>${statusBadge}</td>
             <td>
-                <div style="font-weight: 500;">${task.week || "Week 1"}</div>
+                <div style="font-weight: 600; color: var(--text-primary);">${task.week || "Week 1"}</div>
                 <div style="font-size: 11px; color: var(--text-muted);">${task.date || ""}</div>
             </td>
             <td>${mediaHtml}</td>
@@ -337,8 +340,8 @@ function renderCharts(published, progress, other) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#9ca3af',
-                        font: { family: 'Inter', size: 11 }
+                        color: '#475569',
+                        font: { family: 'Inter', size: 11, weight: '600' }
                     }
                 }
             },
@@ -357,7 +360,7 @@ function renderCharts(published, progress, other) {
             datasets: [{
                 label: 'Deliverables Count',
                 data: counts,
-                backgroundColor: 'rgba(139, 92, 246, 0.4)',
+                backgroundColor: 'rgba(139, 92, 246, 0.15)',
                 borderColor: '#8b5cf6',
                 borderWidth: 1.5,
                 borderRadius: 6
@@ -371,12 +374,12 @@ function renderCharts(published, progress, other) {
             },
             scales: {
                 y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#9ca3af', font: { family: 'Inter' }, stepSize: 1 }
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: { color: '#475569', font: { family: 'Inter', weight: '500' }, stepSize: 1 }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#9ca3af', font: { family: 'Inter' } }
+                    ticks: { color: '#475569', font: { family: 'Inter', weight: '500' } }
                 }
             }
         }

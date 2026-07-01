@@ -14,22 +14,26 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-primary: #0b0f19;
-            --bg-secondary: #121829;
-            --bg-card: rgba(255, 255, 255, 0.03);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
+            /* Premium Light Mode Palette */
+            --bg-primary: #f8fafc; /* slate-50 */
+            --bg-secondary: #ffffff;
+            --bg-card: #f1f5f9; /* slate-100 */
+            --border-color: #e2e8f0; /* slate-200 */
+            --text-primary: #0f172a; /* slate-900 */
+            --text-secondary: #475569; /* slate-600 */
+            --text-muted: #94a3b8; /* slate-400 */
+            
             --accent-blue: #3b82f6;
+            --accent-blue-hover: #1d4ed8;
             --accent-green: #10b981;
             --accent-purple: #8b5cf6;
             --accent-amber: #f59e0b;
             --accent-red: #ef4444;
-            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            
+            --glass-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.03);
             --font-heading: 'Outfit', sans-serif;
             --font-body: 'Inter', sans-serif;
-            --transition-fast: 0.2s ease;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
@@ -54,7 +58,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #0b0f19;
+            background: #ffffff;
             z-index: 9999;
             display: flex;
             align-items: center;
@@ -68,12 +72,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(11, 15, 25, 0.96);
+            background: rgba(248, 250, 252, 0.98);
             z-index: 10000;
             display: flex;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
         }
 
         .login-card {
@@ -120,6 +124,7 @@
             font-size: 24px;
             font-weight: 700;
             letter-spacing: -0.5px;
+            color: var(--text-primary);
         }
 
         .brand-text span {
@@ -143,6 +148,7 @@
             border-radius: 12px;
             font-size: 13px;
             font-weight: 500;
+            color: var(--text-secondary);
         }
 
         .btn {
@@ -164,21 +170,24 @@
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
         }
 
         .btn-primary:hover {
-            opacity: 0.9;
+            opacity: 0.95;
             transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
         }
 
         .btn-secondary {
-            background: var(--bg-card);
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--bg-card);
         }
 
         /* Filter Section */
@@ -204,9 +213,11 @@
             border-radius: 12px;
             color: var(--text-primary);
             font-family: var(--font-body);
+            font-weight: 500;
             outline: none;
             cursor: pointer;
             min-width: 160px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
         /* Grid Metrics */
@@ -225,13 +236,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: transform var(--transition-fast);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transition: all var(--transition-fast);
+            box-shadow: var(--glass-shadow);
         }
 
         .metric-card:hover {
             transform: translateY(-3px);
-            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 12px 30px -10px rgba(0,0,0,0.12);
+            border-color: rgba(0, 0, 0, 0.12);
         }
 
         .metric-info h3 {
@@ -240,12 +252,14 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 8px;
+            font-weight: 600;
         }
 
         .metric-info .value {
             font-family: var(--font-heading);
             font-size: 32px;
             font-weight: 700;
+            color: var(--text-primary);
         }
 
         .metric-icon {
@@ -258,10 +272,10 @@
             font-size: 22px;
         }
 
-        .icon-blue { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
-        .icon-green { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
-        .icon-purple { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
-        .icon-amber { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); }
+        .icon-blue { background: rgba(59, 130, 246, 0.08); color: var(--accent-blue); }
+        .icon-green { background: rgba(16, 185, 129, 0.08); color: var(--accent-green); }
+        .icon-purple { background: rgba(139, 92, 246, 0.08); color: var(--accent-purple); }
+        .icon-amber { background: rgba(245, 158, 11, 0.08); color: var(--accent-amber); }
 
         /* Dashboard Section Splits */
         .dashboard-split {
@@ -282,14 +296,15 @@
             border: 1px solid var(--border-color);
             border-radius: 24px;
             padding: 30px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: var(--glass-shadow);
         }
 
         .panel-card h2 {
             font-family: var(--font-heading);
             font-size: 18px;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 20px;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -314,49 +329,64 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-secondary);
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border-color);
-            font-weight: 600;
+            padding: 16px;
+            border-bottom: 2px solid var(--border-color);
+            font-weight: 700;
         }
 
         td {
-            padding: 14px 16px;
+            padding: 18px 16px;
             border-bottom: 1px solid var(--border-color);
-            font-size: 13px;
+            font-size: 13.5px;
+            vertical-align: middle;
         }
 
         tr:last-child td {
             border-bottom: none;
         }
 
+        tr:hover td {
+            background-color: var(--bg-primary);
+        }
+
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 4px 8px;
+            padding: 5px 10px;
             border-radius: 8px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
-        .badge-published { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); }
-        .badge-progress { background: rgba(59, 130, 246, 0.12); color: var(--accent-blue); }
-        .badge-pending { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
-        .badge-approved { background: rgba(139, 92, 246, 0.12); color: var(--accent-purple); }
+        .badge-published { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+        .badge-progress { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+        .badge-pending { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); }
+        .badge-approved { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+
+        /* Bigger, clearer Media Clipping Preview */
+        .thumbnail-preview-container {
+            position: relative;
+            display: inline-block;
+        }
 
         .thumbnail-preview {
-            width: 38px;
-            height: 38px;
-            border-radius: 6px;
+            width: 110px;
+            height: 80px;
+            border-radius: 8px;
             object-fit: cover;
-            border: 1px solid var(--border-color);
+            border: 2px solid var(--border-color);
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all var(--transition-fast);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
         .thumbnail-preview:hover {
-            opacity: 0.8;
+            transform: scale(1.08);
+            border-color: var(--accent-blue);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         }
 
         /* Input Form Elements for Login */
@@ -408,7 +438,7 @@
     <div id="preloader">
         <div style="text-align: center;">
             <img src="inputs/candour logo.png" alt="Candour Logo" style="height: 60px; margin-bottom: 20px; animation: pulse 2s infinite ease-in-out;">
-            <div style="font-family: var(--font-heading); color: #f3f4f6; font-size: 16px; font-weight: 600; letter-spacing: 0.5px;">Loading Executive Dashboard...</div>
+            <div style="font-family: var(--font-heading); color: var(--text-primary); font-size: 16px; font-weight: 600; letter-spacing: 0.5px;">Loading Executive Dashboard...</div>
         </div>
     </div>
 
@@ -416,7 +446,7 @@
     <div id="login-modal-overlay" style="display: none;">
         <div class="login-card">
             <div style="font-size: 40px; color: var(--accent-blue); margin-bottom: 20px;"><i class="fa-solid fa-chart-pie"></i></div>
-            <h3 style="margin-bottom: 10px; font-family: var(--font-heading); font-size: 22px; font-weight: 700;">RVNL Client Dashboard</h3>
+            <h3 style="margin-bottom: 10px; font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--text-primary);">RVNL Client Dashboard</h3>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">Access is restricted. Please sign in with your authorized client email address.</p>
             <form id="client-login-form">
                 <input type="email" id="login-email-input" placeholder="advisor.media.rail@gmail.com" required>
@@ -518,8 +548,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Category</th>
-                            <th>Description</th>
+                            <th>Deliverable / Asset Name</th>
                             <th>Status</th>
                             <th>Date / Week</th>
                             <th>Media Clipping</th>
@@ -527,7 +556,7 @@
                     </thead>
                     <tbody id="task-table-body">
                         <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading tasks...</td>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading tasks...</td>
                         </tr>
                     </tbody>
                 </table>
