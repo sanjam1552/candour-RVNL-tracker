@@ -70,7 +70,7 @@ function getFormattedToday() {
 function getPRPublicationsCount(tasks) {
     let count = 0;
     tasks.forEach(t => {
-        if (t.type === 'PR Update') {
+        if (t.type === 'PR Update' && t.status === 'Published/Closed') {
             if (t.publicationsList && t.publicationsList.length > 0) {
                 count += t.publicationsList.length;
             } else if (t.publication) {
