@@ -351,7 +351,12 @@ function renderCharts(published, progress, other) {
 
     // 2. Category Share Bar Chart
     const categories = ['Creative / Collateral', 'PR Update', 'Social Media'];
-    const counts = categories.map(cat => state.filteredTasks.filter(t => t.type === cat).length);
+    const counts = categories.map(cat => {
+        if (cat === 'PR Update') {
+            return getPRPublicationsCount(state.filteredTasks);
+        }
+        return state.filteredTasks.filter(t => t.type === cat && t.status === "Published/Closed").length;
+    });
 
     state.charts.category = new Chart(categoryCtx, {
         type: 'bar',

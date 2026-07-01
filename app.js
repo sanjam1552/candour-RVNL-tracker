@@ -2535,9 +2535,9 @@ function renderTrendChart() {
 
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     months.forEach(m => {
-        smData.push(clientTasks.filter(t => t.month === m && t.type === 'Social Media').length);
+        smData.push(clientTasks.filter(t => t.month === m && t.type === 'Social Media' && t.status === 'Published/Closed').length);
         prData.push(getPRPublicationsCount(clientTasks.filter(t => t.month === m)));
-        creativeData.push(clientTasks.filter(t => t.month === m && t.type === 'Creative / Collateral').length);
+        creativeData.push(clientTasks.filter(t => t.month === m && t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length);
     });
 
     // Destroy existing chart if any
@@ -2552,8 +2552,8 @@ function renderTrendChart() {
         const organicData = [];
         const paidData = [];
         months.forEach(m => {
-            organicData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Organic').length);
-            paidData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Paid').length);
+            organicData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Organic' && t.status === 'Published/Closed').length);
+            paidData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Paid' && t.status === 'Published/Closed').length);
         });
         datasets = [
             {
@@ -2642,9 +2642,9 @@ function renderShareChart() {
         
         categories = ['Plano', 'Murphy', 'Redmond'];
         dataVals = [
-            clientTasks.filter(t => t.centers && t.centers.includes('Plano')).length,
-            clientTasks.filter(t => t.centers && t.centers.includes('Murphy')).length,
-            clientTasks.filter(t => t.centers && t.centers.includes('Redmond')).length
+            clientTasks.filter(t => t.centers && t.centers.includes('Plano') && t.status === 'Published/Closed').length,
+            clientTasks.filter(t => t.centers && t.centers.includes('Murphy') && t.status === 'Published/Closed').length,
+            clientTasks.filter(t => t.centers && t.centers.includes('Redmond') && t.status === 'Published/Closed').length
         ];
         bgColors = ['#3b82f6', '#f59e0b', '#ef4444'];
     } else {
@@ -2654,16 +2654,16 @@ function renderShareChart() {
         if (state.activeClient === "Legrand") {
             categories = ['Social Media', 'PR Update'];
             dataVals = [
-                clientTasks.filter(t => t.type === 'Social Media').length,
+                clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
                 getPRPublicationsCount(clientTasks)
             ];
             bgColors = ['#10b981', '#8b5cf6'];
         } else {
             categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
             dataVals = [
-                clientTasks.filter(t => t.type === 'Social Media').length,
+                clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
                 getPRPublicationsCount(clientTasks),
-                clientTasks.filter(t => t.type === 'Creative / Collateral').length
+                clientTasks.filter(t => t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length
             ];
             bgColors = ['#10b981', '#8b5cf6', '#f59e0b'];
         }
