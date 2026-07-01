@@ -6,6 +6,17 @@ function getCurrentMonthStr() {
     return new Date().toLocaleDateString('en-US', options);
 }
 
+// Get current week string based on date (e.g. "Week 1", "Week 2")
+function getCurrentWeekStr() {
+    const day = new Date().getDate();
+    if (day <= 7) return "Week 1";
+    if (day <= 14) return "Week 2";
+    if (day <= 21) return "Week 3";
+    if (day <= 28) return "Week 4";
+    return "Week 5";
+}
+
+
 // Application State
 const state = {
     tasks: [],
@@ -1978,8 +1989,8 @@ function openDrawer(taskId = null, prefillData = null) {
     const title = document.getElementById("drawer-title");
     
     // Default current month/week selection
-    document.getElementById("task-month").value = "June 2026";
-    document.getElementById("task-week").value = "Week 1";
+    document.getElementById("task-month").value = getCurrentMonthStr();
+    document.getElementById("task-week").value = getCurrentWeekStr();
     document.getElementById("task-status").value = "WIP";
     
     if (state.activeClient === "iCode") {
