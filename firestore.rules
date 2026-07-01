@@ -2,12 +2,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /rvnl_tracker/{document=**} {
-      allow read, write: if request.auth != null && (request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || request.auth.token.email.lower() == 'stutio2465@gmail.com');
+      allow read: if request.auth != null && (
+        request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
+        request.auth.token.email.lower() == 'stutio2465@gmail.com' ||
+        request.auth.token.email.lower() == 'advisor.media.rail@gmail.com' ||
+        request.auth.token.email.lower() == 'prteamrvnl@gmail.com' ||
+        request.auth.token.email.lower() == 'prrvnl1@gmail.com' ||
+        request.auth.token.email.lower() == 'sanjamcreatives@gmail.com'
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
+        request.auth.token.email.lower() == 'stutio2465@gmail.com'
+      );
     }
     match /rvnl_briefings/{document=**} {
-      allow read, write: if request.auth != null && (request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || request.auth.token.email.lower() == 'stutio2465@gmail.com');
+      allow read: if request.auth != null && (
+        request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
+        request.auth.token.email.lower() == 'stutio2465@gmail.com' ||
+        request.auth.token.email.lower() == 'advisor.media.rail@gmail.com' ||
+        request.auth.token.email.lower() == 'prteamrvnl@gmail.com' ||
+        request.auth.token.email.lower() == 'prrvnl1@gmail.com' ||
+        request.auth.token.email.lower() == 'sanjamcreatives@gmail.com'
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
+        request.auth.token.email.lower() == 'stutio2465@gmail.com'
+      );
     }
   }
 }
+
 
 

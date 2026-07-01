@@ -421,6 +421,7 @@ function initUserSession() {
         if (user) {
             // Verify email domain constraint (case-insensitive)
             const email = user.email || "";
+            const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
                 if (displayNameEl) displayNameEl.textContent = state.currentUser;
@@ -430,6 +431,9 @@ function initUserSession() {
                 
                 // Safely load data from Firestore now that the session is authenticated
                 loadData();
+            } else if (clientEmails.includes(email.toLowerCase())) {
+                // Redirect RVNL client to guest dashboard
+                window.location.replace("guest.html");
             } else {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
