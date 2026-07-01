@@ -6,6 +6,7 @@ const state = {
     filteredTasks: [],
     selectedMonth: "",
     selectedCategory: "all",
+    selectedStatus: "all",
     currentUser: "",
     charts: {
         status: null,
@@ -25,6 +26,7 @@ const adminSwitchPlaceholder = document.getElementById("admin-switch-placeholder
 const logoutBtn = document.getElementById("logout-btn");
 const monthFilter = document.getElementById("month-filter");
 const typeFilter = document.getElementById("type-filter");
+const statusFilter = document.getElementById("status-filter");
 const taskTableBody = document.getElementById("task-table-body");
 
 // Initialize Auth listener
@@ -214,6 +216,13 @@ function setupFilters() {
         state.selectedCategory = e.target.value;
         updateDashboard();
     });
+
+    if (statusFilter) {
+        statusFilter.addEventListener("change", (e) => {
+            state.selectedStatus = e.target.value;
+            updateDashboard();
+        });
+    }
 }
 
 // Get count of publications
@@ -263,12 +272,14 @@ function updateDashboard() {
 function renderTable() {
     taskTableBody.innerHTML = "";
     
-    if (state.filteredTasks.length === 0) {
-        taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found for this month/category.</td></tr>`;
+    const displayTasks = state.filteredTasks.filter(t => state.selectedStatus === "all" || t.status === state.selectedStatus);
+    
+    if (displayTasks.length === 0) {
+        taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found matching the selected filters.</td></tr>`;
         return;
     }
 
-    state.filteredTasks.forEach(task => {
+    displayTasks.forEach(task => {
         const tr = document.createElement("tr");
 
         // Format Status Badge
