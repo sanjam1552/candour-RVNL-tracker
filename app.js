@@ -1749,12 +1749,22 @@ function togglePRFormFields(type) {
         }
 
         lblSubType.textContent = "PR Category";
-        subTypeSelect.innerHTML = `
-            <option value="Press Release">Press Release</option>
-            <option value="Interview">Interview</option>
-            <option value="Event coverage">Event Coverage</option>
-            <option value="Documents">Documents</option>
-        `;
+        if (state.activeClient === "Legrand") {
+            subTypeSelect.innerHTML = `
+                <option value="Press Release">Press Release</option>
+                <option value="Interview">Interview</option>
+                <option value="Event coverage">Event Coverage</option>
+                <option value="Byline Article">Byline Article</option>
+                <option value="Documents">Documents</option>
+            `;
+        } else {
+            subTypeSelect.innerHTML = `
+                <option value="Press Release">Press Release</option>
+                <option value="Interview">Interview</option>
+                <option value="Event coverage">Event Coverage</option>
+                <option value="Documents">Documents</option>
+            `;
+        }
     } else if (type === "Social Media") {
         prFields.classList.add("hidden");
         prPubsSection.classList.add("hidden");
