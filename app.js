@@ -2570,7 +2570,7 @@ function updateDashboard() {
     const total = clientTasks.length;
     const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
     const pr = getPRPublicationsCount(clientTasks);
-    const wip = clientTasks.filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval').length;
+    const wip = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client'].includes(t.status)).length;
 
     document.getElementById("stat-total-creatives").textContent = total;
     document.getElementById("stat-total-linkedin").textContent = linkedin;
@@ -2798,13 +2798,26 @@ function renderDashboardLists() {
         recentCompleted.forEach(item => {
             const itemEl = document.createElement("div");
             itemEl.className = "recent-item";
+            itemEl.style.cursor = "pointer";
+            itemEl.addEventListener("click", () => {
+                openDrawer(item.id);
+            });
             
             const bgClass = "bg-green";
             const iconClass = "fa-solid fa-share-nodes";
             
+            let iconOrImageHtml = `<div class="item-icon ${bgClass}"><i class="${iconClass}"></i></div>`;
+            if (item.image) {
+                iconOrImageHtml = `
+                    <div class="item-icon" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <img src="${item.image}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+                `;
+            }
+            
             itemEl.innerHTML = `
                 <div class="item-left">
-                    <div class="item-icon ${bgClass}"><i class="${iconClass}"></i></div>
+                    ${iconOrImageHtml}
                     <div class="item-details">
                         <h5>${item.title}</h5>
                         <span>${item.month} ${item.date ? '• ' + item.date : ''}</span>
@@ -2832,14 +2845,27 @@ function renderDashboardLists() {
         hotTasks.forEach(item => {
             const itemEl = document.createElement("div");
             itemEl.className = "recent-item";
+            itemEl.style.cursor = "pointer";
+            itemEl.addEventListener("click", () => {
+                openDrawer(item.id);
+            });
             
             let badgeStatus = "status-wip";
             if (item.status === "Sent for internal approval") badgeStatus = "status-review";
             if (item.status === "Sent to client") badgeStatus = "status-approval";
 
+            let iconOrImageHtml = `<div class="item-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>`;
+            if (item.image) {
+                iconOrImageHtml = `
+                    <div class="item-icon" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <img src="${item.image}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+                `;
+            }
+
             itemEl.innerHTML = `
                 <div class="item-left">
-                    <div class="item-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>
+                    ${iconOrImageHtml}
                     <div class="item-details">
                         <h5>${item.title}</h5>
                         <span>Owner: ${item.owner}</span>
@@ -3044,7 +3070,7 @@ function renderTrackerTable() {
         if (task.image && task.type !== "PR Update") {
             trackerImageHtml = `
                 <div class="tracker-item-thumbnail btn-view-image" data-id="${task.id}">
-                    <img src="${task.image}" alt="thumbnail">
+                    <img src="${task.image}" loading="lazy" alt="thumbnail">
                 </div>
             `;
         }
@@ -3209,7 +3235,7 @@ function renderTrackerKanban() {
         if (task.image) {
             kanbanCoverHtml = `
                 <div class="kanban-card-image" data-id="${task.id}" style="width: 100%; height: 90px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); cursor: pointer;">
-                    <img src="${task.image}" style="width: 100%; height: 100%; object-fit: cover;" alt="cover">
+                    <img src="${task.image}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" alt="cover">
                 </div>
             `;
         }

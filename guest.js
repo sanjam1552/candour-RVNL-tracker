@@ -341,7 +341,7 @@ function renderTable() {
         if (task.image) {
             mediaHtml = `
                 <div class="thumbnail-preview-container">
-                    <img src="${task.image}" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')">
+                    <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')">
                 </div>
             `;
         }
