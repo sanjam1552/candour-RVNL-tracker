@@ -238,6 +238,7 @@
             justify-content: space-between;
             transition: all var(--transition-fast);
             box-shadow: var(--glass-shadow);
+            cursor: pointer;
         }
 
         .metric-card:hover {
@@ -493,7 +494,8 @@
                 <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Filter Status:</label>
                 <select id="status-filter">
                     <option value="all">All Statuses</option>
-                    <option value="WIP">In Progress / WIP</option>
+                    <option value="In Progress">In Progress (Active)</option>
+                    <option value="WIP">WIP</option>
                     <option value="Sent for internal approval">Internal Approval</option>
                     <option value="Sent to client">Awaiting Client Feedback</option>
                     <option value="Published/Closed">Published</option>
@@ -504,28 +506,28 @@
 
         <!-- Metrics Cards -->
         <div class="metrics-grid">
-            <div class="metric-card">
+            <div class="metric-card" id="kpi-card-total">
                 <div class="metric-info">
                     <h3>Total Deliverables</h3>
                     <div class="value" id="kpi-total">0</div>
                 </div>
                 <div class="metric-icon icon-blue"><i class="fa-solid fa-layer-group"></i></div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card" id="kpi-card-published">
                 <div class="metric-info">
                     <h3>Published</h3>
                     <div class="value" id="kpi-published">0</div>
                 </div>
                 <div class="metric-icon icon-green"><i class="fa-solid fa-circle-check"></i></div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card" id="kpi-card-progress">
                 <div class="metric-info">
                     <h3>In Progress / WIP</h3>
                     <div class="value" id="kpi-progress">0</div>
                 </div>
                 <div class="metric-icon icon-amber"><i class="fa-solid fa-hourglass-half"></i></div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card" id="kpi-card-pr">
                 <div class="metric-info">
                     <h3>PR Publications</h3>
                     <div class="value" id="kpi-pr">0</div>
@@ -553,7 +555,7 @@
         </div>
 
         <!-- Table Panel -->
-        <div class="panel-card" style="margin-bottom: 40px;">
+        <div id="tasks-table-card" class="panel-card" style="margin-bottom: 40px;">
             <h2><i class="fa-solid fa-list-check" style="color: var(--accent-blue);"></i> Tracked Tasks & Deliverables</h2>
             <div class="data-table-container">
                 <table>

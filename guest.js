@@ -263,6 +263,37 @@ function setupFilters() {
             updateDashboard();
         });
     }
+
+    // Metric Card Click Event Listeners
+    const cardTotal = document.getElementById("kpi-card-total");
+    const cardPublished = document.getElementById("kpi-card-published");
+    const cardProgress = document.getElementById("kpi-card-progress");
+    const cardPr = document.getElementById("kpi-card-pr");
+    const tableCard = document.getElementById("tasks-table-card");
+
+    const syncFiltersAndScroll = (category, status) => {
+        state.selectedCategory = category;
+        state.selectedStatus = status;
+        if (typeFilter) typeFilter.value = category;
+        if (statusFilter) statusFilter.value = status;
+        updateDashboard();
+        if (tableCard) {
+            tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    if (cardTotal) {
+        cardTotal.addEventListener("click", () => syncFiltersAndScroll("all", "all"));
+    }
+    if (cardPublished) {
+        cardPublished.addEventListener("click", () => syncFiltersAndScroll("all", "Published/Closed"));
+    }
+    if (cardProgress) {
+        cardProgress.addEventListener("click", () => syncFiltersAndScroll("all", "In Progress"));
+    }
+    if (cardPr) {
+        cardPr.addEventListener("click", () => syncFiltersAndScroll("PR Update", "Published/Closed"));
+    }
 }
 
 // Get count of publications
@@ -312,7 +343,13 @@ function updateDashboard() {
 function renderTable() {
     taskTableBody.innerHTML = "";
     
-    const displayTasks = state.filteredTasks.filter(t => state.selectedStatus === "all" || t.status === state.selectedStatus);
+    const displayTasks = state.filteredTasks.filter(t => {
+        if (state.selectedStatus === "all") return true;
+        if (state.selectedStatus === "In Progress") {
+            return ["WIP", "Sent for internal approval", "Sent to client"].includes(t.status);
+        }
+        return t.status === state.selectedStatus;
+    });
     
     if (displayTasks.length === 0) {
         taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found matching the selected filters.</td></tr>`;
