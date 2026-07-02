@@ -333,7 +333,7 @@ function renderTable() {
         } else if (task.status === "Sent to client") {
             statusBadge = `<span class="badge badge-approved"><i class="fa-solid fa-paper-plane"></i> Awaiting Client</span>`;
         } else {
-            statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.1); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold</span>`;
+            statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.1); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold / Not Used</span>`;
         }
 
         // Format Image preview or media list (larger preview)
@@ -349,10 +349,16 @@ function renderTable() {
             `;
         }
 
+        let remarksHtml = "";
+        if (task.remarks && task.remarks.trim() !== "") {
+            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 450px;">${task.remarks}</div>`;
+        }
+
         tr.innerHTML = `
             <td>
                 <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${task.title || "-"}</div>
-                ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 4px;">${task.subType}</span>` : ""}
+                ${remarksHtml}
+                ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
             </td>
             <td>${statusBadge}</td>
             <td>
