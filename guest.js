@@ -342,8 +342,8 @@ function renderTable() {
             mediaHtml = `
                 <div class="thumbnail-preview-container" style="display: flex; align-items: center; gap: 10px;">
                     <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')" title="Click to view full image">
-                    <button class="download-btn" data-url="${task.image}" data-title="${task.title}" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;" title="Download Image">
-                        <i class="fa-solid fa-download" style="font-size: 12px;"></i>
+                    <button class="download-btn" data-url="${task.image}" data-title="${task.title}" style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;" title="Download Image">
+                        <i class="fa-solid fa-download" style="font-size: 14px;"></i>
                     </button>
                 </div>
             `;
@@ -467,26 +467,23 @@ function renderCharts(published, progress, other) {
     });
 }
 
-// Download image directly (handles CORS/cross-domain download issues via Firebase Storage attachment disposition)
-function downloadImage(url, filename) {
-    if (url && url.startsWith("https://firebasestorage.googleapis.com")) {
-        // Appending response-content-disposition=attachment forces Firebase Storage to send download headers, triggering direct download
-        const downloadUrl = url + (url.includes('?') ? '&' : '?') + 'response-content-disposition=attachment';
+// Download image directly as a blob (handles CORS/cross-domain download issues)
+async function downloadImage(url, filename) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    } else {
-        // Fallback for non-Firebase URLs
-        const a = document.createElement('a');
-        a.href = url;
+        a.href = blobUrl;
         a.download = filename || 'download.jpg';
-        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        console.error('Failed to download image:', error);
+        // Fallback: open in new tab
+        window.open(url, '_blank');
     }
 }
 
