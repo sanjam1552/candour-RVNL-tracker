@@ -2809,7 +2809,7 @@ function renderDashboardLists() {
             let iconOrImageHtml = `<div class="item-icon ${bgClass}"><i class="${iconClass}"></i></div>`;
             if (item.image) {
                 iconOrImageHtml = `
-                    <div class="item-icon" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <div class="item-icon dashboard-list-thumb" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s;" title="Click to view full image">
                         <img src="${item.image}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
                     </div>
                 `;
@@ -2827,6 +2827,19 @@ function renderDashboardLists() {
                     <span class="badge badge-social">${item.subType || 'All Platforms'}</span>
                 </div>
             `;
+            
+            // Handle clicking the thumbnail separately to open full image
+            const thumbEl = itemEl.querySelector(".dashboard-list-thumb");
+            if (thumbEl) {
+                thumbEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    viewImageInNewWindow(item.image);
+                });
+                // Add minor hover feedback
+                thumbEl.addEventListener("mouseenter", () => { thumbEl.style.transform = "scale(1.05)"; });
+                thumbEl.addEventListener("mouseleave", () => { thumbEl.style.transform = "scale(1.0)"; });
+            }
+
             completedList.appendChild(itemEl);
         });
     }
@@ -2857,7 +2870,7 @@ function renderDashboardLists() {
             let iconOrImageHtml = `<div class="item-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>`;
             if (item.image) {
                 iconOrImageHtml = `
-                    <div class="item-icon" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <div class="item-icon dashboard-list-thumb" style="background: none; padding: 0; overflow: hidden; border: 1px solid var(--border-color); width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s;" title="Click to view full image">
                         <img src="${item.image}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
                     </div>
                 `;
@@ -2875,6 +2888,19 @@ function renderDashboardLists() {
                     <span class="status-pill ${badgeStatus}" style="font-size:10px; padding:3px 8px;">${item.status}</span>
                 </div>
             `;
+
+            // Handle clicking the thumbnail separately to open full image
+            const thumbEl = itemEl.querySelector(".dashboard-list-thumb");
+            if (thumbEl) {
+                thumbEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    viewImageInNewWindow(item.image);
+                });
+                // Add minor hover feedback
+                thumbEl.addEventListener("mouseenter", () => { thumbEl.style.transform = "scale(1.05)"; });
+                thumbEl.addEventListener("mouseleave", () => { thumbEl.style.transform = "scale(1.0)"; });
+            }
+
             hotList.appendChild(itemEl);
         });
     }
