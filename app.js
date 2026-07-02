@@ -16,6 +16,57 @@ function getCurrentWeekStr() {
     return "Week 5";
 }
 
+// Get month index and year from string (e.g. "June 2026")
+function parseMonthStr(monthStr) {
+    if (!monthStr) return null;
+    const parts = monthStr.trim().split(/\s+/);
+    if (parts.length !== 2) return null;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthIdx = monthNames.indexOf(parts[0]);
+    const year = parseInt(parts[1], 10);
+    if (monthIdx === -1 || isNaN(year)) return null;
+    return { year, month: monthIdx };
+}
+
+// Convert month string to numeric value for comparison (Year * 12 + MonthIndex)
+function getMonthValue(monthStr) {
+    const parsed = parseMonthStr(monthStr);
+    if (!parsed) return 0;
+    return parsed.year * 12 + parsed.month;
+}
+
+// Check if a task is active in a given month (either its month matches, or it is carried forward from a previous month)
+function isTaskActiveInMonth(task, selectedMonthStr) {
+    if (!task.month) return false;
+    if (!selectedMonthStr || selectedMonthStr === 'all') return true;
+    
+    const taskMonthVal = getMonthValue(task.month);
+    const selectedMonthVal = getMonthValue(selectedMonthStr);
+    
+    if (taskMonthVal === selectedMonthVal) {
+        return true;
+    }
+    
+    // Carry forward: task month is before selected month, and status is not Published/Closed and not Not used by client
+    if (taskMonthVal < selectedMonthVal) {
+        return task.status !== "Published/Closed" && task.status !== "Not used by client";
+    }
+    
+    return false;
+}
+
+// Update the month field of a carry-forwarded task if its status transitions to a terminal state
+function updateCarryForwardTaskMonth(task, activeMonthStr) {
+    if (!task || !activeMonthStr || activeMonthStr === 'all') return;
+    const taskMonthVal = getMonthValue(task.month);
+    const activeMonthVal = getMonthValue(activeMonthStr);
+    if (taskMonthVal < activeMonthVal) {
+        if (task.status === "Published/Closed" || task.status === "Not used by client") {
+            task.month = activeMonthStr;
+        }
+    }
+}
+
 
 // Application State
 const state = {
@@ -2427,6 +2478,7 @@ function handleFormSubmit(e) {
             if (oldImage && oldImage !== taskData.image) {
                 deleteImageFromStorage(oldImage);
             }
+            updateCarryForwardTaskMonth(taskData, state.filters.month);
             state.tasks[index] = { ...state.tasks[index], ...taskData };
             logActivity("edited", `Task: "${taskData.title}" (${taskData.client})`);
         }
@@ -2513,7 +2565,7 @@ function duplicateTask(id) {
 
 function updateDashboard() {
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && isTaskActiveInMonth(t, selectedMonth));
     // 1. Calculate general stats
     const total = clientTasks.length;
     const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
@@ -2658,7 +2710,7 @@ function renderShareChart() {
     
     // Categories distribution
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && isTaskActiveInMonth(t, selectedMonth));
     let categories = [];
     let dataVals = [];
     let bgColors = [];
@@ -2731,7 +2783,7 @@ function renderShareChart() {
 
 function renderDashboardLists() {
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
-    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && t.month === selectedMonth);
+    const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && isTaskActiveInMonth(t, selectedMonth));
     // 1. Recent Completed Social Media Posts (Published)
     const recentCompleted = clientTasks
         .filter(t => t.type === 'Social Media' && t.status === 'Published/Closed')
@@ -2828,7 +2880,7 @@ function renderTracker() {
         }
         
         // Month filter
-        const matchesMonth = state.filters.month === 'all' || task.month === state.filters.month;
+        const matchesMonth = state.filters.month === 'all' || isTaskActiveInMonth(task, state.filters.month);
         
         // Status filter
         let matchesStatus = false;
@@ -3217,6 +3269,7 @@ function renderTrackerKanban() {
             const task = state.tasks.find(t => t.id === taskId);
             if (task && task.status !== status) {
                 task.status = status;
+                updateCarryForwardTaskMonth(task, state.filters.month);
                 saveData();
                 renderTracker(); // Refresh kanban cards
             }
@@ -3269,7 +3322,7 @@ function generateReport() {
     }
 
     // Filter database for items in selected month and active client
-    let reportItems = state.tasks.filter(t => t.month === selectedMonth && (t.client || "RVNL") === state.activeClient);
+    let reportItems = state.tasks.filter(t => isTaskActiveInMonth(t, selectedMonth) && (t.client || "RVNL") === state.activeClient);
     if (state.activeClient === "Legrand") {
         reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
     } else if (state.activeClient === "iCode") {

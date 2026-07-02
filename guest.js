@@ -14,6 +14,46 @@ const state = {
     }
 };
 
+// Get month index and year from string (e.g. "June 2026")
+function parseMonthStr(monthStr) {
+    if (!monthStr) return null;
+    const parts = monthStr.trim().split(/\s+/);
+    if (parts.length !== 2) return null;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthIdx = monthNames.indexOf(parts[0]);
+    const year = parseInt(parts[1], 10);
+    if (monthIdx === -1 || isNaN(year)) return null;
+    return { year, month: monthIdx };
+}
+
+// Convert month string to numeric value for comparison (Year * 12 + MonthIndex)
+function getMonthValue(monthStr) {
+    const parsed = parseMonthStr(monthStr);
+    if (!parsed) return 0;
+    return parsed.year * 12 + parsed.month;
+}
+
+// Check if a task is active in a given month (either its month matches, or it is carried forward from a previous month)
+function isTaskActiveInMonth(task, selectedMonthStr) {
+    if (!task.month) return false;
+    if (!selectedMonthStr || selectedMonthStr === 'all') return true;
+    
+    const taskMonthVal = getMonthValue(task.month);
+    const selectedMonthVal = getMonthValue(selectedMonthStr);
+    
+    if (taskMonthVal === selectedMonthVal) {
+        return true;
+    }
+    
+    // Carry forward: task month is before selected month, and status is not Published/Closed and not Not used by client
+    if (taskMonthVal < selectedMonthVal) {
+        return task.status !== "Published/Closed" && task.status !== "Not used by client";
+    }
+    
+    return false;
+}
+
+
 // UI Elements
 const preloader = document.getElementById("preloader");
 const loginOverlay = document.getElementById("login-modal-overlay");
@@ -244,7 +284,7 @@ function getPRPublicationsCount(tasks) {
 function updateDashboard() {
     // Filter tasks based on filters
     state.filteredTasks = state.tasks.filter(t => {
-        const matchMonth = t.month === state.selectedMonth;
+        const matchMonth = isTaskActiveInMonth(t, state.selectedMonth);
         const matchCategory = state.selectedCategory === "all" || t.type === state.selectedCategory;
         return matchMonth && matchCategory;
     });
