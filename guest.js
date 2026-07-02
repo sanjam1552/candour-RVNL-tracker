@@ -467,23 +467,26 @@ function renderCharts(published, progress, other) {
     });
 }
 
-// Download image directly as a blob (handles CORS/cross-domain download issues)
-async function downloadImage(url, filename) {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
+// Download image directly (handles CORS/cross-domain download issues via Firebase Storage attachment disposition)
+function downloadImage(url, filename) {
+    if (url && url.startsWith("https://firebasestorage.googleapis.com")) {
+        // Appending response-content-disposition=attachment forces Firebase Storage to send download headers, triggering direct download
+        const downloadUrl = url + (url.includes('?') ? '&' : '?') + 'response-content-disposition=attachment';
         const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename || 'download.jpg';
+        a.href = downloadUrl;
+        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-        console.error('Failed to download image:', error);
-        // Fallback: open in new tab
-        window.open(url, '_blank');
+    } else {
+        // Fallback for non-Firebase URLs
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'download.jpg';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 }
 
