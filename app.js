@@ -921,14 +921,19 @@ function setupEventListeners() {
             const filterStatus = card.getAttribute("data-filter-status");
             const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
             
+            let finalFilterType = filterType;
+            if (state.activeClient === "iCode" && filterType === "Social Media") {
+                finalFilterType = "all";
+            }
+
             // Set filters in state
-            state.filters.type = filterType;
+            state.filters.type = finalFilterType;
             state.filters.status = filterStatus;
             state.filters.month = selectedMonth;
             
             // Sync values to UI inputs
             const filterTypeEl = document.getElementById("filter-type");
-            if (filterTypeEl) filterTypeEl.value = filterType;
+            if (filterTypeEl) filterTypeEl.value = finalFilterType;
             
             const filterStatusEl = document.getElementById("filter-status");
             if (filterStatusEl) filterStatusEl.value = filterStatus;
@@ -2576,6 +2581,17 @@ function updateDashboard() {
     document.getElementById("stat-total-linkedin").textContent = linkedin;
     document.getElementById("stat-total-pr").textContent = pr;
     document.getElementById("stat-total-wip").textContent = wip;
+
+    // Dynamically adjust stats grid columns if active client is iCode (no PR coverage)
+    const prCard = document.getElementById("stat-card-pr");
+    const statsGrid = document.querySelector(".stats-grid");
+    if (state.activeClient === "iCode") {
+        if (prCard) prCard.style.display = "none";
+        if (statsGrid) statsGrid.style.gridTemplateColumns = "repeat(3, 1fr)";
+    } else {
+        if (prCard) prCard.style.display = "";
+        if (statsGrid) statsGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
+    }
 
     // 2. Render Charts
     renderTrendChart();
