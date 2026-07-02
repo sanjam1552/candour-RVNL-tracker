@@ -340,8 +340,11 @@ function renderTable() {
         let mediaHtml = "-";
         if (task.image) {
             mediaHtml = `
-                <div class="thumbnail-preview-container">
-                    <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')">
+                <div class="thumbnail-preview-container" style="display: flex; align-items: center; gap: 10px;">
+                    <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')" title="Click to view full image">
+                    <button class="download-btn" data-url="${task.image}" data-title="${task.title}" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;" title="Download Image">
+                        <i class="fa-solid fa-download" style="font-size: 12px;"></i>
+                    </button>
                 </div>
             `;
         }
@@ -358,6 +361,28 @@ function renderTable() {
             </td>
             <td>${mediaHtml}</td>
         `;
+
+        const downloadBtn = tr.querySelector(".download-btn");
+        if (downloadBtn) {
+            downloadBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const url = downloadBtn.getAttribute("data-url");
+                const title = downloadBtn.getAttribute("data-title") || "image";
+                const sanitizedTitle = title.trim().replace(/[^a-zA-Z0-9]/g, "_") + ".jpg";
+                downloadImage(url, sanitizedTitle);
+            });
+            // hover style feedback
+            downloadBtn.addEventListener("mouseenter", () => {
+                downloadBtn.style.background = "var(--accent-blue)";
+                downloadBtn.style.color = "#ffffff";
+                downloadBtn.style.borderColor = "var(--accent-blue)";
+            });
+            downloadBtn.addEventListener("mouseleave", () => {
+                downloadBtn.style.background = "var(--bg-card)";
+                downloadBtn.style.color = "var(--text-secondary)";
+                downloadBtn.style.borderColor = "var(--border-color)";
+            });
+        }
 
         taskTableBody.appendChild(tr);
     });
@@ -440,6 +465,26 @@ function renderCharts(published, progress, other) {
             }
         }
     });
+}
+
+// Download image directly as a blob (handles CORS/cross-domain download issues)
+async function downloadImage(url, filename) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename || 'download.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        console.error('Failed to download image:', error);
+        // Fallback: open in new tab
+        window.open(url, '_blank');
+    }
 }
 
 // Start
