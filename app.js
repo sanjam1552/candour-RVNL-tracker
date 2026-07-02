@@ -912,8 +912,38 @@ function setupEventListeners() {
         link.addEventListener("click", () => {
             const statusFilter = link.getAttribute("data-filter");
             switchTab("tracker");
-            document.getElementById("filter-status").value = statusFilter;
-            state.filters.status = statusFilter;
+            
+            // Sync month filter to match current dashboard month
+            const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
+            state.filters.month = selectedMonth;
+            const filterMonthEl = document.getElementById("filter-month");
+            if (filterMonthEl) filterMonthEl.value = selectedMonth;
+
+            if (statusFilter === "Published") {
+                state.filters.type = "Social Media";
+                state.filters.status = "Published/Closed";
+                
+                const filterTypeEl = document.getElementById("filter-type");
+                if (filterTypeEl) filterTypeEl.value = "Social Media";
+                
+                const filterStatusEl = document.getElementById("filter-status");
+                if (filterStatusEl) filterStatusEl.value = "Published/Closed";
+            } else if (statusFilter === "In Progress") {
+                state.filters.type = "all";
+                state.filters.status = "In Progress";
+                
+                const filterTypeEl = document.getElementById("filter-type");
+                if (filterTypeEl) filterTypeEl.value = "all";
+                
+                const filterStatusEl = document.getElementById("filter-status");
+                if (filterStatusEl) filterStatusEl.value = "In Progress";
+            } else {
+                state.filters.status = statusFilter;
+                const filterStatusEl = document.getElementById("filter-status");
+                if (filterStatusEl) filterStatusEl.value = statusFilter;
+            }
+            
+            state.currentPage = 1;
             renderTracker();
         });
     });
@@ -2801,7 +2831,14 @@ function renderTracker() {
         const matchesMonth = state.filters.month === 'all' || task.month === state.filters.month;
         
         // Status filter
-        const matchesStatus = state.filters.status === 'all' || task.status === state.filters.status;
+        let matchesStatus = false;
+        if (state.filters.status === 'all') {
+            matchesStatus = true;
+        } else if (state.filters.status === 'In Progress') {
+            matchesStatus = ['WIP', 'Sent for internal approval', 'Sent to client'].includes(task.status);
+        } else {
+            matchesStatus = task.status === state.filters.status;
+        }
         
         // Owner filter
         const matchesOwner = state.filters.owner === 'all' || task.owner === state.filters.owner;
