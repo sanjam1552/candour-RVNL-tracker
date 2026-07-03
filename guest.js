@@ -388,7 +388,7 @@ function renderTable() {
 
         let remarksHtml = "";
         if (task.remarks && task.remarks.trim() !== "") {
-            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 450px;">${task.remarks}</div>`;
+            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
         }
 
         tr.innerHTML = `

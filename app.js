@@ -3133,11 +3133,18 @@ function renderTrackerTable() {
                 `</div>`;
         }
 
+        // Remarks (Details & Comments)
+        let remarksHtml = "";
+        if (task.remarks && task.remarks.trim() !== "") {
+            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
+        }
+
         const titleAndImageHtml = trackerImageHtml 
             ? `<div class="tracker-item-flex">
                  ${trackerImageHtml}
                  <div class="tracker-item-details">
                      <div style="font-weight:600;">${task.title}</div>
+                     ${remarksHtml}
                      ${prDetails}
                      ${wipDetailsHtml}
                      ${centersHtml}
@@ -3145,6 +3152,7 @@ function renderTrackerTable() {
                </div>`
             : `<div class="tracker-item-details">
                  <div style="font-weight:600;">${task.title}</div>
+                 ${remarksHtml}
                  ${prDetails}
                  ${wipDetailsHtml}
                  ${centersHtml}
@@ -3300,10 +3308,17 @@ function renderTrackerKanban() {
                 `</div>`;
         }
 
+        // Remarks (Details & Comments) for Kanban
+        let kanbanRemarksHtml = "";
+        if (task.remarks && task.remarks.trim() !== "") {
+            kanbanRemarksHtml = `<div class="card-remarks" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.35; white-space: pre-line;">${task.remarks}</div>`;
+        }
+
         card.innerHTML = `
             ${kanbanCoverHtml}
             <span class="card-tag" style="color:${tagColor};">${tagLabel}</span>
-            <div class="card-title" style="font-weight: 600; margin-bottom: 8px;">${task.title}</div>
+            <div class="card-title" style="font-weight: 600; margin-bottom: 4px;">${task.title}</div>
+            ${kanbanRemarksHtml}
             ${kanbanCentersHtml}
             ${kanbanCommentHtml}
             <div class="card-links-quick">${linksQuick}</div>
