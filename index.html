@@ -861,13 +861,26 @@
             <form id="task-form" class="drawer-body">
                 <input type="hidden" id="task-id">
                 
-                <div class="form-group">
+                <div class="form-group" id="task-type-group">
                     <label for="task-type">Asset/Activity Type <span class="required">*</span></label>
                     <select id="task-type" required>
                         <option value="Social Media">Social Media Post</option>
                         <option value="PR Update">PR Update (Press Release / Media)</option>
                         <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
                     </select>
+                </div>
+
+                <!-- iCode Campaign Type Checkboxes (Conditional) -->
+                <div id="icode-campaign-group" class="form-group hidden">
+                    <label>Campaign Type <span class="required">*</span></label>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 2px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary);">
+                            <input type="checkbox" name="icode-campaign-type" value="Organic" style="width: 15px; height: 15px; cursor: pointer;"> Organic Campaign
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary);">
+                            <input type="checkbox" name="icode-campaign-type" value="Paid" style="width: 15px; height: 15px; cursor: pointer;"> Paid Campaign
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-group">

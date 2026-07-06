@@ -1298,13 +1298,18 @@ function adjustClientSpecificOptions(client) {
 
     // 2. Task Drawer Type Dropdown
     const taskTypeSelect = document.getElementById("task-type");
+    const taskTypeGroup = document.getElementById("task-type-group");
+    const icodeCampaignGroup = document.getElementById("icode-campaign-group");
     if (taskTypeSelect) {
         if (client === "iCode") {
-            taskTypeSelect.innerHTML = `
-                <option value="Organic">Organic Campaign</option>
-                <option value="Paid">Paid Campaign</option>
-            `;
+            if (taskTypeGroup) taskTypeGroup.classList.add("hidden");
+            taskTypeSelect.removeAttribute("required");
+            if (icodeCampaignGroup) icodeCampaignGroup.classList.remove("hidden");
         } else {
+            if (taskTypeGroup) taskTypeGroup.classList.remove("hidden");
+            taskTypeSelect.setAttribute("required", "required");
+            if (icodeCampaignGroup) icodeCampaignGroup.classList.add("hidden");
+
             taskTypeSelect.innerHTML = `
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update (Press Release / Media)</option>
@@ -2096,6 +2101,9 @@ function openDrawer(taskId = null, prefillData = null) {
     if (state.activeClient === "iCode") {
         document.getElementById("task-type").value = "Organic";
         togglePRFormFields("Social Media");
+        document.querySelectorAll('input[name="icode-campaign-type"]').forEach(cb => {
+            cb.checked = (cb.value === "Organic");
+        });
     } else {
         document.getElementById("task-type").value = "Social Media";
         togglePRFormFields("Social Media");
@@ -2110,8 +2118,16 @@ function openDrawer(taskId = null, prefillData = null) {
         if (task) {
             document.getElementById("task-id").value = task.id;
             if (task.client === "iCode") {
-                document.getElementById("task-type").value = task.campaignType || "Organic";
+                document.getElementById("task-type").value = "Organic"; // Dummy fallback
                 togglePRFormFields("Social Media");
+                
+                // Prefill checkboxes for iCode campaign type
+                const campaignTypes = Array.isArray(task.campaignType) 
+                    ? task.campaignType 
+                    : (task.campaignType ? [task.campaignType] : []);
+                document.querySelectorAll('input[name="icode-campaign-type"]').forEach(cb => {
+                    cb.checked = campaignTypes.includes(cb.value);
+                });
                 
                 // Prefill checkboxes for iCode centers
                 const centers = task.centers || [];
@@ -2424,7 +2440,12 @@ function handleFormSubmit(e) {
     let centers = [];
     if (taskClient === "iCode") {
         finalType = "Social Media";
-        campaignType = type; // "Organic" or "Paid"
+        const selectedCampaignTypes = Array.from(document.querySelectorAll('input[name="icode-campaign-type"]:checked')).map(cb => cb.value);
+        if (selectedCampaignTypes.length === 0) {
+            alert("Please select at least one Campaign Type (Organic / Paid).");
+            return;
+        }
+        campaignType = selectedCampaignTypes; // Save as array
         centers = Array.from(document.querySelectorAll('input[name="icode-center"]:checked')).map(cb => cb.value);
         if (centers.length === 0) {
             alert("Please select at least one iCode center.");
@@ -2650,8 +2671,8 @@ function renderTrendChart() {
         const organicData = [];
         const paidData = [];
         months.forEach(m => {
-            organicData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Organic' && t.status === 'Published/Closed').length);
-            paidData.push(clientTasks.filter(t => t.month === m && t.campaignType === 'Paid' && t.status === 'Published/Closed').length);
+            organicData.push(clientTasks.filter(t => t.month === m && (Array.isArray(t.campaignType) ? t.campaignType.includes('Organic') : t.campaignType === 'Organic') && t.status === 'Published/Closed').length);
+            paidData.push(clientTasks.filter(t => t.month === m && (Array.isArray(t.campaignType) ? t.campaignType.includes('Paid') : t.campaignType === 'Paid') && t.status === 'Published/Closed').length);
         });
         datasets = [
             {
@@ -2942,7 +2963,8 @@ function renderTracker() {
         // Type filter
         let matchesType = false;
         if (state.activeClient === "iCode") {
-            matchesType = state.filters.type === 'all' || task.campaignType === state.filters.type;
+            matchesType = state.filters.type === 'all' || 
+                (Array.isArray(task.campaignType) ? task.campaignType.includes(state.filters.type) : task.campaignType === state.filters.type);
         } else {
             matchesType = state.filters.type === 'all' || task.type === state.filters.type;
         }
@@ -3026,11 +3048,21 @@ function renderTrackerTable() {
         // Type Badge
         let typeBadge = "";
         if (state.activeClient === "iCode" || task.client === "iCode") {
-            if (task.campaignType === "Paid") {
-                typeBadge = `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-dollar-to-slot" style="color: var(--accent-red);"></i> Paid</span>`;
-            } else {
-                typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
+            const campaignTypes = Array.isArray(task.campaignType) 
+                ? task.campaignType 
+                : (task.campaignType ? [task.campaignType] : ["Organic"]);
+            
+            typeBadge = '<div style="display: flex; gap: 6px; flex-wrap: wrap;">';
+            if (campaignTypes.includes("Organic")) {
+                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
             }
+            if (campaignTypes.includes("Paid")) {
+                typeBadge += `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); margin: 0;"><i class="fa-solid fa-circle-dollar-to-slot" style="color: var(--accent-red);"></i> Paid</span>`;
+            }
+            if (campaignTypes.length === 0) {
+                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
+            }
+            typeBadge += '</div>';
         } else if (task.type === "Social Media") {
             typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
         } else if (task.type === "PR Update") {
@@ -3256,7 +3288,14 @@ function renderTrackerKanban() {
         let tagColor = "var(--accent-blue)";
         let tagLabel = task.subType === "Other" ? "Document" : (task.subType || task.type);
         if (state.activeClient === "iCode" || task.client === "iCode") {
-            if (task.campaignType === "Paid") {
+            const campaignTypes = Array.isArray(task.campaignType) 
+                ? task.campaignType 
+                : (task.campaignType ? [task.campaignType] : ["Organic"]);
+            
+            if (campaignTypes.includes("Organic") && campaignTypes.includes("Paid")) {
+                tagColor = "var(--accent-purple)";
+                tagLabel = task.subType ? `Paid & Organic: ${task.subType}` : "Paid & Organic Campaign";
+            } else if (campaignTypes.includes("Paid")) {
                 tagColor = "var(--accent-red)";
                 tagLabel = task.subType ? `Paid: ${task.subType}` : "Paid Campaign";
             } else {
@@ -3572,10 +3611,21 @@ function generateReport() {
 
             let platformColHtml = `<i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms`;
             if (state.activeClient === "iCode" || task.client === "iCode") {
-                const label = task.campaignType === "Paid" ? "Paid Campaign" : "Organic Campaign";
-                const color = task.campaignType === "Paid" ? "var(--accent-red)" : "var(--accent-blue)";
-                const icon = task.campaignType === "Paid" ? "fa-solid fa-circle-dollar-to-slot" : "fa-solid fa-share-nodes";
-                platformColHtml = `<span style="color:${color}; font-weight: 600;"><i class="${icon}"></i> ${label}</span>`;
+                const campaignTypes = Array.isArray(task.campaignType) 
+                    ? task.campaignType 
+                    : (task.campaignType ? [task.campaignType] : ["Organic"]);
+                
+                const parts = [];
+                if (campaignTypes.includes("Organic")) {
+                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-share-nodes"></i> Organic Campaign</span>`);
+                }
+                if (campaignTypes.includes("Paid")) {
+                    parts.push(`<span style="color:var(--accent-red); font-weight: 600;"><i class="fa-solid fa-circle-dollar-to-slot"></i> Paid Campaign</span>`);
+                }
+                if (parts.length === 0) {
+                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-share-nodes"></i> Organic Campaign</span>`);
+                }
+                platformColHtml = `<div style="display: flex; flex-direction: column; gap: 4px;">${parts.join("")}</div>`;
             }
 
             tr.innerHTML = `
