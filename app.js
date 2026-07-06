@@ -378,8 +378,8 @@ async function loadData() {
             else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
                 task.status = "Not used by client";
             }
-            // Normalize Social Media subType: posts go to all platforms
-            if (task.type === "Social Media") {
+            // Normalize Social Media subType: posts go to all platforms (except for iCode)
+            if (task.type === "Social Media" && task.client !== "iCode") {
                 task.subType = "All Platforms";
             }
         });
