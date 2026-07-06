@@ -391,11 +391,24 @@ function renderTable() {
             remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
         }
 
+        // Live Link Button for Published tasks
+        let liveLinkBtn = "";
+        if (task.status === "Published/Closed" && task.liveLink && task.liveLink.trim() !== "") {
+            liveLinkBtn = `
+                <a href="${task.liveLink}" target="_blank" class="live-post-link" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #3b82f6; text-decoration: none; font-weight: 600; padding: 2px 6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; transition: all 0.2s;" title="View Published Post">
+                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
+                </a>
+            `;
+        }
+
         tr.innerHTML = `
             <td>
                 <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${task.title || "-"}</div>
                 ${remarksHtml}
-                ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
+                    ${liveLinkBtn}
+                </div>
             </td>
             <td>${statusBadge}</td>
             <td>
