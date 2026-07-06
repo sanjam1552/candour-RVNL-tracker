@@ -331,41 +331,7 @@ async function loadData() {
             state.settingsPassword = null;
         }
 
-        // Check if migration to individual document-per-task subcollection is needed
-        const oldDocSnapshot = await docRef.get();
-
-        if (oldDocSnapshot.exists && Array.isArray(oldDocSnapshot.data().tasks) && oldDocSnapshot.data().tasks.length > 0) {
-            const tasksToMigrate = oldDocSnapshot.data().tasks;
-            console.log(`Migrating Firestore old monolithic array data (${tasksToMigrate.length} tasks) to subcollection format...`);
-
-            // Clear the subcollection first to remove default baseline tasks
-            const itemsSnapshot = await itemsRef.get();
-            const deletePromises = [];
-            itemsSnapshot.forEach(doc => {
-                deletePromises.push(itemsRef.doc(doc.id).delete());
-            });
-            await Promise.all(deletePromises);
-
-            console.log(`Writing ${tasksToMigrate.length} tasks to subcollection in parallel...`);
-            const writePromises = tasksToMigrate.map(t => {
-                const task = { ...t };
-                if (!task.id) task.id = generateUUID();
-                
-                // Sanitize undefined fields to prevent Firestore set() errors
-                Object.keys(task).forEach(key => {
-                    if (task[key] === undefined) {
-                        delete task[key];
-                    }
-                });
-                
-                return itemsRef.doc(task.id).set(task);
-            });
-            await Promise.all(writePromises);
-
-            // Clear old tasks list on parent document to finish migration
-            await docRef.set({ tasks: [], lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-            console.log('Migration finished successfully.');
-        }
+        // Database migration completed successfully. Real-time subcollection is active.
 
         setPreloaderProgress(70);
 
