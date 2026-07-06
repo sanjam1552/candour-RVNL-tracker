@@ -1,5 +1,6 @@
 // RVNL Client Dashboard - Read-Only Logic
 const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
+const APP_VERSION = "1.1.0";
 
 const state = {
     tasks: [],
@@ -190,6 +191,19 @@ logoutBtn.addEventListener("click", () => {
 // Load Data from Firestore
 async function loadDashboardData() {
     try {
+        // Version Check
+        const configRef = db.collection('rvnl_tracker').doc('settings_config');
+        const configSnapshot = await configRef.get();
+        if (configSnapshot.exists) {
+            const configData = configSnapshot.data();
+            if (configData.version && configData.version !== APP_VERSION) {
+                console.log(`New version detected (${configData.version}). Force reloading...`);
+                alert("A new version of the Guest Dashboard is available. The page will reload automatically to update.");
+                window.location.reload(true);
+                return;
+            }
+        }
+
         const itemsRef = db.collection('rvnl_tracker').doc('tasks_store').collection('items');
         const snapshot = await itemsRef.where('client', '==', 'RVNL').get();
         

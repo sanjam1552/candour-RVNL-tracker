@@ -1,4 +1,5 @@
 // RVNL Creative & PR Reporting Hub - Core Application Logic
+const APP_VERSION = "1.1.0";
 
 // Format current date to Month Year (e.g. "June 2026")
 function getCurrentMonthStr() {
@@ -322,13 +323,27 @@ async function loadData() {
     const configRef = db.collection('rvnl_tracker').doc('settings_config');
 
     try {
-        // Fetch global settings password from Firestore
+        // Fetch global settings password and version from Firestore
         const configSnapshot = await configRef.get();
         setPreloaderProgress(40);
-        if (configSnapshot.exists && configSnapshot.data().password) {
-            state.settingsPassword = configSnapshot.data().password;
+        
+        if (configSnapshot.exists) {
+            const configData = configSnapshot.data();
+            state.settingsPassword = configData.password || null;
+            
+            // Auto reload if user is running an older cached version
+            if (configData.version && configData.version !== APP_VERSION) {
+                console.log(`New version detected (${configData.version}). Force reloading...`);
+                alert("A new version of the Reporting Tool is available. The page will reload automatically to update.");
+                window.location.reload(true);
+                return;
+            } else if (!configData.version) {
+                // Seed version field in Firestore settings
+                await configRef.set({ version: APP_VERSION }, { merge: true });
+            }
         } else {
             state.settingsPassword = null;
+            await configRef.set({ version: APP_VERSION });
         }
 
         // Database migration completed successfully. Real-time subcollection is active.
@@ -1706,7 +1721,7 @@ async function handleSettingsUnlockSubmit() {
             await db.collection('rvnl_tracker').doc('settings_config').set({
                 password: inputVal,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            }, { merge: true });
             // Also keep in localStorage as a backup
             localStorage.setItem("rvnl_settings_password", inputVal);
             setSyncStatus('synced');
@@ -1749,7 +1764,7 @@ async function handleUpdatePassword() {
         await db.collection('rvnl_tracker').doc('settings_config').set({
             password: newPass,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
         // Also keep in localStorage as a backup
         localStorage.setItem("rvnl_settings_password", newPass);
         setSyncStatus('synced');
@@ -1772,7 +1787,7 @@ async function handleRemovePassword() {
             await db.collection('rvnl_tracker').doc('settings_config').set({
                 password: "",
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            }, { merge: true });
             // Remove from local storage
             localStorage.removeItem("rvnl_settings_password");
             setSyncStatus('synced');
