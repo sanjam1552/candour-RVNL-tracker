@@ -2362,7 +2362,7 @@ async function uploadImageInBackground(fileObject, taskId) {
         const freshTask = state.tasks.find(t => t.id === taskId);
         if (freshTask) {
             freshTask.image = downloadURL;
-            await saveData();
+            await saveData(freshTask);
             renderTracker();
             console.log(`Background upload succeeded for task: ${freshTask.title}`);
         }
@@ -2405,7 +2405,7 @@ function handleReportClippingUpload(e) {
             // Generate a local object URL for instant preview
             const localURL = URL.createObjectURL(file);
             task.image = localURL;
-            saveData();
+            saveData(task);
             generateReport(); // Reload report preview instantly!
             
             // Upload in the background
@@ -2566,7 +2566,7 @@ function handleFormSubmit(e) {
     const fileToUpload = state.pendingImageFile;
     state.pendingImageFile = null; // Clear it immediately
 
-    saveData();
+    saveData(id || taskData.id);
     closeDrawer();
     populateOwnerFilter();
     populateMonthDropdowns();
@@ -3450,7 +3450,7 @@ function renderTrackerKanban() {
             if (task && task.status !== status) {
                 task.status = status;
                 updateCarryForwardTaskMonth(task, state.filters.month);
-                saveData();
+                saveData(task);
                 renderTracker(); // Refresh kanban cards
             }
         });
@@ -4345,7 +4345,12 @@ async function migrateBase64ImagesToStorage() {
     }
 
     if (updated) {
-        await saveData();
+        // Save only the migrated tasks to prevent bulk collection overwrites
+        for (const task of tasksToMigrate) {
+            if (task.image && !task.image.startsWith("data:image/")) {
+                await saveData(task);
+            }
+        }
         updateDashboard();
         renderTracker();
         console.log("Base64 images migration completed successfully!");
