@@ -612,7 +612,7 @@ function renderActivityLogs() {
 }
 
 // Save current state to Firestore
-async function saveData(taskOrId = null) {
+async function saveData(taskOrId = null, isBulkWrite = false) {
     setSyncStatus('saving');
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
     const itemsRef = docRef.collection('items');
@@ -628,7 +628,7 @@ async function saveData(taskOrId = null) {
                 }
                 await itemsRef.doc(taskId).set(taskToSave);
             }
-        } else {
+        } else if (isBulkWrite) {
             console.log("Writing all tasks to Firestore subcollection...");
             const tasksToSave = state.tasks.map(task => {
                 if (task.image && task.image.startsWith("blob:")) {
@@ -651,6 +651,8 @@ async function saveData(taskOrId = null) {
                 if (!task.id) task.id = generateUUID();
                 await itemsRef.doc(task.id).set(task);
             }
+        } else {
+            console.warn("saveData called without target task and without isBulkWrite=true. Skipping write operation to prevent accidental database wipes.");
         }
         setSyncStatus('synced');
     } catch (err) {
@@ -4042,7 +4044,7 @@ function importDatabase() {
                     const valid = importedData.every(item => item.title && item.type);
                     if (valid) {
                         state.tasks = importedData;
-                        saveData();
+                        saveData(null, true);
                         alert("Database imported successfully!");
                         populateOwnerFilter();
                         updateDashboard();
@@ -4063,7 +4065,7 @@ function importDatabase() {
 function resetDatabase() {
     if (confirm("WARNING: This will wipe out all custom modifications and restore the tracking database to the baseline (June 2026 Only). Do you wish to proceed?")) {
         state.tasks = [...INITIAL_DATA];
-        saveData();
+        saveData(null, true);
         populateOwnerFilter();
         updateDashboard();
         switchTab("dashboard");
