@@ -3054,13 +3054,13 @@ function renderTrackerTable() {
             
             typeBadge = '<div style="display: flex; gap: 6px; flex-wrap: wrap;">';
             if (campaignTypes.includes("Organic")) {
-                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
+                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-seedling" style="color:#3b82f6;"></i> Organic</span>`;
             }
             if (campaignTypes.includes("Paid")) {
-                typeBadge += `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); margin: 0;"><i class="fa-solid fa-circle-dollar-to-slot" style="color: var(--accent-red);"></i> Paid</span>`;
+                typeBadge += `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); margin: 0;"><i class="fa-solid fa-coins" style="color: var(--accent-red);"></i> Paid</span>`;
             }
             if (campaignTypes.length === 0) {
-                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Organic</span>`;
+                typeBadge += `<span class="badge badge-social" style="margin: 0;"><i class="fa-solid fa-seedling" style="color:#3b82f6;"></i> Organic</span>`;
             }
             typeBadge += '</div>';
         } else if (task.type === "Social Media") {
@@ -3654,13 +3654,13 @@ function generateReport() {
                 
                 const parts = [];
                 if (campaignTypes.includes("Organic")) {
-                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-share-nodes"></i> Organic Campaign</span>`);
+                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-seedling"></i> Organic Campaign</span>`);
                 }
                 if (campaignTypes.includes("Paid")) {
-                    parts.push(`<span style="color:var(--accent-red); font-weight: 600;"><i class="fa-solid fa-circle-dollar-to-slot"></i> Paid Campaign</span>`);
+                    parts.push(`<span style="color:var(--accent-red); font-weight: 600;"><i class="fa-solid fa-coins"></i> Paid Campaign</span>`);
                 }
                 if (parts.length === 0) {
-                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-share-nodes"></i> Organic Campaign</span>`);
+                    parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-seedling"></i> Organic Campaign</span>`);
                 }
                 
                 const centers = task.centers || [];
