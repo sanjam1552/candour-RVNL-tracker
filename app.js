@@ -376,6 +376,7 @@ async function loadData() {
             } else {
                 populateOwnerFilter();
                 populateMonthDropdowns();
+                updateDashboard();
                 renderTracker();
             }
         }, err => {
