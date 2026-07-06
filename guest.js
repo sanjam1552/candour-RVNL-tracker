@@ -190,18 +190,15 @@ logoutBtn.addEventListener("click", () => {
 // Load Data from Firestore
 async function loadDashboardData() {
     try {
-        const docRef = db.collection('rvnl_tracker').doc('tasks_store');
-        const snapshot = await docRef.get();
+        const itemsRef = db.collection('rvnl_tracker').doc('tasks_store').collection('items');
+        const snapshot = await itemsRef.where('client', '==', 'RVNL').get();
         
-        if (snapshot.exists && Array.isArray(snapshot.data().tasks)) {
-            // Filter strictly for RVNL to prevent exposure of other clients
-            state.tasks = snapshot.data().tasks.filter(t => t.client === "RVNL");
-        } else {
-            state.tasks = [];
-        }
-
-        // Normalize task fields
-        state.tasks.forEach(task => {
+        const loadedTasks = [];
+        snapshot.forEach(doc => {
+            const task = doc.data();
+            if (!task.id) task.id = doc.id;
+            
+            // Normalize task fields
             if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
             else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
             else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
@@ -209,7 +206,10 @@ async function loadDashboardData() {
             else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
                 task.status = "Not used by client";
             }
+            loadedTasks.push(task);
         });
+
+        state.tasks = loadedTasks;
 
         setupFilters();
         updateDashboard();

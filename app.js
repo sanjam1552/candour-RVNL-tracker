@@ -313,81 +313,110 @@ function hidePreloader() {
 }
 
 // Load data from Firestore; migrate localStorage on first run
+// Load data from Firestore; migrate localStorage/old structure on first run
 async function loadData() {
     setSyncStatus('connecting');
     setPreloaderProgress(20);
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
+    const itemsRef = docRef.collection('items');
     const configRef = db.collection('rvnl_tracker').doc('settings_config');
 
     try {
-        const snapshot = await docRef.get();
-        setPreloaderProgress(50);
-
-        if (snapshot.exists && Array.isArray(snapshot.data().tasks) && snapshot.data().tasks.length > 0) {
-            // Data already in Firestore — use it
-            state.tasks = snapshot.data().tasks;
-        } else {
-            // Nothing in Firestore yet — check if localStorage has user data to migrate
-            const localData = localStorage.getItem('rvnl_tracker_data');
-            if (localData) {
-                try {
-                    const parsed = JSON.parse(localData);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        // Migrate localStorage up to Firestore
-                        state.tasks = parsed;
-                        console.log('Migrating localStorage data to Firestore...');
-                        await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
-                        localStorage.removeItem('rvnl_tracker_data'); // clean up local copy
-                        console.log('Migration complete.');
-                    } else {
-                        state.tasks = [...INITIAL_DATA];
-                        await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
-                    }
-                } catch(e) {
-                    state.tasks = [...INITIAL_DATA];
-                    await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
-                }
-            } else {
-                // Fresh start — seed with baseline data
-                state.tasks = [...INITIAL_DATA];
-                await docRef.set({ tasks: state.tasks, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
-            }
-        }
-
         // Fetch global settings password from Firestore
         const configSnapshot = await configRef.get();
-        setPreloaderProgress(75);
+        setPreloaderProgress(40);
         if (configSnapshot.exists && configSnapshot.data().password) {
             state.settingsPassword = configSnapshot.data().password;
         } else {
             state.settingsPassword = null;
         }
 
-        // Migrate statuses to current schema
-        state.tasks.forEach(task => {
-            if (!task.client) {
-                task.client = "RVNL";
+        // Check if migration to individual document-per-task subcollection is needed
+        const oldDocSnapshot = await docRef.get();
+
+        if (oldDocSnapshot.exists && Array.isArray(oldDocSnapshot.data().tasks) && oldDocSnapshot.data().tasks.length > 0) {
+            const tasksToMigrate = oldDocSnapshot.data().tasks;
+            console.log(`Migrating Firestore old monolithic array data (${tasksToMigrate.length} tasks) to subcollection format...`);
+
+            // Clear the subcollection first to remove default baseline tasks
+            const itemsSnapshot = await itemsRef.get();
+            const deletePromises = [];
+            itemsSnapshot.forEach(doc => {
+                deletePromises.push(itemsRef.doc(doc.id).delete());
+            });
+            await Promise.all(deletePromises);
+
+            console.log(`Writing ${tasksToMigrate.length} tasks to subcollection in parallel...`);
+            const writePromises = tasksToMigrate.map(t => {
+                const task = { ...t };
+                if (!task.id) task.id = generateUUID();
+                
+                // Sanitize undefined fields to prevent Firestore set() errors
+                Object.keys(task).forEach(key => {
+                    if (task[key] === undefined) {
+                        delete task[key];
+                    }
+                });
+                
+                return itemsRef.doc(task.id).set(task);
+            });
+            await Promise.all(writePromises);
+
+            // Clear old tasks list on parent document to finish migration
+            await docRef.set({ tasks: [], lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            console.log('Migration finished successfully.');
+        }
+
+        setPreloaderProgress(70);
+
+        // Set up real-time listener on the new subcollection
+        let isFirstLoad = true;
+        itemsRef.onSnapshot(snapshot => {
+            const loadedTasks = [];
+            snapshot.forEach(doc => {
+                const task = doc.data();
+                if (!task.id) task.id = doc.id;
+                
+                // Normalize status and client schema
+                if (!task.client) task.client = "RVNL";
+                if (task.image && task.image.startsWith("blob:")) task.image = "";
+                
+                if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
+                else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
+                else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
+                else if (task.status === "Published" || task.status === "Published/Closed") task.status = "Published/Closed";
+                else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
+                    task.status = "Not used by client";
+                }
+                
+                if (task.type === "Social Media" && task.client !== "iCode") {
+                    task.subType = "All Platforms";
+                }
+                
+                loadedTasks.push(task);
+            });
+
+            state.tasks = loadedTasks;
+            
+            // Sync to local fallback copy
+            localStorage.setItem('rvnl_tracker_data', JSON.stringify(loadedTasks));
+            setSyncStatus('synced');
+
+            if (isFirstLoad) {
+                isFirstLoad = false;
+                populateOwnerFilter();
+                populateMonthDropdowns();
+                switchClient(state.activeClient);
+            } else {
+                populateOwnerFilter();
+                populateMonthDropdowns();
+                renderTracker();
             }
-            if (task.image && task.image.startsWith("blob:")) {
-                task.image = "";
-            }
-            if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
-            else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
-            else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
-            else if (task.status === "Published" || task.status === "Published/Closed") task.status = "Published/Closed";
-            else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
-                task.status = "Not used by client";
-            }
-            // Normalize Social Media subType: posts go to all platforms (except for iCode)
-            if (task.type === "Social Media" && task.client !== "iCode") {
-                task.subType = "All Platforms";
-            }
+        }, err => {
+            console.error('Firestore real-time sync error:', err);
+            setSyncStatus('offline');
         });
 
-        setSyncStatus('synced');
-        populateOwnerFilter();
-        populateMonthDropdowns();
-        switchClient(state.activeClient);
         loadActivityLogs();
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
@@ -399,19 +428,16 @@ async function loadData() {
     } catch (err) {
         console.error('Firestore load error:', err);
         setSyncStatus('offline');
-        // Graceful fallback to localStorage if Firestore unreachable
         const localData = localStorage.getItem('rvnl_tracker_data');
         if (localData) {
             try { state.tasks = JSON.parse(localData); } catch(e) { state.tasks = [...INITIAL_DATA]; }
         } else {
             state.tasks = [...INITIAL_DATA];
         }
-        // Ensure offline items also default client
         state.tasks.forEach(task => {
             if (!task.client) task.client = "RVNL";
         });
         
-        // Offline password fallback
         state.settingsPassword = localStorage.getItem("rvnl_settings_password") || null;
 
         const localLogs = localStorage.getItem("rvnl_activity_logs");
@@ -619,29 +645,51 @@ function renderActivityLogs() {
 }
 
 // Save current state to Firestore
-async function saveData() {
+async function saveData(taskOrId = null) {
     setSyncStatus('saving');
     const docRef = db.collection('rvnl_tracker').doc('tasks_store');
-    
-    // Clean up temporary blob URLs before persisting to database
-    const tasksToSave = state.tasks.map(task => {
-        if (task.image && task.image.startsWith("blob:")) {
-            return { ...task, image: "" };
-        }
-        return task;
-    });
+    const itemsRef = docRef.collection('items');
 
     try {
-        await docRef.set({
-            tasks: tasksToSave,
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        if (taskOrId) {
+            let taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
+            const task = typeof taskOrId === 'string' ? state.tasks.find(t => t.id === taskOrId) : taskOrId;
+            if (task) {
+                const taskToSave = { ...task };
+                if (taskToSave.image && taskToSave.image.startsWith("blob:")) {
+                    taskToSave.image = "";
+                }
+                await itemsRef.doc(taskId).set(taskToSave);
+            }
+        } else {
+            console.log("Writing all tasks to Firestore subcollection...");
+            const tasksToSave = state.tasks.map(task => {
+                if (task.image && task.image.startsWith("blob:")) {
+                    return { ...task, image: "" };
+                }
+                return task;
+            });
+            
+            // Delete all existing documents in subcollection first
+            const existingSnapshot = await itemsRef.get();
+            const deletePromises = [];
+            existingSnapshot.forEach(doc => {
+                deletePromises.push(itemsRef.doc(doc.id).delete());
+            });
+            await Promise.all(deletePromises);
+
+            // Write all tasks
+            for (let i = 0; i < tasksToSave.length; i++) {
+                const task = tasksToSave[i];
+                if (!task.id) task.id = generateUUID();
+                await itemsRef.doc(task.id).set(task);
+            }
+        }
         setSyncStatus('synced');
     } catch (err) {
         console.error('Firestore save error:', err);
         setSyncStatus('offline');
-        // Fallback: keep a local copy so no data is lost
-        localStorage.setItem('rvnl_tracker_data', JSON.stringify(tasksToSave));
+        localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
     }
     updateStorageIndicator();
 }
@@ -2540,7 +2588,7 @@ function generateUUID() {
 }
 
 // Delete item
-function deleteTask(id) {
+async function deleteTask(id) {
     if (confirm("Are you sure you want to delete this item?")) {
         const taskToDelete = state.tasks.find(t => t.id === id);
         if (taskToDelete) {
@@ -2557,9 +2605,19 @@ function deleteTask(id) {
                 });
             }
             logActivity("deleted", `Task: "${taskToDelete.title}" (${taskToDelete.client})`);
+            
+            // Delete from Firestore
+            setSyncStatus('saving');
+            try {
+                await db.collection('rvnl_tracker').doc('tasks_store').collection('items').doc(id).delete();
+                setSyncStatus('synced');
+            } catch (err) {
+                console.error("Firestore delete error:", err);
+                setSyncStatus('offline');
+            }
         }
         state.tasks = state.tasks.filter(t => t.id !== id);
-        saveData();
+        localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
         populateOwnerFilter();
         populateMonthDropdowns();
         updateDashboard();
@@ -2568,7 +2626,7 @@ function deleteTask(id) {
 }
 
 // Duplicate item
-function duplicateTask(id) {
+async function duplicateTask(id) {
     const task = state.tasks.find(t => t.id === id);
     if (task) {
         const copy = { 
@@ -2578,7 +2636,7 @@ function duplicateTask(id) {
             centers: task.centers ? [...task.centers] : []
         };
         state.tasks.unshift(copy);
-        saveData();
+        await saveData(copy);
         populateMonthDropdowns();
         updateDashboard();
         renderTracker();
