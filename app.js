@@ -3488,18 +3488,55 @@ function generateReport() {
     const creativeItems = reportItems.filter(t => t.type === "Creative / Collateral");
 
     // Update stats counters on report
-    const totalPrPublications = getPRPublicationsCount(reportItems);
-    document.getElementById("rep-stat-pr").textContent = totalPrPublications;
-    document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
-    document.getElementById("rep-stat-sm").textContent = smItems.length;
-    document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+    const defaultStats = document.getElementById("report-stats-summary-default");
+    const icodeStats = document.getElementById("report-stats-summary-icode");
 
-    const collateralBox = document.getElementById("rep-stat-collateral-box");
-    if (collateralBox) {
-        if (state.activeClient === "Legrand") {
-            collateralBox.style.display = "none";
-        } else {
-            collateralBox.style.display = "";
+    if (state.activeClient === "iCode") {
+        if (defaultStats) defaultStats.classList.add("hidden");
+        if (icodeStats) icodeStats.classList.remove("hidden");
+
+        let organicCount = 0;
+        let paidCount = 0;
+        let planoCount = 0;
+        let murphyCount = 0;
+        let redmondCount = 0;
+
+        reportItems.forEach(t => {
+            const campaignTypes = Array.isArray(t.campaignType) 
+                ? t.campaignType 
+                : (t.campaignType ? [t.campaignType] : []);
+            
+            if (campaignTypes.includes("Organic")) organicCount++;
+            if (campaignTypes.includes("Paid")) paidCount++;
+
+            const centers = t.centers || [];
+            if (centers.includes("Plano")) planoCount++;
+            if (centers.includes("Murphy")) murphyCount++;
+            if (centers.includes("Redmond")) redmondCount++;
+        });
+
+        document.getElementById("rep-stat-icode-organic").textContent = organicCount;
+        document.getElementById("rep-stat-icode-paid").textContent = paidCount;
+        document.getElementById("rep-stat-icode-plano").textContent = planoCount;
+        document.getElementById("rep-stat-icode-murphy").textContent = murphyCount;
+        document.getElementById("rep-stat-icode-redmond").textContent = redmondCount;
+    } else {
+        if (defaultStats) defaultStats.classList.remove("hidden");
+        if (icodeStats) icodeStats.classList.add("hidden");
+
+        const totalPrPublications = getPRPublicationsCount(reportItems);
+        document.getElementById("rep-stat-pr").textContent = totalPrPublications;
+        document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
+        document.getElementById("rep-stat-sm").textContent = smItems.length;
+        document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+
+        const collateralBox = document.getElementById("rep-stat-collateral-box");
+        if (collateralBox) {
+            if (state.activeClient === "Legrand") {
+                collateralBox.style.display = "none";
+            } else {
+                collateralBox.style.display = "";
+            }
         }
     }
 
@@ -3625,7 +3662,16 @@ function generateReport() {
                 if (parts.length === 0) {
                     parts.push(`<span style="color:var(--accent-blue); font-weight: 600;"><i class="fa-solid fa-share-nodes"></i> Organic Campaign</span>`);
                 }
-                platformColHtml = `<div style="display: flex; flex-direction: column; gap: 4px;">${parts.join("")}</div>`;
+                
+                const centers = task.centers || [];
+                const centersHtml = centers.length > 0
+                    ? `<div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-weight: 600;"><i class="fa-solid fa-location-dot" style="color: var(--accent-purple);"></i> Centers: ${centers.join(", ")}</div>`
+                    : `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-location-dot"></i> No centers</div>`;
+
+                platformColHtml = `<div style="display: flex; flex-direction: column; gap: 4px;">
+                    ${parts.join("")}
+                    ${centersHtml}
+                </div>`;
             }
 
             tr.innerHTML = `
@@ -4061,20 +4107,46 @@ async function handleAiNarrativeGeneration() {
     statusEl.textContent = "⚡ Gemini is writing narrative executive summary...";
     
     try {
-        const clientFullName = state.activeClient === "RVNL"
-            ? "Rail Vikas Nigam Limited (RVNL)"
-            : "Legrand Data Center Solutions (LDCS)";
+        let clientFullName = "RVNL";
+        let prompt = "";
 
-        const summaryHighlights = state.activeClient === "Legrand"
-            ? "overall output, key social milestones, and press/PR coverages"
-            : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
+        if (state.activeClient === "iCode") {
+            const repOrganic = document.getElementById("rep-stat-icode-organic").textContent;
+            const repPaid = document.getElementById("rep-stat-icode-paid").textContent;
+            const repPlano = document.getElementById("rep-stat-icode-plano").textContent;
+            const repMurphy = document.getElementById("rep-stat-icode-murphy").textContent;
+            const repRedmond = document.getElementById("rep-stat-icode-redmond").textContent;
 
-        let creativeMetricsPrompt = "";
-        if (state.activeClient !== "Legrand") {
-            creativeMetricsPrompt = `\n- Creative Collaterals: ${repCollateral} (Titles: ${clippingsTitles.slice(0, 10).join(", ")})`;
-        }
+            prompt = `
+You are a senior PR director partner at Candour Communications.
+Draft a professional, executive summary narrative paragraph (3-4 sentences, max 100 words) for our client iCode summarizing the work done in the report period "${periodText}".
+The summary should highlight the overall output and key social campaign milestones across Plano, Murphy, and Redmond centers, with a positive, business-driven corporate tone.
 
-        const prompt = `
+Report metrics:
+- Total Activities: ${totalActivitiesCount}
+- Organic Campaigns: ${repOrganic} (Titles: ${smTitles.slice(0, 10).join(", ")})
+- Paid Campaigns: ${repPaid}
+- Plano Center Campaigns: ${repPlano}
+- Murphy Center Campaigns: ${repMurphy}
+- Redmond Center Campaigns: ${repRedmond}
+
+Write ONLY the final paragraph. Do not write any greetings or explanations.
+`;
+        } else {
+            clientFullName = state.activeClient === "RVNL"
+                ? "Rail Vikas Nigam Limited (RVNL)"
+                : "Legrand Data Center Solutions (LDCS)";
+
+            const summaryHighlights = state.activeClient === "Legrand"
+                ? "overall output, key social milestones, and press/PR coverages"
+                : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
+
+            let creativeMetricsPrompt = "";
+            if (state.activeClient !== "Legrand") {
+                creativeMetricsPrompt = `\n- Creative Collaterals: ${repCollateral} (Titles: ${clippingsTitles.slice(0, 10).join(", ")})`;
+            }
+
+            prompt = `
 You are a senior PR director partner at Candour Communications.
 Draft a professional, executive summary narrative paragraph (3-4 sentences, max 100 words) for our client ${clientFullName} summarizing the work done in the report period "${periodText}".
 The summary should highlight the ${summaryHighlights}, with a positive, business-driven corporate tone.
@@ -4087,6 +4159,7 @@ Report metrics:
 
 Write ONLY the final paragraph. Do not write any greetings or explanations.
 `;
+        }
         const summaryText = await callGemini(geminiKey, prompt);
         
         const textarea = document.getElementById("edit-report-narrative");

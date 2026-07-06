@@ -484,7 +484,9 @@
                     <!-- Executive Summary Section -->
                     <div class="report-section">
                         <h3 class="report-section-title"><i class="fa-solid fa-chart-simple"></i> 1. Executive Activity Summary</h3>
-                        <div class="report-stats-summary">
+                        
+                        <!-- Standard Stats Summary -->
+                        <div class="report-stats-summary" id="report-stats-summary-default">
                             <div class="report-stats-row row-2col">
                                 <div class="summary-stat-box">
                                     <span class="box-num" id="rep-stat-sm">0</span>
@@ -503,6 +505,34 @@
                                 <div class="summary-stat-box" id="rep-stat-collateral-box">
                                     <span class="box-num" id="rep-stat-collateral">0</span>
                                     <span class="box-lbl">Collaterals & Designs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- iCode Stats Summary -->
+                        <div class="report-stats-summary hidden" id="report-stats-summary-icode">
+                            <div class="report-stats-row row-2col">
+                                <div class="summary-stat-box">
+                                    <span class="box-num" id="rep-stat-icode-organic">0</span>
+                                    <span class="box-lbl">Organic Campaigns</span>
+                                </div>
+                                <div class="summary-stat-box">
+                                    <span class="box-num" id="rep-stat-icode-paid">0</span>
+                                    <span class="box-lbl">Paid Campaigns</span>
+                                </div>
+                            </div>
+                            <div class="report-stats-row row-3col" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px;">
+                                <div class="summary-stat-box">
+                                    <span class="box-num" id="rep-stat-icode-plano">0</span>
+                                    <span class="box-lbl">Plano Center</span>
+                                </div>
+                                <div class="summary-stat-box">
+                                    <span class="box-num" id="rep-stat-icode-murphy">0</span>
+                                    <span class="box-lbl">Murphy Center</span>
+                                </div>
+                                <div class="summary-stat-box">
+                                    <span class="box-num" id="rep-stat-icode-redmond">0</span>
+                                    <span class="box-lbl">Redmond Center</span>
                                 </div>
                             </div>
                         </div>
