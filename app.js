@@ -95,7 +95,10 @@ const state = {
     pendingImageFile: null,
     currentTaskPublications: [],
     currentUser: "",
-    activityLogs: []
+    activityLogs: [],
+    excludedReportTaskIds: new Set(),
+    currentReportSmItems: [],
+    currentReportPrItems: []
 };
 
 // Target Date helper for weekly mapping
@@ -3569,6 +3572,7 @@ function renderTrackerKanban() {
 // ====================================================
 
 function generateReport() {
+    state.excludedReportTaskIds.clear();
     const periodType = document.getElementById("report-period-type").value;
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
@@ -3713,13 +3717,21 @@ function generateReport() {
     }
     document.getElementById("report-meta-period").textContent = periodText;
 
-    // Filter by type
-    // If monthly, reportItems is already filtered by status === "Published"
-    // If weekly, reportItems has all statuses, which is what we want!
-    const smItems = reportItems.filter(t => t.type === "Social Media");
-    const prItems = reportItems.filter(t => t.type === "PR Update");
-    const creativeItems = reportItems.filter(t => t.type === "Creative / Collateral");
+    // Filter into global report state items
+    state.currentReportSmItems = reportItems.filter(t => t.type === "Social Media");
+    state.currentReportPrItems = reportItems.filter(t => t.type === "PR Update");
+    state.currentReportCreativeItems = reportItems.filter(t => t.type === "Creative / Collateral");
 
+    // Call actual renderer
+    renderReportView();
+}
+
+function renderReportView() {
+    // Filter active items (excluding removed ones)
+    const smItems = state.currentReportSmItems.filter(t => !state.excludedReportTaskIds.has(t.id));
+    const prItems = state.currentReportPrItems.filter(t => !state.excludedReportTaskIds.has(t.id));
+    const creativeItems = state.currentReportCreativeItems ? state.currentReportCreativeItems.filter(t => !state.excludedReportTaskIds.has(t.id)) : [];
+    
     // Update stats counters on report
     const defaultStats = document.getElementById("report-stats-summary-default");
     const icodeStats = document.getElementById("report-stats-summary-icode");
@@ -3734,7 +3746,7 @@ function generateReport() {
         let murphyCount = 0;
         let redmondCount = 0;
 
-        reportItems.forEach(t => {
+        [...smItems, ...prItems, ...creativeItems].forEach(t => {
             const campaignTypes = Array.isArray(t.campaignType) 
                 ? t.campaignType 
                 : (t.campaignType ? [t.campaignType] : []);
@@ -3757,7 +3769,7 @@ function generateReport() {
         if (defaultStats) defaultStats.classList.remove("hidden");
         if (icodeStats) icodeStats.classList.add("hidden");
 
-        const totalPrPublications = getPRPublicationsCount(reportItems);
+        const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
         document.getElementById("rep-stat-pr").textContent = totalPrPublications;
         document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
         if (state.activeClient === "Legrand") {
@@ -3812,7 +3824,7 @@ function generateReport() {
             }
             smThead.innerHTML = `
                 <tr>
-                    <th style="width: 50px;">Sl.</th>
+                    <th style="width: 60px;">Sl.</th>
                     <th style="width: ${platformWidth};">${platformHeader}</th>
                     <th>Activity Details</th>
                     <th style="width: 140px;">Status / Date</th>
@@ -3830,6 +3842,9 @@ function generateReport() {
         document.getElementById("report-sec-social").classList.remove("no-print");
         smItems.forEach((task, idx) => {
             const tr = document.createElement("tr");
+            tr.setAttribute("draggable", "true");
+            tr.setAttribute("data-id", task.id);
+            tr.classList.add("draggable-row");
             
             let verificationLink = task.status || "Published";
             if (state.activeClient === "Legrand" && task.status !== "Published/Closed") {
@@ -3900,12 +3915,14 @@ function generateReport() {
                 ? `<div class="report-item-flex">
                      ${reportThumbnailHtml}
                      <div class="report-item-details">
+                          <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
                           <strong>${task.title}</strong>
                           ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
                           ${wipReportDetails}
                       </div>
                     </div>`
                 : `<div class="report-item-details">
+                     <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
                      <strong>${task.title}</strong>
                      ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
                      ${wipReportDetails}
@@ -3913,7 +3930,9 @@ function generateReport() {
                    </div>`;
 
             let platformColHtml = `<i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms`;
-            if (state.activeClient === "iCode" || task.client === "iCode") {
+            if (state.activeClient === "Legrand") {
+                platformColHtml = `<i class="fa-brands fa-linkedin" style="color:#0a66c2;"></i> LinkedIn`;
+            } else if (state.activeClient === "iCode" || task.client === "iCode") {
                 const campaignTypes = Array.isArray(task.campaignType) 
                     ? task.campaignType 
                     : (task.campaignType ? [task.campaignType] : ["Organic"]);
@@ -3941,7 +3960,10 @@ function generateReport() {
             }
 
             tr.innerHTML = `
-                <td style="text-align:center;">${idx + 1}</td>
+                <td style="text-align:center; vertical-align: middle;">
+                    <span class="no-print drag-handle" style="cursor: grab; margin-right: 6px; color: var(--text-muted); display: inline-flex; align-items: center;"><i class="fa-solid fa-bars"></i></span>
+                    <span>${idx + 1}</span>
+                </td>
                 <td class="platform-name">${platformColHtml}</td>
                 <td>${activityDetailsHtml}</td>
                 <td>${timelineDisplay}</td>
@@ -3982,7 +4004,9 @@ function generateReport() {
                 prSec.classList.remove("no-print");
                 prItems.forEach((task, idx) => {
                     const itemDiv = document.createElement("div");
-                    itemDiv.className = "report-pr-group";
+                    itemDiv.className = "report-pr-group draggable-pr-card";
+                    itemDiv.setAttribute("draggable", "true");
+                    itemDiv.setAttribute("data-id", task.id);
                     itemDiv.style.marginBottom = "25px";
                     itemDiv.style.border = "1.5px solid #1e293b";
                     itemDiv.style.borderRadius = "8px";
@@ -3999,16 +4023,20 @@ function generateReport() {
                     const headerHtml = `
                         <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 10px;">
+                                <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); margin-right: 4px; display: inline-flex; align-items: center;"><i class="fa-solid fa-bars"></i></span>
                                 <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${task.subType || 'Press Release'}</span>
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                     ${task.title}
                                     ${wipBadge}
                                 </h4>
                             </div>
-                            ${task.date ? `
-                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569;">
-                                <i class="fa-regular fa-calendar-days"></i> ${task.date}
-                            </div>` : ''}
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                ${task.date ? `
+                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569;">
+                                    <i class="fa-regular fa-calendar-days"></i> ${task.date}
+                                </div>` : ''}
+                                <button class="no-print report-exclude-btn-pr" data-id="${task.id}" style="background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
                         </div>
                     `;
                     
@@ -4123,66 +4151,68 @@ function generateReport() {
                 creativeItems.forEach((task, idx) => {
                     const tr = document.createElement("tr");
                 
-                // Format status badge or remarks
-                let statusDisplay = task.status || "Completed";
-                let statusClass = "status-published";
-                if (task.status === "WIP") statusClass = "status-wip";
-                if (task.status === "Sent for internal approval") statusClass = "status-review";
-                if (task.status === "Sent to client") statusClass = "status-approval";
-                if (task.status === "Not used by client") statusClass = "status-missed";
-                
-                let statusBadge = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status}</span>`;
-                if (task.remarks) {
-                    statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
-                }
-                if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
-                    statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
-                        ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
-                        ${task.wipWhy ? `<div><strong>Status/Delay:</strong> ${task.wipWhy}</div>` : ''}
-                    </div>`;
-                }
+                    // Format status badge or remarks
+                    let statusDisplay = task.status || "Completed";
+                    let statusClass = "status-published";
+                    if (task.status === "WIP") statusClass = "status-wip";
+                    if (task.status === "Sent for internal approval") statusClass = "status-review";
+                    if (task.status === "Sent to client") statusClass = "status-approval";
+                    if (task.status === "Not used by client") statusClass = "status-missed";
+                    
+                    let statusBadge = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status}</span>`;
+                    if (task.remarks) {
+                        statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
+                    }
+                    if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                        statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
+                            ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
+                            ${task.wipWhy ? `<div><strong>Status/Delay:</strong> ${task.wipWhy}</div>` : ''}
+                        </div>`;
+                    }
 
-                // Inline Thumbnail block beside or below the title
-                let reportThumbnailHtml = "";
-                if (task.image) {
-                    reportThumbnailHtml = `
-                        <div class="report-item-thumbnail">
-                            <img src="${task.image}" alt="thumbnail">
+                    // Inline Thumbnail block beside or below the title
+                    let reportThumbnailHtml = "";
+                    if (task.image) {
+                        reportThumbnailHtml = `
+                            <div class="report-item-thumbnail">
+                                <img src="${task.image}" alt="thumbnail">
+                            </div>
+                        `;
+                    }
+
+                    const noPrintButtons = `
+                        <div class="no-print" style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
+                             <button class="btn btn-secondary btn-sm btn-add-report-clipping" data-id="${task.id}" style="font-size: 10px; padding: 2px 8px; height: 24px;">
+                                 <i class="fa-solid fa-plus"></i> Add Thumbnail
+                             </button>
                         </div>
                     `;
-                }
 
-                const noPrintButtons = `
-                    <div class="no-print" style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
-                         <button class="btn btn-secondary btn-sm btn-add-report-clipping" data-id="${task.id}" style="font-size: 10px; padding: 2px 8px; height: 24px;">
-                             <i class="fa-solid fa-plus"></i> Add Thumbnail
-                         </button>
-                    </div>
-                `;
-
-                const titleAndImageHtml = reportThumbnailHtml
-                    ? `<div class="report-item-flex">
-                         ${reportThumbnailHtml}
-                         <div class="report-item-details">
+                    const titleAndImageHtml = reportThumbnailHtml
+                        ? `<div class="report-item-flex">
+                             ${reportThumbnailHtml}
+                             <div class="report-item-details">
+                                 <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
+                                 <strong>${task.title}</strong>
+                             </div>
+                           </div>`
+                        : `<div class="report-item-details">
+                             <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
                              <strong>${task.title}</strong>
-                         </div>
-                       </div>`
-                    : `<div class="report-item-details">
-                         <strong>${task.title}</strong>
-                         ${noPrintButtons}
-                       </div>`;
+                             ${noPrintButtons}
+                           </div>`;
 
-                tr.innerHTML = `
-                    <td style="text-align:center;">${idx + 1}</td>
-                    <td style="font-weight:600;">${task.subType === "Other" ? "Document" : (task.subType || 'Design')}</td>
-                    <td>${titleAndImageHtml}</td>
-                    <td>${statusBadge}</td>
-                `;
-                creativeBody.appendChild(tr);
-            });
+                    tr.innerHTML = `
+                        <td style="text-align:center;">${idx + 1}</td>
+                        <td style="font-weight:600;">${task.subType === "Other" ? "Document" : (task.subType || 'Design')}</td>
+                        <td>${titleAndImageHtml}</td>
+                        <td>${statusBadge}</td>
+                    `;
+                    creativeBody.appendChild(tr);
+                });
+            }
         }
     }
-}
 
     // Attach click listeners to all add thumbnail and autopull buttons globally
     document.querySelectorAll(".btn-add-report-clipping").forEach(btn => {
@@ -4192,7 +4222,6 @@ function generateReport() {
             document.getElementById("report-clipping-upload").click();
         });
     });
-
 
     // Sync narrative text display to editor textarea
     const narrativeTextEl = document.getElementById("report-narrative-text");
@@ -4206,6 +4235,113 @@ function generateReport() {
     const aiNarrativeBtn = document.getElementById("btn-generate-narrative-ai");
     if (aiNarrativeBtn) {
         aiNarrativeBtn.style.display = geminiKey ? "inline-flex" : "none";
+    }
+
+    // Wire up exclude buttons for Social Media and Creative sections
+    document.querySelectorAll(".report-exclude-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-id");
+            state.excludedReportTaskIds.add(id);
+            renderReportView();
+        });
+    });
+
+    // Wire up exclude buttons for PR items
+    document.querySelectorAll(".report-exclude-btn-pr").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-id");
+            state.excludedReportTaskIds.add(id);
+            renderReportView();
+        });
+    });
+
+    // Drag and Drop for Social Media table rows
+    let dragSrcRow = null;
+    smBody.querySelectorAll("tr.draggable-row").forEach(row => {
+        row.addEventListener("dragstart", (e) => {
+            dragSrcRow = row;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", row.getAttribute("data-id"));
+            row.style.opacity = "0.5";
+        });
+        
+        row.addEventListener("dragend", () => {
+            row.style.opacity = "1";
+            smBody.querySelectorAll("tr.draggable-row").forEach(r => r.style.borderTop = "");
+        });
+        
+        row.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            row.style.borderTop = "2px solid var(--accent-blue)";
+        });
+        
+        row.addEventListener("dragleave", () => {
+            row.style.borderTop = "";
+        });
+        
+        row.addEventListener("drop", (e) => {
+            e.preventDefault();
+            row.style.borderTop = "";
+            const draggedId = e.dataTransfer.getData("text/plain");
+            const targetId = row.getAttribute("data-id");
+            
+            if (draggedId !== targetId) {
+                const draggedIdx = state.currentReportSmItems.findIndex(t => t.id === draggedId);
+                const targetIdx = state.currentReportSmItems.findIndex(t => t.id === targetId);
+                
+                if (draggedIdx !== -1 && targetIdx !== -1) {
+                    const [removed] = state.currentReportSmItems.splice(draggedIdx, 1);
+                    state.currentReportSmItems.splice(targetIdx, 0, removed);
+                    renderReportView();
+                }
+            }
+        });
+    });
+
+    // Drag and Drop for PR cards
+    const prListContainer = document.querySelector(".report-pr-list-container");
+    if (prListContainer) {
+        prListContainer.querySelectorAll(".draggable-pr-card").forEach(card => {
+            card.addEventListener("dragstart", (e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", card.getAttribute("data-id"));
+                card.style.opacity = "0.5";
+            });
+            
+            card.addEventListener("dragend", () => {
+                card.style.opacity = "1";
+                prListContainer.querySelectorAll(".draggable-pr-card").forEach(c => c.style.borderTop = "");
+            });
+            
+            card.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                card.style.borderTop = "3px solid var(--accent-blue)";
+            });
+            
+            card.addEventListener("dragleave", () => {
+                card.style.borderTop = "";
+            });
+            
+            card.addEventListener("drop", (e) => {
+                e.preventDefault();
+                card.style.borderTop = "";
+                const draggedId = e.dataTransfer.getData("text/plain");
+                const targetId = card.getAttribute("data-id");
+                
+                if (draggedId !== targetId) {
+                    const draggedIdx = state.currentReportPrItems.findIndex(t => t.id === draggedId);
+                    const targetIdx = state.currentReportPrItems.findIndex(t => t.id === targetId);
+                    
+                    if (draggedIdx !== -1 && targetIdx !== -1) {
+                        const [removed] = state.currentReportPrItems.splice(draggedIdx, 1);
+                        state.currentReportPrItems.splice(targetIdx, 0, removed);
+                        renderReportView();
+                    }
+                }
+            });
+        });
     }
 }
 
