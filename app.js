@@ -95,6 +95,7 @@ const state = {
     pendingImageFile: null,
     currentTaskPublications: [],
     currentUser: "",
+    currentUserEmail: "",
     activityLogs: [],
     excludedReportTaskIds: new Set(),
     currentReportSmItems: [],
@@ -486,6 +487,7 @@ function initUserSession() {
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
+                state.currentUserEmail = email.toLowerCase();
                 if (displayNameEl) displayNameEl.textContent = state.currentUser;
                 if (overlay) overlay.style.display = "none";
                 if (errorMsgEl) errorMsgEl.style.display = "none";
@@ -493,6 +495,7 @@ function initUserSession() {
                 
                 // Safely load data from Firestore now that the session is authenticated
                 loadData();
+                checkReadOnlyPermissions();
             } else if (clientEmails.includes(email.toLowerCase())) {
                 // Redirect RVNL client to guest dashboard
                 window.location.replace("guest.html");
@@ -500,6 +503,7 @@ function initUserSession() {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
                     state.currentUser = "";
+                    state.currentUserEmail = "";
                     if (displayNameEl) displayNameEl.textContent = "...";
                     if (overlay) overlay.style.display = "flex";
                     if (errorMsgEl) {
@@ -1453,6 +1457,15 @@ function adjustClientSpecificOptions(client) {
             monthCheckboxesContainer.style.display = "none";
         }
     }
+    checkReadOnlyPermissions();
+}
+
+function checkReadOnlyPermissions() {
+    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    const quickAddBtn = document.getElementById("quick-add-btn");
+    if (quickAddBtn) {
+        quickAddBtn.style.display = isKomalLdcs ? "none" : "";
+    }
 }
     // Helper to recursively list all files in Firebase Storage
 async function listAllFilesRecursively(ref) {
@@ -2321,6 +2334,31 @@ function openDrawer(taskId = null, prefillData = null) {
         title.textContent = "Add Creative Asset or PR Activity";
     }
 
+    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    
+    // Hide/show save button
+    const saveTaskBtn = document.getElementById("save-task-btn");
+    if (saveTaskBtn) {
+        saveTaskBtn.style.display = isKomalLdcs ? "none" : "";
+    }
+
+    // Set drawer title for Komal viewing Legrand
+    if (isKomalLdcs && taskId) {
+        title.textContent = "View Task Details (Read-Only)";
+    }
+
+    // Enable/Disable form elements
+    const formElements = form.elements;
+    for (let i = 0; i < formElements.length; i++) {
+        if (formElements[i].id !== "cancel-drawer-btn" && formElements[i].id !== "close-drawer-btn") {
+            if (isKomalLdcs) {
+                formElements[i].setAttribute("disabled", "true");
+            } else {
+                formElements[i].removeAttribute("disabled");
+            }
+        }
+    }
+
     overlay.classList.add("active");
 }
 
@@ -2557,6 +2595,11 @@ function handleFormSubmit(e) {
         }
     }
 
+    if (state.currentUserEmail === "komal@candour.co.in" && taskClient === "Legrand") {
+        alert("Access Denied: You do not have permission to modify Legrand (LDCS) tasks.");
+        return;
+    }
+
     let finalType = type;
     let campaignType = "";
     let centers = [];
@@ -2664,8 +2707,12 @@ function generateUUID() {
 
 // Delete item
 async function deleteTask(id) {
+    const taskToDelete = state.tasks.find(t => t.id === id);
+    if (taskToDelete && state.currentUserEmail === "komal@candour.co.in" && taskToDelete.client === "Legrand") {
+        alert("Access Denied: You do not have permission to delete Legrand (LDCS) tasks.");
+        return;
+    }
     if (confirm("Are you sure you want to delete this item?")) {
-        const taskToDelete = state.tasks.find(t => t.id === id);
         if (taskToDelete) {
             if (taskToDelete.image) {
                 // Delete image from Cloud Storage in background
@@ -3357,9 +3404,13 @@ function renderTrackerTable() {
             <td>${linksHtml}</td>
             <td>
                 <div class="actions-flex">
-                    <button class="action-btn-mini edit-btn" data-id="${task.id}" title="Edit"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="action-btn-mini duplicate-btn" data-id="${task.id}" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
-                    <button class="action-btn-mini delete-btn" data-id="${task.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    ${(state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand")) ? `
+                        <button class="action-btn-mini edit-btn" data-id="${task.id}" title="View Details" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);"><i class="fa-solid fa-eye"></i></button>
+                    ` : `
+                        <button class="action-btn-mini edit-btn" data-id="${task.id}" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="action-btn-mini duplicate-btn" data-id="${task.id}" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
+                        <button class="action-btn-mini delete-btn" data-id="${task.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    `}
                 </div>
             </td>
         `;
@@ -3418,11 +3469,16 @@ function renderTrackerKanban() {
         
         const card = document.createElement("div");
         card.className = "kanban-card";
-        card.setAttribute("draggable", "true");
+        const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand"));
+        card.setAttribute("draggable", isKomalLdcs ? "false" : "true");
         card.setAttribute("data-id", task.id);
         
         // Drag events
         card.addEventListener("dragstart", (e) => {
+            if (isKomalLdcs) {
+                e.preventDefault();
+                return;
+            }
             e.dataTransfer.setData("text/plain", task.id);
             card.style.opacity = "0.5";
         });
@@ -3544,11 +3600,17 @@ function renderTrackerKanban() {
             container.style.backgroundColor = "";
             const taskId = e.dataTransfer.getData("text/plain");
             const task = state.tasks.find(t => t.id === taskId);
-            if (task && task.status !== status) {
-                task.status = status;
-                updateCarryForwardTaskMonth(task, state.filters.month);
-                saveData(task);
-                renderTracker(); // Refresh kanban cards
+            if (task) {
+                if (state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand")) {
+                    alert("Access Denied: You do not have permission to modify Legrand (LDCS) tasks.");
+                    return;
+                }
+                if (task.status !== status) {
+                    task.status = status;
+                    updateCarryForwardTaskMonth(task, state.filters.month);
+                    saveData(task);
+                    renderTracker(); // Refresh kanban cards
+                }
             }
         });
     });
