@@ -353,6 +353,21 @@ function updateDashboard() {
     renderCharts(published, progress, total - (published + progress));
 }
 
+// Helper to format long titles with a Read More/Show Less toggle
+function formatTaskTitle(title, maxLength = 120) {
+    if (!title || title.length <= maxLength) return title || "";
+    const truncated = title.substring(0, maxLength).trim() + "...";
+    const uniqueId = "title-text-" + Math.floor(Math.random() * 100000000);
+    return `
+        <span id="${uniqueId}-short" style="line-height: 1.5; display: inline;">${truncated} 
+            <button onclick="document.getElementById('${uniqueId}-short').style.display='none'; document.getElementById('${uniqueId}-full').style.display='inline'; return false;" style="background: none; border: none; color: #3b82f6; font-weight: 600; cursor: pointer; padding: 0; font-size: 11px; margin-left: 4px; font-family: inherit; display: inline-block;">Read More</button>
+        </span>
+        <span id="${uniqueId}-full" style="display: none; line-height: 1.5;">${title} 
+            <button onclick="document.getElementById('${uniqueId}-short').style.display='inline'; document.getElementById('${uniqueId}-full').style.display='none'; return false;" style="background: none; border: none; color: #3b82f6; font-weight: 600; cursor: pointer; padding: 0; font-size: 11px; margin-left: 4px; font-family: inherit; display: inline-block;">Show Less</button>
+        </span>
+    `;
+}
+
 // Render Deliverables Table
 function renderTable() {
     taskTableBody.innerHTML = "";
@@ -417,7 +432,7 @@ function renderTable() {
 
         tr.innerHTML = `
             <td>
-                <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${task.title || "-"}</div>
+                <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); line-height: 1.5;">${formatTaskTitle(task.title || "-")}</div>
                 ${remarksHtml}
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}

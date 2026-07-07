@@ -3095,6 +3095,21 @@ function renderTracker() {
     }
 }
 
+// Helper to format long titles with a Read More/Show Less toggle
+function formatTaskTitle(title, maxLength = 120) {
+    if (!title || title.length <= maxLength) return title || "";
+    const truncated = title.substring(0, maxLength).trim() + "...";
+    const uniqueId = "title-text-" + Math.floor(Math.random() * 100000000);
+    return `
+        <span id="${uniqueId}-short" style="line-height: 1.5; display: inline;">${truncated} 
+            <button onclick="document.getElementById('${uniqueId}-short').style.display='none'; document.getElementById('${uniqueId}-full').style.display='inline'; return false;" style="background: none; border: none; color: #3b82f6; font-weight: 600; cursor: pointer; padding: 0; font-size: 11px; margin-left: 4px; font-family: inherit; display: inline-block;">Read More</button>
+        </span>
+        <span id="${uniqueId}-full" style="display: none; line-height: 1.5;">${title} 
+            <button onclick="document.getElementById('${uniqueId}-short').style.display='inline'; document.getElementById('${uniqueId}-full').style.display='none'; return false;" style="background: none; border: none; color: #3b82f6; font-weight: 600; cursor: pointer; padding: 0; font-size: 11px; margin-left: 4px; font-family: inherit; display: inline-block;">Show Less</button>
+        </span>
+    `;
+}
+
 // Render Table View
 function renderTrackerTable() {
     const tbody = document.getElementById("tracker-table-body");
@@ -3255,7 +3270,7 @@ function renderTrackerTable() {
             ? `<div class="tracker-item-flex">
                  ${trackerImageHtml}
                  <div class="tracker-item-details">
-                     <div style="font-weight:600;">${task.title}</div>
+                     <div style="font-weight:600; line-height:1.5;">${formatTaskTitle(task.title)}</div>
                      ${remarksHtml}
                      ${prDetails}
                      ${wipDetailsHtml}
@@ -3263,7 +3278,7 @@ function renderTrackerTable() {
                  </div>
                </div>`
             : `<div class="tracker-item-details">
-                 <div style="font-weight:600;">${task.title}</div>
+                 <div style="font-weight:600; line-height:1.5;">${formatTaskTitle(task.title)}</div>
                  ${remarksHtml}
                  ${prDetails}
                  ${wipDetailsHtml}
@@ -3532,8 +3547,18 @@ function generateReport() {
     }
 
     // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
+    // For Legrand (LDCS), include WIP, Sent for internal approval, and Sent to client as well
     if (periodType === "monthly") {
-        reportItems = reportItems.filter(t => t.status === "Published/Closed");
+        if (state.activeClient === "Legrand") {
+            reportItems = reportItems.filter(t => 
+                t.status === "Published/Closed" || 
+                t.status === "WIP" || 
+                t.status === "Sent for internal approval" || 
+                t.status === "Sent to client"
+            );
+        } else {
+            reportItems = reportItems.filter(t => t.status === "Published/Closed");
+        }
     }
 
     // If weekly report is chosen, filter by specific week (include all statuses)
@@ -3616,6 +3641,24 @@ function generateReport() {
                 collateralBox.style.display = "none";
             } else {
                 collateralBox.style.display = "";
+            }
+        }
+
+        const secondaryRow = document.getElementById("report-stats-row-secondary");
+        if (secondaryRow) {
+            if (state.activeClient === "Legrand") {
+                secondaryRow.style.display = "none";
+            } else {
+                secondaryRow.style.display = "";
+            }
+        }
+
+        const prTitleEl = document.getElementById("report-sec-pr-title");
+        if (prTitleEl) {
+            if (state.activeClient === "Legrand") {
+                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
+            } else {
+                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
             }
         }
     }
