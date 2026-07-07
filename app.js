@@ -559,16 +559,25 @@ function pruneActivityLogs() {
 }
 
 // Log a new activity
-async function logActivity(action, details) {
+async function logActivity(action, details, client = null) {
     const logEntry = {
         id: generateUUID(),
         user: state.currentUser || "Unknown User",
         action: action, // "created" | "edited" | "deleted"
         details: details,
+        client: client,
         timestamp: Date.now()
     };
     state.activityLogs.unshift(logEntry); // add to top
     await saveActivityLogs();
+}
+
+// Helper to extract client name from log entry
+function getClientFromLog(log) {
+    if (log.client) return log.client;
+    if (!log.details) return null;
+    const match = log.details.match(/\(([^)]+)\)$/);
+    return match ? match[1].trim() : null;
 }
 
 // Render the activity logs timeline inside the Settings tab
@@ -582,7 +591,23 @@ function renderActivityLogs() {
         return;
     }
     
-    state.activityLogs.forEach(log => {
+    const filterEl = document.getElementById("activity-log-client-filter");
+    const selectedClient = filterEl ? filterEl.value : "all";
+
+    let logsToRender = state.activityLogs;
+    if (selectedClient !== "all") {
+        logsToRender = logsToRender.filter(log => {
+            const client = getClientFromLog(log);
+            return client === selectedClient;
+        });
+    }
+
+    if (logsToRender.length === 0) {
+        timeline.innerHTML = `<p style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 20px 0;">No activities recorded for ${selectedClient} in the last 20 days.</p>`;
+        return;
+    }
+    
+    logsToRender.forEach(log => {
         const div = document.createElement("div");
         div.style.display = "flex";
         div.style.gap = "14px";
@@ -1125,6 +1150,11 @@ function setupEventListeners() {
     const restoreLocalBtn = document.getElementById("restore-local-btn");
     if (restoreLocalBtn) {
         restoreLocalBtn.addEventListener("click", restoreLocalBackup);
+    }
+
+    const logClientFilter = document.getElementById("activity-log-client-filter");
+    if (logClientFilter) {
+        logClientFilter.addEventListener("change", renderActivityLogs);
     }
 
     // Tab Access Lock listeners
@@ -2538,13 +2568,14 @@ function handleFormSubmit(e) {
             }
             updateCarryForwardTaskMonth(taskData, state.filters.month);
             state.tasks[index] = { ...state.tasks[index], ...taskData };
-            logActivity("edited", `Task: "${taskData.title}" (${taskData.client})`);
+            logActivity("edited", `Task: "${taskData.title}" (${taskData.client})`, taskData.client);
         }
     } else {
         // Create Mode
         taskData.id = generateUUID();
+        taskData.createdAt = Date.now();
         state.tasks.unshift(taskData);
-        logActivity("created", `Task: "${taskData.title}" (${taskData.client})`);
+        logActivity("created", `Task: "${taskData.title}" (${taskData.client})`, taskData.client);
     }
 
     const fileToUpload = state.pendingImageFile;
@@ -2588,7 +2619,7 @@ async function deleteTask(id) {
                     }
                 });
             }
-            logActivity("deleted", `Task: "${taskToDelete.title}" (${taskToDelete.client})`);
+            logActivity("deleted", `Task: "${taskToDelete.title}" (${taskToDelete.client})`, taskToDelete.client);
             
             // Delete from Firestore
             setSyncStatus('saving');
@@ -2617,7 +2648,8 @@ async function duplicateTask(id) {
             ...task, 
             id: generateUUID(), 
             title: `${task.title} (Copy)`,
-            centers: task.centers ? [...task.centers] : []
+            centers: task.centers ? [...task.centers] : [],
+            createdAt: Date.now()
         };
         state.tasks.unshift(copy);
         await saveData(copy);
@@ -3047,7 +3079,13 @@ function renderTracker() {
     state.filteredTasks.sort((a, b) => {
         const priorityA = statusPriority[a.status] || 6;
         const priorityB = statusPriority[b.status] || 6;
-        return priorityA - priorityB;
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        // Secondary sort: newest first
+        const timeA = a.createdAt || 0;
+        const timeB = b.createdAt || 0;
+        return timeB - timeA;
     });
 
     if (state.activeView === "table") {

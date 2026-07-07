@@ -549,7 +549,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Dashboard Details Section */
 .dashboard-details-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 24px;
 }
 
@@ -558,6 +558,7 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid var(--border-color);
     border-radius: 18px;
     padding: 24px;
+    min-width: 0;
 }
 
 .recent-list {
@@ -589,7 +590,13 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     gap: 12px;
-    max-width: 70%;
+    max-width: 75%;
+    min-width: 0;
+}
+
+.item-details {
+    min-width: 0;
+    flex-grow: 1;
 }
 
 .item-icon {
