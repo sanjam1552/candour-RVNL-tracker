@@ -3832,6 +3832,9 @@ function generateReport() {
             const tr = document.createElement("tr");
             
             let verificationLink = task.status || "Published";
+            if (state.activeClient === "Legrand" && task.status !== "Published/Closed") {
+                verificationLink = "WIP";
+            }
             if (task.liveLink && task.liveLink.startsWith("http")) {
                 let btnLabel = "View Post";
                 const subTypeLower = (task.subType || "").toLowerCase();
@@ -3852,11 +3855,16 @@ function generateReport() {
             let timelineDisplay = task.date || task.week || 'Published';
             if (task.status !== "Published/Closed") {
                 let statusClass = "status-wip";
-                if (task.status === "Sent for internal approval") statusClass = "status-review";
-                if (task.status === "Sent to client") statusClass = "status-approval";
-                if (task.status === "Not used by client") statusClass = "status-missed";
+                let statusText = task.status;
+                if (state.activeClient === "Legrand") {
+                    statusText = "WIP";
+                } else {
+                    if (task.status === "Sent for internal approval") statusClass = "status-review";
+                    if (task.status === "Sent to client") statusClass = "status-approval";
+                    if (task.status === "Not used by client") statusClass = "status-missed";
+                }
                 
-                timelineDisplay = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${task.status}</span>`;
+                timelineDisplay = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${statusText}</span>`;
             }
 
             // Inline Thumbnail block beside or below the title
@@ -3982,11 +3990,19 @@ function generateReport() {
                     itemDiv.style.backgroundColor = "var(--bg-secondary)";
                     
                     // Group Header (Announcements / Topic Title)
+                    const isWipTask = task.status !== "Published/Closed";
+                    const wipBadge = isWipTask 
+                        ? `<span class="status-pill status-wip" style="font-size: 10px; padding: 3px 8px; margin-left: 8px; border-radius: 12px; background-color: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; height: 18px;">WIP</span>` 
+                        : "";
+
                     const headerHtml = `
                         <div style="background: var(--bg-primary); border-bottom: 1.5px solid #1e293b; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${task.subType || 'Press Release'}</span>
-                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4;">${task.title}</h4>
+                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    ${task.title}
+                                    ${wipBadge}
+                                </h4>
                             </div>
                             ${task.date ? `
                             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569;">
