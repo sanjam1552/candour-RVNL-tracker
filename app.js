@@ -3995,8 +3995,9 @@ function generateReport() {
                         ? `<span class="status-pill status-wip" style="font-size: 10px; padding: 3px 8px; margin-left: 8px; border-radius: 12px; background-color: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; height: 18px;">WIP</span>` 
                         : "";
 
+                    const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
                     const headerHtml = `
-                        <div style="background: var(--bg-primary); border-bottom: 1.5px solid #1e293b; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                        <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${task.subType || 'Press Release'}</span>
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
@@ -4015,84 +4016,86 @@ function generateReport() {
                     const list = task.publicationsList || [];
                     let publicationsHtml = "";
                     
-                    if (list.length > 0) {
-                        publicationsHtml = `<table style="width: 100%; border-collapse: separate; border-spacing: 14px; padding: 0; margin: 0; background: transparent; border: none; table-layout: fixed;">`;
-                        for (let i = 0; i < list.length; i += 2) {
-                            const pub1 = list[i];
-                            const pub2 = list[i + 1];
-                            
-                            publicationsHtml += `<tr>`;
-                            
-                            // Card 1
-                            publicationsHtml += `
-                                <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
-                                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                                        ${pub1.image ? `
-                                        <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                            <a href="${pub1.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub1.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
-                                        </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
-                                        <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
-                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub1.name || 'Unnamed Pub'}</div>
-                                            ${pub1.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub1.date}</div>` : ''}
-                                            ${pub1.link ? `
-                                                <a href="${pub1.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                </a>` : ''}
-                                        </div>
-                                    </div>
-                                </td>
-                            `;
-                            
-                            // Card 2 (or empty space if odd number of items)
-                            if (pub2) {
+                    if (task.status === "Published/Closed") {
+                        if (list.length > 0) {
+                            publicationsHtml = `<table style="width: 100%; border-collapse: separate; border-spacing: 14px; padding: 0; margin: 0; background: transparent; border: none; table-layout: fixed;">`;
+                            for (let i = 0; i < list.length; i += 2) {
+                                const pub1 = list[i];
+                                const pub2 = list[i + 1];
+                                
+                                publicationsHtml += `<tr>`;
+                                
+                                // Card 1
                                 publicationsHtml += `
                                     <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
                                         <div style="display: flex; gap: 14px; align-items: flex-start;">
-                                            ${pub2.image ? `
+                                            ${pub1.image ? `
                                             <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                                <a href="${pub2.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub2.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                                <a href="${pub1.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub1.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
                                             </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
                                             <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
-                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub2.name || 'Unnamed Pub'}</div>
-                                                ${pub2.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub2.date}</div>` : ''}
-                                                ${pub2.link ? `
-                                                    <a href="${pub2.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub1.name || 'Unnamed Pub'}</div>
+                                                ${pub1.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub1.date}</div>` : ''}
+                                                ${pub1.link ? `
+                                                    <a href="${pub1.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
                                                         <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
                                                     </a>` : ''}
                                             </div>
                                         </div>
                                     </td>
                                 `;
-                            } else {
-                                publicationsHtml += `<td style="width: 50%; border: none; background: transparent;"></td>`;
-                            }
-                            
-                            publicationsHtml += `</tr>`;
-                        }
-                        publicationsHtml += `</table>`;
-                    } else {
-                        // Fallback for old tasks that might only have task.image and task.publication
-                        publicationsHtml = `
-                            <table style="width: 100%; border-collapse: collapse; background: transparent; border: none;">
-                                <tr>
-                                    <td style="padding: 16px; vertical-align: top; box-sizing: border-box;">
-                                        <div style="display: flex; gap: 16px; align-items: flex-start;">
-                                            ${task.image ? `
-                                            <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                                ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>` : `<img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;" onclick="viewImageInNewWindow('${task.image}')">`}
-                                            </div>` : ''}
-                                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; min-width: 0;">
-                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
-                                                ${task.liveLink ? `
-                                                    <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 6px; width: fit-content;">
-                                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                    </a>` : ''}
+                                
+                                // Card 2 (or empty space if odd number of items)
+                                if (pub2) {
+                                    publicationsHtml += `
+                                        <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
+                                            <div style="display: flex; gap: 14px; align-items: flex-start;">
+                                                ${pub2.image ? `
+                                                <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                                    <a href="${pub2.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub2.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                                </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
+                                                    <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub2.name || 'Unnamed Pub'}</div>
+                                                    ${pub2.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub2.date}</div>` : ''}
+                                                    ${pub2.link ? `
+                                                        <a href="${pub2.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                        </a>` : ''}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        `;
+                                        </td>
+                                    `;
+                                } else {
+                                    publicationsHtml += `<td style="width: 50%; border: none; background: transparent;"></td>`;
+                                }
+                                
+                                publicationsHtml += `</tr>`;
+                            }
+                            publicationsHtml += `</table>`;
+                        } else {
+                            // Fallback for old tasks that might only have task.image and task.publication
+                            publicationsHtml = `
+                                <table style="width: 100%; border-collapse: collapse; background: transparent; border: none;">
+                                    <tr>
+                                        <td style="padding: 16px; vertical-align: top; box-sizing: border-box;">
+                                            <div style="display: flex; gap: 16px; align-items: flex-start;">
+                                                ${task.image ? `
+                                                <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                                    ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>` : `<img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;" onclick="viewImageInNewWindow('${task.image}')">`}
+                                                </div>` : ''}
+                                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; min-width: 0;">
+                                                    <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
+                                                    ${task.liveLink ? `
+                                                        <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 6px; width: fit-content;">
+                                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                        </a>` : ''}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            `;
+                        }
                     }
                     
                     itemDiv.innerHTML = headerHtml + publicationsHtml;
