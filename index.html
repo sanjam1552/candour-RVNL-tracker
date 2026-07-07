@@ -428,10 +428,15 @@
                             <option value="weekly">Weekly Report</option>
                         </select>
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="report-month-select-container">
                         <label for="report-month">Select Month</label>
                         <select id="report-month">
                         </select>
+                    </div>
+                    <div class="filter-group" id="report-month-checkboxes-container" style="display: none;">
+                        <label>Select Months</label>
+                        <div id="report-month-checkboxes" style="display: flex; flex-direction: row; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 12px; min-height: 42px; box-sizing: border-box;">
+                        </div>
                     </div>
                     <div class="filter-group" id="report-week-group" style="display: none;">
                         <label for="report-week">Select Week</label>

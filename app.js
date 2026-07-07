@@ -823,6 +823,35 @@ function populateMonthDropdowns() {
         }
     }
 
+    // Populate #report-month-checkboxes
+    const reportMonthCheckboxes = document.getElementById("report-month-checkboxes");
+    if (reportMonthCheckboxes) {
+        reportMonthCheckboxes.innerHTML = '';
+        sortedMonths.forEach(m => {
+            const label = document.createElement("label");
+            label.style.display = "inline-flex";
+            label.style.alignItems = "center";
+            label.style.gap = "6px";
+            label.style.fontSize = "13px";
+            label.style.fontWeight = "500";
+            label.style.cursor = "pointer";
+            label.style.background = "var(--bg-primary)";
+            label.style.padding = "6px 12px";
+            label.style.borderRadius = "8px";
+            label.style.border = "1px solid var(--border-color)";
+            label.style.userSelect = "none";
+            label.style.color = "var(--text-primary)";
+
+            // Check current month by default
+            const isChecked = m === currentMonthStr;
+            label.innerHTML = `
+                <input type="checkbox" class="report-month-chk" value="${m}" ${isChecked ? 'checked' : ''} style="margin: 0; width: 14px; height: 14px; cursor: pointer;">
+                <span>${m}</span>
+            `;
+            reportMonthCheckboxes.appendChild(label);
+        });
+    }
+
     // Populate #dashboard-month
     const dashboardMonth = document.getElementById("dashboard-month");
     if (dashboardMonth) {
@@ -1108,10 +1137,22 @@ function setupEventListeners() {
     // 9. Report Generation
     document.getElementById("report-period-type").addEventListener("change", (e) => {
         const weekGroup = document.getElementById("report-week-group");
+        const monthSelectContainer = document.getElementById("report-month-select-container");
+        const monthCheckboxesContainer = document.getElementById("report-month-checkboxes-container");
+
         if (e.target.value === "weekly") {
             weekGroup.style.display = "flex";
+            if (monthSelectContainer) monthSelectContainer.style.display = "";
+            if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "none";
         } else {
             weekGroup.style.display = "none";
+            if (state.activeClient === "Legrand") {
+                if (monthSelectContainer) monthSelectContainer.style.display = "none";
+                if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "";
+            } else {
+                if (monthSelectContainer) monthSelectContainer.style.display = "";
+                if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "none";
+            }
         }
     });
     
@@ -1391,6 +1432,22 @@ function adjustClientSpecificOptions(client) {
             icodeCentersGroup.classList.remove("hidden");
         } else {
             icodeCentersGroup.classList.add("hidden");
+        }
+    }
+
+    // 4. Toggle month dropdown vs checkboxes in Report Builder
+    const monthSelectContainer = document.getElementById("report-month-select-container");
+    const monthCheckboxesContainer = document.getElementById("report-month-checkboxes-container");
+    const reportPeriodType = document.getElementById("report-period-type");
+
+    if (monthSelectContainer && monthCheckboxesContainer) {
+        const periodType = reportPeriodType ? reportPeriodType.value : "monthly";
+        if (client === "Legrand" && periodType === "monthly") {
+            monthSelectContainer.style.display = "none";
+            monthCheckboxesContainer.style.display = "";
+        } else {
+            monthSelectContainer.style.display = "";
+            monthCheckboxesContainer.style.display = "none";
         }
     }
 }
@@ -3516,6 +3573,14 @@ function generateReport() {
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
     
+    let selectedMonths = [];
+    if (state.activeClient === "Legrand" && periodType === "monthly") {
+        const checkboxes = document.querySelectorAll(".report-month-chk:checked");
+        checkboxes.forEach(chk => selectedMonths.push(chk.value));
+    } else {
+        selectedMonths.push(selectedMonth);
+    }
+    
     // Update Report Branding dynamically
     const reportTitle = document.getElementById("report-client-title");
     const reportLogo = document.getElementById("report-client-logo");
@@ -3539,7 +3604,17 @@ function generateReport() {
     }
 
     // Filter database for items in selected month and active client
-    let reportItems = state.tasks.filter(t => isTaskActiveInMonth(t, selectedMonth) && (t.client || "RVNL") === state.activeClient);
+    let reportItems = state.tasks.filter(t => {
+        const isClient = (t.client || "RVNL") === state.activeClient;
+        if (!isClient) return false;
+        
+        if (state.activeClient === "Legrand" && periodType === "monthly") {
+            return selectedMonths.some(m => isTaskActiveInMonth(t, m));
+        } else {
+            return isTaskActiveInMonth(t, selectedMonth);
+        }
+    });
+
     if (state.activeClient === "Legrand") {
         reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
     } else if (state.activeClient === "iCode") {
@@ -3580,9 +3655,24 @@ function generateReport() {
     });
 
     // Populate Report Meta text
-    const periodText = periodType === "weekly" 
-        ? `${selectedWeek} of ${selectedMonth}` 
-        : `${selectedMonth} Report`;
+    let periodText = "";
+    if (periodType === "weekly") {
+        periodText = `${selectedWeek} of ${selectedMonth}`;
+    } else {
+        if (state.activeClient === "Legrand") {
+            if (selectedMonths.length === 0) {
+                periodText = "No Months Selected";
+            } else if (selectedMonths.length === 1) {
+                periodText = `${selectedMonths[0]} Report`;
+            } else if (selectedMonths.length === 2) {
+                periodText = `${selectedMonths.join(" & ")} Report`;
+            } else {
+                periodText = `${selectedMonths.slice(0, -1).join(", ")}, & ${selectedMonths[selectedMonths.length - 1]} Report`;
+            }
+        } else {
+            periodText = `${selectedMonth} Report`;
+        }
+    }
     document.getElementById("report-meta-period").textContent = periodText;
 
     // Filter by type
