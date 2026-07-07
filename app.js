@@ -3677,7 +3677,7 @@ function generateReport() {
         if (state.activeClient === "RVNL") {
             reportTitle.textContent = "Rail Vikas Nigam Limited (RVNL)";
         } else if (state.activeClient === "Legrand") {
-            reportTitle.textContent = "Legrand Data Center Solutions (LDCS)";
+            reportTitle.textContent = "Sanjay Motwani Leadership Profiling";
         } else if (state.activeClient === "iCode") {
             reportTitle.textContent = "iCode";
         }
