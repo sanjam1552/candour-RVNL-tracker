@@ -3580,6 +3580,29 @@ function generateReport() {
     } else {
         selectedMonths.push(selectedMonth);
     }
+
+    // Helper to calculate the next calendar month string
+    function getNextMonthStr(monthStr) {
+        const parts = monthStr.trim().split(/\s+/);
+        if (parts.length !== 2) return "";
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthIdx = monthNames.indexOf(parts[0]);
+        let year = parseInt(parts[1], 10);
+        if (monthIdx === -1 || isNaN(year)) return "";
+        let nextMonthIdx = monthIdx + 1;
+        if (nextMonthIdx > 11) {
+            nextMonthIdx = 0;
+            year += 1;
+        }
+        return `${monthNames[nextMonthIdx]} ${year}`;
+    }
+
+    let nextMonthStr = "";
+    if (state.activeClient === "Legrand" && periodType === "monthly" && selectedMonths.length > 0) {
+        const sortedSelected = [...selectedMonths].sort((a, b) => getMonthValue(a) - getMonthValue(b));
+        const latestMonth = sortedSelected[sortedSelected.length - 1];
+        nextMonthStr = getNextMonthStr(latestMonth);
+    }
     
     // Update Report Branding dynamically
     const reportTitle = document.getElementById("report-client-title");
@@ -3609,7 +3632,15 @@ function generateReport() {
         if (!isClient) return false;
         
         if (state.activeClient === "Legrand" && periodType === "monthly") {
-            return selectedMonths.some(m => isTaskActiveInMonth(t, m));
+            const isActiveInSelected = selectedMonths.some(m => isTaskActiveInMonth(t, m));
+            if (isActiveInSelected) return true;
+
+            // Include next month's WIP (planned) items
+            const isWip = t.status === "WIP" || t.status === "Sent for internal approval" || t.status === "Sent to client";
+            if (isWip && t.month === nextMonthStr) {
+                return true;
+            }
+            return false;
         } else {
             return isTaskActiveInMonth(t, selectedMonth);
         }
@@ -3647,8 +3678,15 @@ function generateReport() {
         });
     }
 
-    // Sort report items by date/subtype
+    // Sort report items: Published at the top, then WIP/planned items below
     reportItems.sort((a,b) => {
+        if (state.activeClient === "Legrand") {
+            const isPubA = a.status === "Published/Closed" ? 1 : 0;
+            const isPubB = b.status === "Published/Closed" ? 1 : 0;
+            if (isPubA !== isPubB) {
+                return isPubB - isPubA; // Published (1) before WIP/planned (0)
+            }
+        }
         const dateA = a.date || "";
         const dateB = b.date || "";
         return dateA.localeCompare(dateB, undefined, {numeric: true});
@@ -3722,7 +3760,11 @@ function generateReport() {
         const totalPrPublications = getPRPublicationsCount(reportItems);
         document.getElementById("rep-stat-pr").textContent = totalPrPublications;
         document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
-        document.getElementById("rep-stat-sm").textContent = smItems.length;
+        if (state.activeClient === "Legrand") {
+            document.getElementById("rep-stat-sm").textContent = smItems.filter(t => t.status === "Published/Closed").length;
+        } else {
+            document.getElementById("rep-stat-sm").textContent = smItems.length;
+        }
         document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
 
         const collateralBox = document.getElementById("rep-stat-collateral-box");
@@ -3836,25 +3878,28 @@ function generateReport() {
             `;
 
             let wipReportDetails = "";
-            if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
-                wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
-                    ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
-                    ${task.wipWhy ? `<span><strong>Status/Delay:</strong> ${task.wipWhy}</span>` : ''}
-                </div>`;
+            if (state.activeClient !== "Legrand") {
+                if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                    wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+                        ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
+                        ${task.wipWhy ? `<span><strong>Status/Delay:</strong> ${task.wipWhy}</span>` : ''}
+                    </div>`;
+                }
             }
 
+            const showRemarks = task.remarks && state.activeClient !== "Legrand";
             const activityDetailsHtml = reportThumbnailHtml
                 ? `<div class="report-item-flex">
                      ${reportThumbnailHtml}
                      <div class="report-item-details">
-                         <strong>${task.title}</strong>
-                         ${task.remarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
-                         ${wipReportDetails}
-                     </div>
-                   </div>`
+                          <strong>${task.title}</strong>
+                          ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
+                          ${wipReportDetails}
+                      </div>
+                    </div>`
                 : `<div class="report-item-details">
                      <strong>${task.title}</strong>
-                     ${task.remarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
+                     ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
                      ${wipReportDetails}
                      ${noPrintButtons}
                    </div>`;
