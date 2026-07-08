@@ -34,6 +34,49 @@ function getMonthValue(monthStr) {
     return parsed.year * 12 + parsed.month;
 }
 
+// Get helper value for chronological sorting based on publish date (task.date) or week
+function getPublishDateValue(task) {
+    if (!task) return 0;
+    
+    // 1. Try parsing task.date as standard date
+    if (task.date) {
+        const d = new Date(task.date);
+        if (!isNaN(d.getTime())) {
+            return d.getTime();
+        }
+        
+        // 2. Try extracting day number (e.g. "5th July", "1st July", "2nd july")
+        const match = task.date.match(/(\d+)(?:st|nd|rd|th)?/i);
+        if (match) {
+            const day = parseInt(match[1], 10);
+            if (task.month) {
+                const parts = task.month.split(" ");
+                if (parts.length === 2) {
+                    const monthName = parts[0];
+                    const year = parseInt(parts[1], 10);
+                    const dateStr = `${day} ${monthName} ${year}`;
+                    const parsedDate = new Date(dateStr);
+                    if (!isNaN(parsedDate.getTime())) {
+                        return parsedDate.getTime();
+                    }
+                }
+            }
+            return day;
+        }
+    }
+    
+    // 3. Fallback to week number
+    if (task.week) {
+        const matchWeek = task.week.match(/(\d+)/);
+        if (matchWeek) {
+            return parseInt(matchWeek[1], 10) * 10;
+        }
+    }
+    
+    // 4. Fallback to createdAt
+    return task.createdAt || 0;
+}
+
 // Check if a task is active in a given month (either its month matches, or it is carried forward from a previous month)
 function isTaskActiveInMonth(task, selectedMonthStr) {
     if (!task.month) return false;
@@ -332,6 +375,36 @@ function updateDashboard() {
         const matchMonth = isTaskActiveInMonth(t, state.selectedMonth);
         const matchCategory = state.selectedCategory === "all" || t.type === state.selectedCategory;
         return matchMonth && matchCategory;
+    });
+
+    // Sort guest tasks consistently with admin panel
+    const statusPriority = {
+        "WIP": 1,
+        "Sent for internal approval": 2,
+        "Sent to client": 3,
+        "Published/Closed": 4,
+        "Not used by client": 5
+    };
+    state.filteredTasks.sort((a, b) => {
+        const priorityA = statusPriority[a.status] || 6;
+        const priorityB = statusPriority[b.status] || 6;
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        
+        // If both are published, sort chronologically by publish date (ascending: oldest first)
+        if (a.status === "Published/Closed" && b.status === "Published/Closed") {
+            const dateValA = getPublishDateValue(a);
+            const dateValB = getPublishDateValue(b);
+            if (dateValA !== dateValB) {
+                return dateValB - dateValA;
+            }
+        }
+        
+        // Secondary sort for other statuses: newest first
+        const timeA = a.createdAt || 0;
+        const timeB = b.createdAt || 0;
+        return timeB - timeA;
     });
 
     // Calculate KPI values
