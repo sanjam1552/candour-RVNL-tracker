@@ -477,7 +477,7 @@ function renderTable() {
 
         // Format Image preview or media list (larger preview)
         let mediaHtml = "-";
-        if (task.image) {
+        if (task.image && task.type !== "PR Update") {
             mediaHtml = `
                 <div class="thumbnail-preview-container" style="display: flex; align-items: center; gap: 10px;">
                     <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')" title="Click to view full image">
@@ -493,9 +493,36 @@ function renderTable() {
             remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
         }
 
-        // Live Link Button for Published tasks
+        // PR Specific details to display (Publications List)
+        let prDetailsHtml = "";
+        if (task.type === "PR Update") {
+            const list = task.publicationsList || [];
+            if (list.length > 0) {
+                prDetailsHtml = `<div class="pr-pubs-list-portal" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; background:rgba(0,0,0,0.015); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; max-width:550px;">`;
+                list.forEach((pub, pIdx) => {
+                    prDetailsHtml += `
+                        <div class="pr-pub-portal-item" style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:11.5px; padding: 4px 0; ${pIdx < list.length - 1 ? 'border-bottom: 1px dashed var(--border-color);' : ''}">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                ${pub.image ? `
+                                <div style="position:relative; width:26px; height:26px; border-radius:4px; overflow:hidden; border:1px solid var(--border-color); cursor:pointer;" onclick="window.open('${pub.image}', '_blank')" title="Click to view media clipping">
+                                    <img src="${pub.image}" style="width:100%; height:100%; object-fit:cover;">
+                                </div>` : `<div style="width:26px; height:26px; border-radius:4px; background:rgba(0,0,0,0.04); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-muted);"><i class="fa-solid fa-image" style="font-size:10px;"></i></div>`}
+                                <span style="font-weight:600; color:var(--text-primary);">${pub.name || 'Unnamed Publication'}</span>
+                                ${pub.date ? `<span style="font-size:10px; color:var(--text-muted); margin-left:6px;">(${pub.date})</span>` : ''}
+                            </div>
+                            ${pub.link ? `<a href="${pub.link}" target="_blank" style="color:var(--accent-blue); text-decoration:none; font-size:10.5px; font-weight:600; display:inline-flex; align-items:center; gap:3px;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:8px;"></i> Live Link</a>` : ''}
+                        </div>
+                    `;
+                });
+                prDetailsHtml += `</div>`;
+            } else if (task.publication) {
+                prDetailsHtml = `<div style="font-size:11.5px; color:var(--text-secondary); margin-top:8px; background:rgba(0,0,0,0.015); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; max-width:550px;"><strong>Publication:</strong> ${task.publication}</div>`;
+            }
+        }
+
+        // Live Link Button for Published tasks (for non-PR or fallback)
         let liveLinkBtn = "";
-        if (task.status === "Published/Closed" && task.liveLink && task.liveLink.trim() !== "") {
+        if (task.status === "Published/Closed" && task.type !== "PR Update" && task.liveLink && task.liveLink.trim() !== "") {
             liveLinkBtn = `
                 <a href="${task.liveLink}" target="_blank" class="live-post-link" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #3b82f6; text-decoration: none; font-weight: 600; padding: 2px 6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; transition: all 0.2s;" title="View Published Post">
                      <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
@@ -507,6 +534,7 @@ function renderTable() {
             <td>
                 <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); line-height: 1.5;">${formatTaskTitle(task.title || "-")}</div>
                 ${remarksHtml}
+                ${prDetailsHtml}
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
                     ${liveLinkBtn}
