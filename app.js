@@ -1,5 +1,5 @@
 // RVNL Creative & PR Reporting Hub - Core Application Logic
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.1.0";
 
 // Format current date to Month Year (e.g. "June 2026")
 function getCurrentMonthStr() {
