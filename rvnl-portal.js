@@ -1,4 +1,4 @@
-// RVNL Client Dashboard - Read-Only Logic
+// RVNL Client Portal - Read-Only Logic
 const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
 const APP_VERSION = "1.1.0";
 
@@ -241,7 +241,7 @@ async function loadDashboardData() {
             const configData = configSnapshot.data();
             if (configData.version && configData.version !== APP_VERSION) {
                 console.log(`New version detected (${configData.version}). Force reloading...`);
-                alert("A new version of the Guest Dashboard is available. The page will reload automatically to update.");
+                alert("A new version of the RVNL Portal is available. The page will reload automatically to update.");
                 window.location.reload(true);
                 return;
             }
@@ -369,6 +369,7 @@ function getPRPublicationsCount(tasks) {
 }
 
 // Render Dashboard Data & Charts
+// Sort portal tasks consistently with admin panel
 function updateDashboard() {
     // Filter tasks based on filters
     state.filteredTasks = state.tasks.filter(t => {
@@ -377,7 +378,6 @@ function updateDashboard() {
         return matchMonth && matchCategory;
     });
 
-    // Sort guest tasks consistently with admin panel
     const statusPriority = {
         "WIP": 1,
         "Sent for internal approval": 2,
@@ -498,7 +498,7 @@ function renderTable() {
         if (task.status === "Published/Closed" && task.liveLink && task.liveLink.trim() !== "") {
             liveLinkBtn = `
                 <a href="${task.liveLink}" target="_blank" class="live-post-link" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #3b82f6; text-decoration: none; font-weight: 600; padding: 2px 6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; transition: all 0.2s;" title="View Published Post">
-                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
+                     <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
                 </a>
             `;
         }

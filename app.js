@@ -540,8 +540,8 @@ function initUserSession() {
                 loadData();
                 checkReadOnlyPermissions();
             } else if (clientEmails.includes(email.toLowerCase())) {
-                // Redirect RVNL client to guest dashboard
-                window.location.replace("guest.html");
+                // Redirect RVNL client to RVNL Portal dashboard
+                window.location.replace("rvnl-portal.html");
             } else {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
