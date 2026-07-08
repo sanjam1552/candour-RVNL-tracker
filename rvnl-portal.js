@@ -242,11 +242,21 @@ async function loadDashboardData() {
         const configSnapshot = await configRef.get();
         if (configSnapshot.exists) {
             const configData = configSnapshot.data();
+            // Auto reload if user is running an older cached version (with loop protection)
             if (configData.version && configData.version !== APP_VERSION) {
-                console.log(`New version detected (${configData.version}). Force reloading...`);
-                alert("A new version of the RVNL Portal is available. The page will reload automatically to update.");
-                window.location.reload(true);
-                return;
+                const reloadKey = "version_reload_attempt_portal";
+                const lastReload = sessionStorage.getItem(reloadKey);
+                const now = Date.now();
+                
+                if (lastReload && (now - parseInt(lastReload, 10)) < 15000) {
+                    console.warn(`Version reload loop prevented. Local: ${APP_VERSION}, Database: ${configData.version}`);
+                } else {
+                    sessionStorage.setItem(reloadKey, now.toString());
+                    console.log(`New version detected (${configData.version}). Force reloading...`);
+                    alert("A new version of the RVNL Portal is available. The page will reload automatically to update.");
+                    window.location.reload(true);
+                    return;
+                }
             }
         }
 
