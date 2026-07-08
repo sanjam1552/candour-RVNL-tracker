@@ -1,6 +1,6 @@
 // RVNL Client Portal - Read-Only Logic
 const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 const state = {
     tasks: [],

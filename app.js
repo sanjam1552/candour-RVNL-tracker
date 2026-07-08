@@ -1,5 +1,5 @@
 // RVNL Creative & PR Reporting Hub - Core Application Logic
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 // Format current date to Month Year (e.g. "June 2026")
 function getCurrentMonthStr() {
@@ -1722,6 +1722,9 @@ function switchClient(client) {
     } else if (client === "iCode") {
         logoSrc = "inputs/icode black.png";
         displayName = "iCode";
+    } else if (client === "Kompact AI") {
+        logoSrc = "inputs/logo kompact-text-shapes-2x.png";
+        displayName = "Kompact AI";
     }
     
     if (activeLogo) activeLogo.src = logoSrc;
@@ -1729,15 +1732,24 @@ function switchClient(client) {
     if (sidebarLogo) sidebarLogo.src = logoSrc;
     if (sidebarTitle) sidebarTitle.textContent = displayName;
     
-    // Show/hide briefing warning
+    // Show/hide briefing warning and tab button in sidebar
     const briefingWarning = document.getElementById("briefing-client-warning");
     const briefingContent = document.getElementById("briefing-content-container");
+    const briefingTabBtn = document.querySelector('.nav-btn[data-tab="briefing"]');
+    
     if (client === "RVNL") {
+        if (briefingTabBtn) briefingTabBtn.style.display = "";
         if (briefingWarning) briefingWarning.classList.add("hidden");
         if (briefingContent) briefingContent.style.display = "block";
     } else {
+        if (briefingTabBtn) briefingTabBtn.style.display = "none";
         if (briefingWarning) briefingWarning.classList.remove("hidden");
         if (briefingContent) briefingContent.style.display = "none";
+        
+        // Redirect to dashboard if the user was on the briefing tab
+        if (state.activeTab === "briefing") {
+            switchTab("dashboard");
+        }
     }
     
     // Refresh all data displays
@@ -3772,6 +3784,8 @@ function generateReport() {
     if (reportTitle) {
         if (state.activeClient === "RVNL") {
             reportTitle.textContent = "Rail Vikas Nigam Limited (RVNL)";
+        } else if (state.activeClient === "Kompact AI") {
+            reportTitle.textContent = "Kompact AI";
         } else if (state.activeClient === "Legrand") {
             reportTitle.textContent = "Sanjay Motwani Leadership Profiling";
         } else if (state.activeClient === "iCode") {
@@ -3781,6 +3795,8 @@ function generateReport() {
     if (reportLogo) {
         if (state.activeClient === "RVNL") {
             reportLogo.src = "inputs/RVNL logo.png";
+        } else if (state.activeClient === "Kompact AI") {
+            reportLogo.src = "inputs/logo kompact-text-shapes-2x.png";
         } else if (state.activeClient === "Legrand") {
             reportLogo.src = "inputs/ldcs logo.png";
         } else if (state.activeClient === "iCode") {
@@ -4706,7 +4722,9 @@ Write ONLY the final paragraph. Do not write any greetings or explanations.
         } else {
             clientFullName = state.activeClient === "RVNL"
                 ? "Rail Vikas Nigam Limited (RVNL)"
-                : "Legrand Data Center Solutions (LDCS)";
+                : state.activeClient === "Kompact AI"
+                    ? "Kompact AI"
+                    : "Legrand Data Center Solutions (LDCS)";
 
             const summaryHighlights = state.activeClient === "Legrand"
                 ? "overall output, key social milestones, and press/PR coverages"
