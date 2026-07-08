@@ -493,30 +493,34 @@ function renderTable() {
             remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
         }
 
-        // PR Specific details to display (Publications List)
+        // PR Specific details to display (Publications List - Card Grid layout)
         let prDetailsHtml = "";
         if (task.type === "PR Update") {
             const list = task.publicationsList || [];
             if (list.length > 0) {
-                prDetailsHtml = `<div class="pr-pubs-list-portal" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; background:rgba(0,0,0,0.015); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; max-width:550px;">`;
-                list.forEach((pub, pIdx) => {
+                prDetailsHtml = `<div class="pr-pubs-grid-portal" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; margin-top: 14px; width: 100%;">`;
+                list.forEach((pub) => {
                     prDetailsHtml += `
-                        <div class="pr-pub-portal-item" style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:11.5px; padding: 4px 0; ${pIdx < list.length - 1 ? 'border-bottom: 1px dashed var(--border-color);' : ''}">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                ${pub.image ? `
-                                <div style="position:relative; width:26px; height:26px; border-radius:4px; overflow:hidden; border:1px solid var(--border-color); cursor:pointer;" onclick="window.open('${pub.image}', '_blank')" title="Click to view media clipping">
-                                    <img src="${pub.image}" style="width:100%; height:100%; object-fit:cover;">
-                                </div>` : `<div style="width:26px; height:26px; border-radius:4px; background:rgba(0,0,0,0.04); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-muted);"><i class="fa-solid fa-image" style="font-size:10px;"></i></div>`}
-                                <span style="font-weight:600; color:var(--text-primary);">${pub.name || 'Unnamed Publication'}</span>
-                                ${pub.date ? `<span style="font-size:10px; color:var(--text-muted); margin-left:6px;">(${pub.date})</span>` : ''}
+                        <div class="pr-pub-card" style="display: flex; gap: 14px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; align-items: flex-start; box-shadow: var(--glass-shadow); transition: transform 0.2s, box-shadow 0.2s; box-sizing: border-box;">
+                            ${pub.image ? `
+                            <div style="width: 180px; height: 115px; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; background: #ffffff; cursor: pointer;" onclick="window.open('${pub.image}', '_blank')" title="Click to view full clipping">
+                                <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>` : `
+                            <div style="width: 180px; height: 115px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1; min-width: 0; padding-top: 4px;">
+                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${pub.name || ''}">${pub.name || 'Unnamed Publication'}</div>
+                                ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 500;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i> ${pub.date}</div>` : ''}
+                                ${pub.link ? `
+                                <a href="${pub.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(59, 130, 246, 0.08); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2); padding: 4px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-decoration: none; width: fit-content; margin-top: 4px;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 8px;"></i> View Article
+                                </a>` : ''}
                             </div>
-                            ${pub.link ? `<a href="${pub.link}" target="_blank" style="color:var(--accent-blue); text-decoration:none; font-size:10.5px; font-weight:600; display:inline-flex; align-items:center; gap:3px;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:8px;"></i> Live Link</a>` : ''}
                         </div>
                     `;
                 });
                 prDetailsHtml += `</div>`;
             } else if (task.publication) {
-                prDetailsHtml = `<div style="font-size:11.5px; color:var(--text-secondary); margin-top:8px; background:rgba(0,0,0,0.015); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; max-width:550px;"><strong>Publication:</strong> ${task.publication}</div>`;
+                prDetailsHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; max-width: 550px;"><strong>Publication:</strong> ${task.publication}</div>`;
             }
         }
 
