@@ -112,6 +112,9 @@ const monthFilter = document.getElementById("month-filter");
 const typeFilter = document.getElementById("type-filter");
 const statusFilter = document.getElementById("status-filter");
 const taskTableBody = document.getElementById("task-table-body");
+const tasksTableCard = document.getElementById("tasks-table-card");
+const prPublicationsCard = document.getElementById("pr-publications-card");
+const prPublicationsContainer = document.getElementById("pr-publications-container");
 
 // Initialize Auth listener
 function initAuth() {
@@ -334,8 +337,13 @@ function setupFilters() {
         if (typeFilter) typeFilter.value = category;
         if (statusFilter) statusFilter.value = status;
         updateDashboard();
-        if (tableCard) {
-            tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        const targetCard = category === "PR Update" 
+            ? document.getElementById("pr-publications-card") 
+            : document.getElementById("tasks-table-card");
+            
+        if (targetCard && targetCard.style.display !== "none") {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
 
@@ -441,10 +449,12 @@ function formatTaskTitle(title, maxLength = 120) {
     `;
 }
 
-// Render Deliverables Table
+// Render Deliverables Table and separate PR grid
 function renderTable() {
     taskTableBody.innerHTML = "";
+    prPublicationsContainer.innerHTML = "";
     
+    // 1. Filter tasks by status
     const displayTasks = state.filteredTasks.filter(t => {
         if (state.selectedStatus === "all") return true;
         if (state.selectedStatus === "In Progress") {
@@ -452,56 +462,156 @@ function renderTable() {
         }
         return t.status === state.selectedStatus;
     });
-    
-    if (displayTasks.length === 0) {
-        taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found matching the selected filters.</td></tr>`;
-        return;
+
+    // 2. Separate PR tasks and table tasks
+    const prTasks = displayTasks.filter(t => t.type === "PR Update");
+    const tableTasks = displayTasks.filter(t => t.type !== "PR Update");
+
+    // 3. Handle Visibility of Panels depending on Category Selection
+    if (state.selectedCategory === "PR Update") {
+        if (tasksTableCard) tasksTableCard.style.display = "none";
+        if (prPublicationsCard) prPublicationsCard.style.display = "block";
+    } else if (state.selectedCategory === "Social Media" || state.selectedCategory === "Creative / Collateral") {
+        if (tasksTableCard) tasksTableCard.style.display = "block";
+        if (prPublicationsCard) prPublicationsCard.style.display = "none";
+    } else { // "all"
+        if (tasksTableCard) tasksTableCard.style.display = tableTasks.length > 0 ? "block" : "none";
+        if (prPublicationsCard) prPublicationsCard.style.display = prTasks.length > 0 ? "block" : "none";
     }
 
-    displayTasks.forEach(task => {
-        const tr = document.createElement("tr");
+    // 4. Render Table Tasks (Creatives & Social Media)
+    if (tableTasks.length === 0 && state.selectedCategory !== "PR Update") {
+        taskTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">No deliverables found matching the selected filters.</td></tr>`;
+    } else {
+        tableTasks.forEach(task => {
+            const tr = document.createElement("tr");
 
-        // Format Status Badge
-        let statusBadge = "";
-        if (task.status === "Published/Closed") {
-            statusBadge = `<span class="badge badge-published"><i class="fa-solid fa-circle-check"></i> Published</span>`;
-        } else if (task.status === "WIP") {
-            statusBadge = `<span class="badge badge-progress"><i class="fa-solid fa-hourglass-half"></i> In Progress</span>`;
-        } else if (task.status === "Sent for internal approval") {
-            statusBadge = `<span class="badge badge-pending"><i class="fa-solid fa-user-clock"></i> Internal Approval</span>`;
-        } else if (task.status === "Sent to client") {
-            statusBadge = `<span class="badge badge-approved"><i class="fa-solid fa-paper-plane"></i> Awaiting Client</span>`;
-        } else {
-            statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.1); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold / Not Used</span>`;
-        }
+            // Format Status Badge
+            let statusBadge = "";
+            if (task.status === "Published/Closed") {
+                statusBadge = `<span class="badge badge-published"><i class="fa-solid fa-circle-check"></i> Published</span>`;
+            } else if (task.status === "WIP") {
+                statusBadge = `<span class="badge badge-progress"><i class="fa-solid fa-hourglass-half"></i> In Progress</span>`;
+            } else if (task.status === "Sent for internal approval") {
+                statusBadge = `<span class="badge badge-pending"><i class="fa-solid fa-user-clock"></i> Internal Approval</span>`;
+            } else if (task.status === "Sent to client") {
+                statusBadge = `<span class="badge badge-approved"><i class="fa-solid fa-paper-plane"></i> Awaiting Client</span>`;
+            } else {
+                statusBadge = `<span class="badge" style="background: rgba(107, 114, 128, 0.1); color: var(--text-secondary);"><i class="fa-solid fa-circle-minus"></i> On Hold / Not Used</span>`;
+            }
 
-        // Format Image preview or media list (larger preview)
-        let mediaHtml = "-";
-        if (task.image && task.type !== "PR Update") {
-            mediaHtml = `
-                <div class="thumbnail-preview-container" style="display: flex; align-items: center; gap: 10px;">
-                    <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')" title="Click to view full image">
-                    <button class="download-btn" data-url="${task.image}" data-title="${task.title}" style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;" title="Download Image">
-                        <i class="fa-solid fa-download" style="font-size: 14px;"></i>
-                    </button>
+            // Format Image preview (larger preview)
+            let mediaHtml = "-";
+            if (task.image) {
+                mediaHtml = `
+                    <div class="thumbnail-preview-container" style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${task.image}" loading="lazy" class="thumbnail-preview" alt="Clipping" onclick="window.open('${task.image}', '_blank')" title="Click to view full image">
+                        <button class="download-btn" data-url="${task.image}" data-title="${task.title}" style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;" title="Download Image">
+                            <i class="fa-solid fa-download" style="font-size: 14px;"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            let remarksHtml = "";
+            if (task.remarks && task.remarks.trim() !== "") {
+                remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
+            }
+
+            // Live Link Button for Published tasks
+            let liveLinkBtn = "";
+            if (task.status === "Published/Closed" && task.liveLink && task.liveLink.trim() !== "") {
+                liveLinkBtn = `
+                    <a href="${task.liveLink}" target="_blank" class="live-post-link" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #3b82f6; text-decoration: none; font-weight: 600; padding: 2px 6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; transition: all 0.2s;" title="View Published Post">
+                         <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
+                    </a>
+                `;
+            }
+
+            tr.innerHTML = `
+                <td>
+                    <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); line-height: 1.5;">${formatTaskTitle(task.title || "-")}</div>
+                    ${remarksHtml}
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
+                        ${liveLinkBtn}
+                    </div>
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div style="font-weight: 600; color: var(--text-primary);">${task.week || "Week 1"}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${task.date || ""}</div>
+                </td>
+                <td>${mediaHtml}</td>
+            `;
+
+            const downloadBtn = tr.querySelector(".download-btn");
+            if (downloadBtn) {
+                downloadBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const url = downloadBtn.getAttribute("data-url");
+                    const title = downloadBtn.getAttribute("data-title") || "image";
+                    const sanitizedTitle = title.trim().replace(/[^a-zA-Z0-9]/g, "_") + ".jpg";
+                    downloadImage(url, sanitizedTitle);
+                });
+                // hover style feedback
+                downloadBtn.addEventListener("mouseenter", () => {
+                    downloadBtn.style.background = "var(--accent-blue)";
+                    downloadBtn.style.color = "#ffffff";
+                    downloadBtn.style.borderColor = "var(--accent-blue)";
+                });
+                downloadBtn.addEventListener("mouseleave", () => {
+                    downloadBtn.style.background = "var(--bg-card)";
+                    downloadBtn.style.color = "var(--text-secondary)";
+                    downloadBtn.style.borderColor = "var(--border-color)";
+                });
+            }
+
+            taskTableBody.appendChild(tr);
+        });
+    }
+
+    // 5. Render PR Tasks in a Dedicated Grid Section below the table
+    if (prTasks.length > 0 && state.selectedCategory !== "Creative / Collateral" && state.selectedCategory !== "Social Media") {
+        prTasks.forEach(prTask => {
+            const prCardDiv = document.createElement("div");
+            prCardDiv.className = "pr-group-card";
+            prCardDiv.style.marginBottom = "30px";
+            prCardDiv.style.border = "1.5px solid var(--border-color)";
+            prCardDiv.style.borderRadius = "16px";
+            prCardDiv.style.overflow = "hidden";
+            prCardDiv.style.backgroundColor = "var(--bg-secondary)";
+            prCardDiv.style.boxShadow = "var(--glass-shadow)";
+            prCardDiv.style.boxSizing = "border-box";
+
+            // Status style
+            const statusClass = prTask.status === "Published/Closed" ? "badge-published" : prTask.status === "WIP" ? "badge-progress" : "badge-pending";
+            
+            // Header Bar
+            const headerHtml = `
+                <div style="background: var(--bg-card); border-bottom: 1.5px solid var(--border-color); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                        <span style="background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;">${prTask.subType || 'Press Release'}</span>
+                        <h3 style="margin: 0; font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${prTask.title}</h3>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <span class="badge ${statusClass}">${prTask.status}</span>
+                        ${prTask.spokesperson ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px;"><strong>Spokesperson:</strong> ${prTask.spokesperson}</span>` : ''}
+                        <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                            <i class="fa-regular fa-calendar-days"></i> ${prTask.date || prTask.week || 'Week 1'}
+                        </div>
+                    </div>
                 </div>
             `;
-        }
 
-        let remarksHtml = "";
-        if (task.remarks && task.remarks.trim() !== "") {
-            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
-        }
-
-        // PR Specific details to display (Publications List - Card Grid layout)
-        let prDetailsHtml = "";
-        if (task.type === "PR Update") {
-            const list = task.publicationsList || [];
+            // Publications Card Grid
+            let pubsGridHtml = "";
+            const list = prTask.publicationsList || [];
             if (list.length > 0) {
-                prDetailsHtml = `<div class="pr-pubs-grid-portal" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; margin-top: 14px; width: 100%;">`;
+                pubsGridHtml = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; padding: 20px;">`;
                 list.forEach((pub) => {
-                    prDetailsHtml += `
-                        <div class="pr-pub-card" style="display: flex; gap: 14px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; align-items: flex-start; box-shadow: var(--glass-shadow); transition: transform 0.2s, box-shadow 0.2s; box-sizing: border-box;">
+                    pubsGridHtml += `
+                        <div class="pr-pub-card" style="display: flex; gap: 14px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; align-items: flex-start; box-shadow: 0 2px 8px rgba(0,0,0,0.02); box-sizing: border-box;">
                             ${pub.image ? `
                             <div style="width: 180px; height: 115px; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; background: #ffffff; cursor: pointer;" onclick="window.open('${pub.image}', '_blank')" title="Click to view full clipping">
                                 <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: cover;">
@@ -518,64 +628,32 @@ function renderTable() {
                         </div>
                     `;
                 });
-                prDetailsHtml += `</div>`;
-            } else if (task.publication) {
-                prDetailsHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; max-width: 550px;"><strong>Publication:</strong> ${task.publication}</div>`;
+                pubsGridHtml += `</div>`;
+            } else if (prTask.publication) {
+                // Fallback for single publication
+                pubsGridHtml = `
+                    <div style="padding: 20px; display: flex; gap: 16px; align-items: flex-start; background: var(--bg-secondary);">
+                        ${prTask.image ? `
+                        <div style="width: 180px; height: 115px; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; background: #ffffff; cursor: pointer;" onclick="window.open('${prTask.image}', '_blank')" title="Click to view full clipping">
+                            <img src="${prTask.image}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>` : ''}
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 4px;">
+                            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-primary);">${prTask.publication}</div>
+                            ${prTask.liveLink ? `
+                            <a href="${prTask.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(59, 130, 246, 0.08); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2); padding: 4px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-decoration: none; width: fit-content; margin-top: 4px;">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 8px;"></i> View Article
+                            </a>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                pubsGridHtml = `<div style="padding: 20px; color: var(--text-secondary); font-size: 13px;">No publication details logged.</div>`;
             }
-        }
 
-        // Live Link Button for Published tasks (for non-PR or fallback)
-        let liveLinkBtn = "";
-        if (task.status === "Published/Closed" && task.type !== "PR Update" && task.liveLink && task.liveLink.trim() !== "") {
-            liveLinkBtn = `
-                <a href="${task.liveLink}" target="_blank" class="live-post-link" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #3b82f6; text-decoration: none; font-weight: 600; padding: 2px 6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; transition: all 0.2s;" title="View Published Post">
-                     <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i> View Post
-                </a>
-            `;
-        }
-
-        tr.innerHTML = `
-            <td>
-                <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); line-height: 1.5;">${formatTaskTitle(task.title || "-")}</div>
-                ${remarksHtml}
-                ${prDetailsHtml}
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    ${task.subType ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; margin-top: 6px;">${task.subType}</span>` : ""}
-                    ${liveLinkBtn}
-                </div>
-            </td>
-            <td>${statusBadge}</td>
-            <td>
-                <div style="font-weight: 600; color: var(--text-primary);">${task.week || "Week 1"}</div>
-                <div style="font-size: 11px; color: var(--text-muted);">${task.date || ""}</div>
-            </td>
-            <td>${mediaHtml}</td>
-        `;
-
-        const downloadBtn = tr.querySelector(".download-btn");
-        if (downloadBtn) {
-            downloadBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const url = downloadBtn.getAttribute("data-url");
-                const title = downloadBtn.getAttribute("data-title") || "image";
-                const sanitizedTitle = title.trim().replace(/[^a-zA-Z0-9]/g, "_") + ".jpg";
-                downloadImage(url, sanitizedTitle);
-            });
-            // hover style feedback
-            downloadBtn.addEventListener("mouseenter", () => {
-                downloadBtn.style.background = "var(--accent-blue)";
-                downloadBtn.style.color = "#ffffff";
-                downloadBtn.style.borderColor = "var(--accent-blue)";
-            });
-            downloadBtn.addEventListener("mouseleave", () => {
-                downloadBtn.style.background = "var(--bg-card)";
-                downloadBtn.style.color = "var(--text-secondary)";
-                downloadBtn.style.borderColor = "var(--border-color)";
-            });
-        }
-
-        taskTableBody.appendChild(tr);
-    });
+            prCardDiv.innerHTML = headerHtml + pubsGridHtml;
+            prPublicationsContainer.appendChild(prCardDiv);
+        });
+    }
 }
 
 // Render Chart.js Visuals
