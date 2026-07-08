@@ -1037,6 +1037,20 @@ function setupEventListeners() {
                 if (item.type.indexOf("image") === 0) {
                     const file = item.getAsFile();
                     if (file) {
+                        // Check if focused element or its container is a publication row
+                        const activeEl = document.activeElement;
+                        const pubRow = activeEl ? activeEl.closest(".pr-pub-row") : null;
+                        if (pubRow) {
+                            const idxAttr = activeEl.getAttribute("data-index") || pubRow.querySelector("[data-index]").getAttribute("data-index");
+                            const idx = parseInt(idxAttr, 10);
+                            if (!isNaN(idx)) {
+                                handleClipboardPasteForPublication(file, idx, pubRow);
+                                e.preventDefault();
+                                return;
+                            }
+                        }
+
+                        // Otherwise, fallback to the main task image preview
                         const name = `clipboard_screenshot_${Date.now()}.jpg`;
                         const clipboardFile = new File([file], name, { type: file.type });
                         const localURL = URL.createObjectURL(clipboardFile);
@@ -2081,6 +2095,31 @@ function togglePRFormFields(type) {
     }
 }
 
+// Handle pasting image from clipboard directly into a specific publication row
+async function handleClipboardPasteForPublication(file, idx, rowEl) {
+    const statusEl = rowEl.querySelector(".pub-upload-status");
+    if (statusEl) {
+        statusEl.textContent = "Uploading clipboard clipping to storage...";
+        statusEl.style.display = "block";
+    }
+    
+    try {
+        const taskTitle = document.getElementById("task-title").value || "PR_Coverage";
+        const client = state.activeClient || "General";
+        const name = `clipboard_screenshot_${Date.now()}.jpg`;
+        const clipboardFile = new File([file], name, { type: file.type });
+        const downloadURL = await uploadImageToStorage(clipboardFile, client, taskTitle);
+        
+        state.currentTaskPublications[idx].image = downloadURL;
+        if (statusEl) statusEl.style.display = "none";
+        renderDrawerPublications();
+    } catch (err) {
+        console.error("Publication clipboard paste failed:", err);
+        alert("Upload failed: " + err.message);
+        if (statusEl) statusEl.style.display = "none";
+    }
+}
+
 // Render publications list inside the task drawer
 function renderDrawerPublications() {
     const container = document.getElementById("pr-publications-container");
@@ -2123,7 +2162,7 @@ function renderDrawerPublications() {
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="file" class="pub-file-input" id="pub-file-${pub.id}" data-index="${idx}" accept="image/*" style="display: none;">
                     <label for="pub-file-${pub.id}" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; border-radius: 8px; margin: 0; box-sizing: border-box; white-space: nowrap;"><i class="fa-solid fa-upload"></i> Upload</label>
-                    <input type="text" class="pub-image-url-input" data-index="${idx}" value="${pub.image || ''}" placeholder="Or enter Image URL..." style="flex: 1; font-size: 12px; padding: 6px 10px; height: 32px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                    <input type="text" class="pub-image-url-input" data-index="${idx}" value="${pub.image || ''}" placeholder="Or enter Image URL / Paste (Ctrl+V) image..." style="flex: 1; font-size: 12px; padding: 6px 10px; height: 32px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                     
                     ${pub.image ? `
                     <div class="pub-img-preview-container" style="position: relative; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; background: var(--bg-primary); flex-shrink: 0;">
@@ -2132,6 +2171,10 @@ function renderDrawerPublications() {
                             <i class="fa-solid fa-eye" style="font-size: 10px; color: #fff;"></i>
                         </div>
                     </div>` : ''}
+                </div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 4.5px; display: flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-circle-info" style="font-size: 9px; color: var(--accent-blue);"></i>
+                    <span>Tip: Click here and press <strong>Ctrl+V</strong> to paste copied image.</span>
                 </div>
                 <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">Uploading clipping to storage...</div>
             </div>

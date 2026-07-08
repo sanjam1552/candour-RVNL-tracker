@@ -1061,7 +1061,11 @@
                     <div class="image-upload-wrapper">
                         <input type="file" id="task-image-file" accept="image/*" class="hidden-input">
                         <label for="task-image-file" class="btn btn-secondary btn-full" id="upload-label"><i class="fa-solid fa-upload"></i> Upload Clipping (Cloud Storage)</label>
-                        <input type="text" id="task-image-url" placeholder="Or enter Image URL directly..." style="margin-top: 10px;">
+                        <input type="text" id="task-image-url" placeholder="Or enter Image URL / Paste (Ctrl+V) image..." style="margin-top: 10px;">
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-circle-info" style="font-size: 10px; color: var(--accent-blue);"></i>
+                        <span>Tip: You can also copy an image to clipboard and press <strong>Ctrl+V</strong> here to upload.</span>
                     </div>
                     <div class="image-preview-box hidden" id="task-image-preview">
                         <img src="" alt="Clipping preview">
