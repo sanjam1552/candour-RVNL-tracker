@@ -2100,7 +2100,7 @@ function togglePRFormFields(type) {
                 <option value="Interview">Interview</option>
                 <option value="Event coverage">Event Coverage</option>
                 <option value="Industry stories">Industry stories</option>
-                <option value="Author articles">Author articles</option>
+                <option value="Authored Article">Authored Article</option>
                 <option value="Documents">Documents</option>
             `;
         } else {
