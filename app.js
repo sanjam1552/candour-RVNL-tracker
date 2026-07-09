@@ -1489,7 +1489,7 @@ function adjustClientSpecificOptions(client) {
                 <option value="Organic">Organic Campaign</option>
                 <option value="Paid">Paid Campaign</option>
             `;
-        } else if (client === "Legrand") {
+        } else if (client === "Legrand" || client === "Kompact AI") {
             filterType.innerHTML = `
                 <option value="all">All Types</option>
                 <option value="Social Media">Social Media Post</option>
@@ -1524,7 +1524,7 @@ function adjustClientSpecificOptions(client) {
                 <option value="PR Update">PR Update (Press Release / Media)</option>
                 <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
             `;
-            if (client === "Legrand") {
+            if (client === "Legrand" || client === "Kompact AI") {
                 const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
                 if (creativeDrawerOpt) creativeDrawerOpt.remove();
             }
