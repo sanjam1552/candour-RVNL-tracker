@@ -3042,7 +3042,7 @@ function renderTrendChart() {
             }
         ];
 
-        if (state.activeClient !== "Legrand") {
+        if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI") {
             datasets.push({
                 label: 'Creative Collateral',
                 data: creativeData,
@@ -3108,7 +3108,7 @@ function renderShareChart() {
         if (titleEl) titleEl.textContent = "Category Share";
         if (subTitleEl) subTitleEl.textContent = "Distribution of assets";
         
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
             categories = ['Social Media', 'PR Update'];
             dataVals = [
                 clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
