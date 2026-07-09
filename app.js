@@ -2094,6 +2094,15 @@ function togglePRFormFields(type) {
                 <option value="Byline Article">Byline Article</option>
                 <option value="Documents">Documents</option>
             `;
+        } else if (state.activeClient === "Kompact AI") {
+            subTypeSelect.innerHTML = `
+                <option value="Press Release">Press Release</option>
+                <option value="Interview">Interview</option>
+                <option value="Event coverage">Event Coverage</option>
+                <option value="Industry stories">Industry stories</option>
+                <option value="Author articles">Author articles</option>
+                <option value="Documents">Documents</option>
+            `;
         } else {
             subTypeSelect.innerHTML = `
                 <option value="Press Release">Press Release</option>
@@ -3992,7 +4001,7 @@ function renderReportView() {
         const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
         document.getElementById("rep-stat-pr").textContent = totalPrPublications;
         document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
             document.getElementById("rep-stat-sm").textContent = smItems.filter(t => t.status === "Published/Closed").length;
         } else {
             document.getElementById("rep-stat-sm").textContent = smItems.length;
@@ -4001,7 +4010,7 @@ function renderReportView() {
 
         const collateralBox = document.getElementById("rep-stat-collateral-box");
         if (collateralBox) {
-            if (state.activeClient === "Legrand") {
+            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                 collateralBox.style.display = "none";
             } else {
                 collateralBox.style.display = "";
@@ -4010,7 +4019,7 @@ function renderReportView() {
 
         const secondaryRow = document.getElementById("report-stats-row-secondary");
         if (secondaryRow) {
-            if (state.activeClient === "Legrand") {
+            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                 secondaryRow.style.display = "none";
             } else {
                 secondaryRow.style.display = "";
@@ -4019,7 +4028,7 @@ function renderReportView() {
 
         const prTitleEl = document.getElementById("report-sec-pr-title");
         if (prTitleEl) {
-            if (state.activeClient === "Legrand") {
+            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                 prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
             } else {
                 prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
@@ -4067,7 +4076,7 @@ function renderReportView() {
             tr.classList.add("draggable-row");
             
             let verificationLink = task.status || "Published";
-            if (state.activeClient === "Legrand" && task.status !== "Published/Closed") {
+            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI") && task.status !== "Published/Closed") {
                 verificationLink = "WIP";
             }
             if (task.liveLink && task.liveLink.startsWith("http")) {
@@ -4091,7 +4100,7 @@ function renderReportView() {
             if (task.status !== "Published/Closed") {
                 let statusClass = "status-wip";
                 let statusText = task.status;
-                if (state.activeClient === "Legrand") {
+                if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                     statusText = "WIP";
                 } else {
                     if (task.status === "Sent for internal approval") statusClass = "status-review";
@@ -4121,7 +4130,7 @@ function renderReportView() {
             `;
 
             let wipReportDetails = "";
-            if (state.activeClient !== "Legrand") {
+            if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI") {
                 if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
                     wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
                         ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
@@ -4130,7 +4139,7 @@ function renderReportView() {
                 }
             }
 
-            const showRemarks = task.remarks && state.activeClient !== "Legrand";
+            const showRemarks = task.remarks && state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI";
             const activityDetailsHtml = reportThumbnailHtml
                 ? `<div class="report-item-flex">
                      ${reportThumbnailHtml}
@@ -4359,7 +4368,7 @@ function renderReportView() {
     if (creativeBody && creativeSec) {
         creativeBody.innerHTML = "";
 
-        if (state.activeClient === "Legrand" || state.activeClient === "iCode") {
+        if (state.activeClient === "Legrand" || state.activeClient === "iCode" || state.activeClient === "Kompact AI") {
             creativeSec.style.display = "none";
         } else {
             creativeSec.style.display = "";
