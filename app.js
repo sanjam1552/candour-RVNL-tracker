@@ -120,7 +120,7 @@ const state = {
     pageSize: 12,
     activeTab: 'dashboard',
     activeView: 'table',
-    activeClient: 'RVNL',
+    activeClient: localStorage.getItem("activeClient") || 'RVNL',
     dashboardMonth: getCurrentMonthStr(),
     settingsPassword: undefined, // undefined: loading, null: no password set, string: password set
     googleSheetSyncUrl: "",
@@ -225,6 +225,10 @@ function viewImageInNewWindow(imageUrl) {
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     setupEventListeners();
+    
+    // Apply saved active client immediately to prevent UI flash
+    switchClient(state.activeClient);
+    
     initUserSession();
     
     // Set current date in dashboard hero
@@ -450,6 +454,8 @@ async function loadData() {
                 populateOwnerFilter();
                 populateMonthDropdowns();
                 switchClient(state.activeClient);
+                setPreloaderProgress(100);
+                hidePreloader();
             } else {
                 populateOwnerFilter();
                 populateMonthDropdowns();
@@ -465,8 +471,6 @@ async function loadData() {
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
         }
-        setPreloaderProgress(100);
-        hidePreloader();
         setTimeout(migrateBase64ImagesToStorage, 2000);
 
     } catch (err) {
@@ -1726,6 +1730,7 @@ async function cleanupOrphanedImages() {
 // Global Switch Client function
 function switchClient(client) {
     state.activeClient = client;
+    localStorage.setItem("activeClient", client);
     state.filters.type = "all";
     state.filters.center = "all";
     const filterTypeEl = document.getElementById("filter-type");
