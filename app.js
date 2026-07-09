@@ -3148,6 +3148,7 @@ function renderDashboardLists() {
     // 1. Recent Completed Social Media Posts (Published)
     const recentCompleted = clientTasks
         .filter(t => t.type === 'Social Media' && t.status === 'Published/Closed')
+        .sort((a, b) => getPublishDateValue(b) - getPublishDateValue(a))
         .slice(0, 5); // Take top 5 from array (most recently added/parsed)
         
     const completedList = document.getElementById("recent-completed-list");
