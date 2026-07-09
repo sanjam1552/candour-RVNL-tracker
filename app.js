@@ -123,6 +123,7 @@ const state = {
     activeClient: 'RVNL',
     dashboardMonth: getCurrentMonthStr(),
     settingsPassword: undefined, // undefined: loading, null: no password set, string: password set
+    googleSheetSyncUrl: "",
     filters: {
         type: 'all',
         month: getCurrentMonthStr(),
@@ -377,6 +378,7 @@ async function loadData() {
         if (configSnapshot.exists) {
             const configData = configSnapshot.data();
             state.settingsPassword = configData.password || null;
+            state.googleSheetSyncUrl = configData.googleSheetSyncUrl || "";
             
             // Auto reload if user is running an older cached version (with loop protection)
             if (configData.version && configData.version !== APP_VERSION) {
@@ -399,8 +401,12 @@ async function loadData() {
             }
         } else {
             state.settingsPassword = null;
+            state.googleSheetSyncUrl = "";
             await configRef.set({ version: APP_VERSION });
         }
+        
+        // Populate Google Sheet Sync UI
+        updateGoogleSheetSyncUI();
 
         // Database migration completed successfully. Real-time subcollection is active.
 
@@ -726,6 +732,9 @@ async function saveData(taskOrId = null, isBulkWrite = false) {
                     taskToSave.image = "";
                 }
                 await itemsRef.doc(taskId).set(taskToSave);
+                
+                // Sync to Google Sheet
+                syncToGoogleSheet('save', taskToSave);
             }
         } else if (isBulkWrite) {
             console.log("Writing all tasks to Firestore subcollection...");
@@ -1254,6 +1263,30 @@ function setupEventListeners() {
     });
     document.getElementById("import-db-btn").addEventListener("click", importDatabase);
     document.getElementById("reset-db-btn").addEventListener("click", resetDatabase);
+
+    // Google Sheet Sync URL Handler
+    const saveSyncUrlBtn = document.getElementById("save-sync-url-btn");
+    if (saveSyncUrlBtn) {
+        saveSyncUrlBtn.addEventListener("click", async () => {
+            const urlInput = document.getElementById("sheet-sync-url");
+            const url = urlInput ? urlInput.value.trim() : "";
+            setSyncStatus('saving');
+            try {
+                state.googleSheetSyncUrl = url;
+                await db.collection('rvnl_tracker').doc('settings_config').set({
+                    googleSheetSyncUrl: url,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                setSyncStatus('synced');
+                alert("Google Sheet Sync URL saved successfully!");
+                updateGoogleSheetSyncUI();
+            } catch (err) {
+                console.error("Error saving sync URL:", err);
+                alert("Failed to save Sync URL to database.");
+                setSyncStatus('offline');
+            }
+        });
+    }
 
     const cleanupStorageBtn = document.getElementById("cleanup-storage-btn");
     if (cleanupStorageBtn) {
@@ -2838,6 +2871,9 @@ async function deleteTask(id) {
             // Delete from Firestore
             setSyncStatus('saving');
             try {
+                // Sync deletion to Google Sheet in background
+                syncToGoogleSheet('delete', taskToDelete);
+                
                 await db.collection('rvnl_tracker').doc('tasks_store').collection('items').doc(id).delete();
                 setSyncStatus('synced');
             } catch (err) {
@@ -4639,6 +4675,58 @@ function resetDatabase() {
         updateDashboard();
         switchTab("dashboard");
         alert("Database restored to baseline successfully.");
+    }
+}
+
+// ====================================================
+// GOOGLE SHEET SYNC FUNCTIONS
+// ====================================================
+
+function updateGoogleSheetSyncUI() {
+    const urlInput = document.getElementById("sheet-sync-url");
+    const statusEl = document.getElementById("sync-url-status");
+    const url = state.googleSheetSyncUrl || "";
+    
+    if (url) {
+        if (urlInput) urlInput.value = url;
+        if (statusEl) {
+            statusEl.textContent = "Google Sheet Sync is active.";
+            statusEl.style.color = "var(--accent-green)";
+        }
+    } else {
+        if (urlInput) urlInput.value = "";
+        if (statusEl) {
+            statusEl.textContent = "Sync is currently disabled.";
+            statusEl.style.color = "var(--text-muted)";
+        }
+    }
+}
+
+async function syncToGoogleSheet(action, task) {
+    if (!task) return;
+    const syncUrl = state.googleSheetSyncUrl;
+    if (!syncUrl) return; // Sync is disabled
+
+    const payload = {
+        action: action, // "save" | "delete"
+        client: task.client || state.activeClient || "RVNL",
+        user: state.currentUser || "Web Tool User",
+        task: task
+    };
+
+    try {
+        // Send background request to the Apps Script Web App
+        fetch(syncUrl, {
+            method: "POST",
+            mode: "no-cors", // Bypasses CORS restrictions on redirects
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload),
+            keepalive: true
+        });
+    } catch (err) {
+        console.error("Failed to sync to Google Sheet:", err);
     }
 }
 
