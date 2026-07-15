@@ -1009,7 +1009,11 @@ function setupEventListeners() {
     document.getElementById("global-search").addEventListener("input", (e) => {
         state.filters.search = e.target.value.toLowerCase();
         state.currentPage = 1;
-        renderTracker();
+        if (state.filters.search && state.activeTab !== 'tracker') {
+            switchTab('tracker');
+        } else {
+            renderTracker();
+        }
     });
 
     // 5. Track Filter Changes
