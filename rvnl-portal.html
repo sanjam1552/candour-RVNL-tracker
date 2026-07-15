@@ -218,6 +218,11 @@
             cursor: pointer;
             min-width: 160px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: border-color var(--transition-fast);
+        }
+        
+        select:focus, #portal-search:focus {
+            border-color: var(--accent-blue);
         }
 
         /* Grid Metrics */
@@ -501,6 +506,13 @@
                     <option value="Published/Closed">Published</option>
                     <option value="Not used by client">On Hold / Not Used</option>
                 </select>
+            </div>
+            <div class="filter-group" style="flex-grow: 1; min-width: 240px;">
+                <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Search:</label>
+                <div style="position: relative; width: 100%; display: flex; align-items: center;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; color: var(--text-muted); font-size: 13px;"></i>
+                    <input type="text" id="portal-search" placeholder="Search by title, remark, subcategory..." style="width: 100%; padding: 10px 14px 10px 36px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); outline: none; font-family: var(--font-body); font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: border-color var(--transition-fast); box-sizing: border-box;">
+                </div>
             </div>
         </div>
 

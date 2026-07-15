@@ -8,6 +8,7 @@ const state = {
     selectedMonth: "",
     selectedCategory: "all",
     selectedStatus: "all",
+    searchText: "",
     currentUser: "",
     charts: {
         status: null,
@@ -341,6 +342,14 @@ function setupFilters() {
         });
     }
 
+    const portalSearch = document.getElementById("portal-search");
+    if (portalSearch) {
+        portalSearch.addEventListener("input", (e) => {
+            state.searchText = e.target.value.toLowerCase();
+            updateDashboard();
+        });
+    }
+
     // Metric Card Click Event Listeners
     const cardTotal = document.getElementById("kpi-card-total");
     const cardPublished = document.getElementById("kpi-card-published");
@@ -396,11 +405,23 @@ function getPRPublicationsCount(tasks) {
 // Render Dashboard Data & Charts
 // Sort portal tasks consistently with admin panel
 function updateDashboard() {
-    // Filter tasks based on filters
+    // Filter tasks based on filters and search text
     state.filteredTasks = state.tasks.filter(t => {
         const matchMonth = isTaskActiveInMonth(t, state.selectedMonth);
         const matchCategory = state.selectedCategory === "all" || t.type === state.selectedCategory;
-        return matchMonth && matchCategory;
+        
+        let matchSearch = true;
+        if (state.searchText) {
+            const query = state.searchText;
+            const title = (t.title || "").toLowerCase();
+            const remarks = (t.remarks || "").toLowerCase();
+            const subType = (t.subType || "").toLowerCase();
+            const category = (t.type || "").toLowerCase();
+            const pub = (t.publication || "").toLowerCase();
+            matchSearch = title.includes(query) || remarks.includes(query) || subType.includes(query) || category.includes(query) || pub.includes(query);
+        }
+        
+        return matchMonth && matchCategory && matchSearch;
     });
 
     const statusPriority = {
