@@ -305,11 +305,18 @@ function setupFilters() {
     });
 
     monthFilter.innerHTML = "";
-    months.forEach((m, idx) => {
+    
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const now = new Date();
+    const currentMonthStr = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+    const hasCurrentMonth = months.includes(currentMonthStr);
+    const defaultMonth = hasCurrentMonth ? currentMonthStr : (months[0] || "");
+
+    months.forEach((m) => {
         const opt = document.createElement("option");
         opt.value = m;
         opt.textContent = m;
-        if (idx === 0) {
+        if (m === defaultMonth) {
             opt.selected = true;
             state.selectedMonth = m;
         }
