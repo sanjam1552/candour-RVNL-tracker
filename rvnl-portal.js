@@ -527,7 +527,7 @@ function renderTable() {
             // Format Status Badge
             let statusBadge = "";
             if (task.status === "Published/Closed") {
-                statusBadge = `<span class="badge badge-published"><i class="fa-solid fa-circle-check"></i> Published</span>`;
+                statusBadge = `<span class="badge badge-published"><i class="fa-solid fa-circle-check"></i> Published/Used</span>`;
             } else if (task.status === "WIP") {
                 statusBadge = `<span class="badge badge-progress"><i class="fa-solid fa-hourglass-half"></i> In Progress</span>`;
             } else if (task.status === "Sent for internal approval") {
@@ -626,6 +626,7 @@ function renderTable() {
             const statusClass = prTask.status === "Published/Closed" ? "badge-published" : prTask.status === "WIP" ? "badge-progress" : "badge-pending";
             
             // Header Bar
+            const displayStatus = prTask.status === "Published/Closed" ? "Published/Used" : prTask.status;
             const headerHtml = `
                 <div style="background: var(--bg-card); border-bottom: 1.5px solid var(--border-color); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
@@ -633,7 +634,7 @@ function renderTable() {
                         <h3 style="margin: 0; font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${prTask.title}</h3>
                     </div>
                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                        <span class="badge ${statusClass}">${prTask.status}</span>
+                        <span class="badge ${statusClass}">${displayStatus}</span>
                         ${prTask.spokesperson ? `<span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px;"><strong>Spokesperson:</strong> ${prTask.spokesperson}</span>` : ''}
                         <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
                             <i class="fa-regular fa-calendar-days"></i> ${prTask.date || prTask.week || 'Week 1'}
