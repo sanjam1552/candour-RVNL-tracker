@@ -136,6 +136,7 @@ const state = {
         trend: null,
         share: null
     },
+    activeUploads: new Set(),
     pendingImageFile: null,
     currentTaskPublications: [],
     currentUser: "",
@@ -966,6 +967,15 @@ function populateMonthDropdowns() {
 
 // Setup Event Listeners
 function setupEventListeners() {
+    // Prevent leaving page if active uploads are running
+    window.addEventListener("beforeunload", (e) => {
+        if (state.activeUploads && state.activeUploads.size > 0) {
+            e.preventDefault();
+            e.returnValue = "Image uploads are currently in progress. If you leave now, your uploads may fail. Are you sure you want to exit?";
+            return e.returnValue;
+        }
+    });
+
     // 1. Navigation Tab Switching
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -1081,7 +1091,40 @@ function setupEventListeners() {
                         const clipboardFile = new File([file], name, { type: file.type });
                         const localURL = URL.createObjectURL(clipboardFile);
                         showImagePreview(localURL);
-                        state.pendingImageFile = clipboardFile;
+                        
+                        const progressOverlay = document.getElementById("main-image-progress-overlay");
+                        const progressPercent = document.getElementById("main-image-progress-percent");
+                        if (progressOverlay) progressOverlay.classList.remove("hidden");
+                        if (progressPercent) progressPercent.textContent = "0%";
+                        
+                        const uploadId = `main_image_${Date.now()}`;
+                        state.activeUploads.add(uploadId);
+                        updateDrawerButtonsState();
+                        
+                        const taskTitle = document.getElementById("task-title").value || "Creative_Asset";
+                        const client = state.activeClient || "General";
+                        
+                        uploadImageToStorage(clipboardFile, client, taskTitle, (progress) => {
+                            if (progressPercent) {
+                                progressPercent.textContent = `${Math.round(progress)}%`;
+                            }
+                        }).then((downloadURL) => {
+                            const previewBox = document.getElementById("task-image-preview");
+                            const previewImg = previewBox.querySelector("img");
+                            if (previewImg) previewImg.src = downloadURL;
+                            
+                            const imgUrlInput = document.getElementById("task-image-url");
+                            if (imgUrlInput) imgUrlInput.value = downloadURL;
+                        }).catch((err) => {
+                            console.error("Main image clipboard upload failed:", err);
+                            alert("Clipboard image upload failed: " + err.message);
+                            removeImagePreview();
+                        }).finally(() => {
+                            state.activeUploads.delete(uploadId);
+                            if (progressOverlay) progressOverlay.classList.add("hidden");
+                            updateDrawerButtonsState();
+                        });
+                        
                         e.preventDefault();
                         break;
                     }
@@ -2170,17 +2213,30 @@ function togglePRFormFields(type) {
 // Handle pasting image from clipboard directly into a specific publication row
 async function handleClipboardPasteForPublication(file, idx, rowEl) {
     const statusEl = rowEl.querySelector(".pub-upload-status");
+    const percentEl = rowEl.querySelector(".pub-upload-percent");
+    const barEl = rowEl.querySelector(".pub-upload-progress-bar");
+    const textEl = rowEl.querySelector(".pub-upload-text");
+    
     if (statusEl) {
-        statusEl.textContent = "Uploading clipboard clipping to storage...";
+        if (textEl) textEl.textContent = "Uploading clipboard clipping...";
+        if (percentEl) percentEl.textContent = "0%";
+        if (barEl) barEl.style.width = "0%";
         statusEl.style.display = "block";
     }
+    
+    const uploadId = `pub_clipboard_${idx}_${Date.now()}`;
+    state.activeUploads.add(uploadId);
+    updateDrawerButtonsState();
     
     try {
         const taskTitle = document.getElementById("task-title").value || "PR_Coverage";
         const client = state.activeClient || "General";
         const name = `clipboard_screenshot_${Date.now()}.jpg`;
         const clipboardFile = new File([file], name, { type: file.type });
-        const downloadURL = await uploadImageToStorage(clipboardFile, client, taskTitle);
+        const downloadURL = await uploadImageToStorage(clipboardFile, client, taskTitle, (progress) => {
+            if (percentEl) percentEl.textContent = `${Math.round(progress)}%`;
+            if (barEl) barEl.style.width = `${progress}%`;
+        });
         
         state.currentTaskPublications[idx].image = downloadURL;
         if (statusEl) statusEl.style.display = "none";
@@ -2189,6 +2245,9 @@ async function handleClipboardPasteForPublication(file, idx, rowEl) {
         console.error("Publication clipboard paste failed:", err);
         alert("Upload failed: " + err.message);
         if (statusEl) statusEl.style.display = "none";
+    } finally {
+        state.activeUploads.delete(uploadId);
+        updateDrawerButtonsState();
     }
 }
 
@@ -2248,7 +2307,15 @@ function renderDrawerPublications() {
                     <i class="fa-solid fa-circle-info" style="font-size: 9px; color: var(--accent-blue);"></i>
                     <span>Tip: Click here and press <strong>Ctrl+V</strong> to paste copied image.</span>
                 </div>
-                <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">Uploading clipping to storage...</div>
+                <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span class="pub-upload-text">Uploading clipping to storage...</span>
+                        <span class="pub-upload-percent">0%</span>
+                    </div>
+                    <div class="pub-upload-progress-container">
+                        <div class="pub-upload-progress-bar"></div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -2309,12 +2376,28 @@ function renderDrawerPublications() {
             
             const rowEl = e.target.closest(".pr-pub-row");
             const statusEl = rowEl.querySelector(".pub-upload-status");
-            if (statusEl) statusEl.style.display = "block";
+            const percentEl = rowEl.querySelector(".pub-upload-percent");
+            const barEl = rowEl.querySelector(".pub-upload-progress-bar");
+            const textEl = rowEl.querySelector(".pub-upload-text");
+            
+            if (statusEl) {
+                if (textEl) textEl.textContent = "Uploading clipping to storage...";
+                if (percentEl) percentEl.textContent = "0%";
+                if (barEl) barEl.style.width = "0%";
+                statusEl.style.display = "block";
+            }
+            
+            const uploadId = `pub_file_${idx}_${Date.now()}`;
+            state.activeUploads.add(uploadId);
+            updateDrawerButtonsState();
             
             try {
                 const taskTitle = document.getElementById("task-title").value || "PR_Coverage";
                 const client = state.activeClient || "General";
-                const downloadURL = await uploadImageToStorage(file, client, taskTitle);
+                const downloadURL = await uploadImageToStorage(file, client, taskTitle, (progress) => {
+                    if (percentEl) percentEl.textContent = `${Math.round(progress)}%`;
+                    if (barEl) barEl.style.width = `${progress}%`;
+                });
                 
                 state.currentTaskPublications[idx].image = downloadURL;
                 if (statusEl) statusEl.style.display = "none";
@@ -2323,6 +2406,9 @@ function renderDrawerPublications() {
                 console.error("Publication image upload failed:", err);
                 alert("Upload failed: " + err.message);
                 if (statusEl) statusEl.style.display = "none";
+            } finally {
+                state.activeUploads.delete(uploadId);
+                updateDrawerButtonsState();
             }
         });
     });
@@ -2575,10 +2661,10 @@ function dataURLtoBlob(dataurl) {
 }
 
 // Compress and upload a file directly to Firebase Cloud Storage, then return its public download URL
-function uploadImageToStorage(fileObject, client = "General", taskTitle = "") {
+function uploadImageToStorage(fileObject, client = "General", taskTitle = "", onProgressCallback = null) {
     return new Promise((resolve, reject) => {
         // Compress the image to max 800x800 resolution at 0.7 quality (crisp but small size)
-        compressImage(fileObject, 800, 800, 0.7, async function(compressedBase64) {
+        compressImage(fileObject, 800, 800, 0.7, function(compressedBase64) {
             try {
                 const compressedBlob = dataURLtoBlob(compressedBase64);
                 
@@ -2592,9 +2678,27 @@ function uploadImageToStorage(fileObject, client = "General", taskTitle = "") {
                 const uniqueFilename = `${cleanTitle}_${Date.now()}.jpg`;
                 
                 const storageRef = firebase.storage().ref().child(`task_images/${clientFolder}/${uniqueFilename}`);
-                const snapshot = await storageRef.put(compressedBlob);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-                resolve(downloadURL);
+                const uploadTask = storageRef.put(compressedBlob);
+                
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        if (onProgressCallback) {
+                            onProgressCallback(progress);
+                        }
+                    }, 
+                    (error) => {
+                        reject(error);
+                    }, 
+                    async () => {
+                        try {
+                            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                            resolve(downloadURL);
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }
+                );
             } catch (err) {
                 reject(err);
             }
@@ -2646,6 +2750,31 @@ async function uploadImageInBackground(fileObject, taskId) {
     }
 }
 
+// Helper to update drawer buttons based on active uploads
+function updateDrawerButtonsState() {
+    const saveBtn = document.getElementById("save-task-btn");
+    const cancelBtn = document.getElementById("cancel-drawer-btn");
+    const closeBtn = document.getElementById("close-drawer-btn");
+    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    
+    if (state.activeUploads && state.activeUploads.size > 0) {
+        if (saveBtn) {
+            saveBtn.setAttribute("disabled", "disabled");
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Uploading...`;
+        }
+        if (cancelBtn) cancelBtn.setAttribute("disabled", "disabled");
+        if (closeBtn) closeBtn.setAttribute("disabled", "disabled");
+    } else {
+        if (saveBtn) {
+            saveBtn.removeAttribute("disabled");
+            saveBtn.innerHTML = `Save Changes`;
+            if (isKomalLdcs) saveBtn.style.display = "none";
+        }
+        if (cancelBtn) cancelBtn.removeAttribute("disabled");
+        if (closeBtn) closeBtn.removeAttribute("disabled");
+    }
+}
+
 // Convert Uploaded Image File to Firebase Storage and preview it
 async function handleImageUpload(e) {
     const file = e.target.files[0];
@@ -2654,8 +2783,45 @@ async function handleImageUpload(e) {
         const localURL = URL.createObjectURL(file);
         showImagePreview(localURL);
         
-        // Save the file object in the state to upload in the background on form submit
-        state.pendingImageFile = file;
+        // Show progress overlay
+        const progressOverlay = document.getElementById("main-image-progress-overlay");
+        const progressPercent = document.getElementById("main-image-progress-percent");
+        if (progressOverlay) progressOverlay.classList.remove("hidden");
+        if (progressPercent) progressPercent.textContent = "0%";
+        
+        // Track in activeUploads
+        const uploadId = `main_image_${Date.now()}`;
+        state.activeUploads.add(uploadId);
+        updateDrawerButtonsState();
+        
+        try {
+            const taskTitle = document.getElementById("task-title").value || "Creative_Asset";
+            const client = state.activeClient || "General";
+            
+            const downloadURL = await uploadImageToStorage(file, client, taskTitle, (progress) => {
+                if (progressPercent) {
+                    progressPercent.textContent = `${Math.round(progress)}%`;
+                }
+            });
+            
+            // Set final download URL into preview image
+            const previewBox = document.getElementById("task-image-preview");
+            const previewImg = previewBox.querySelector("img");
+            if (previewImg) previewImg.src = downloadURL;
+            
+            // Store it in text input as well (in case they want to copy/see it)
+            const imgUrlInput = document.getElementById("task-image-url");
+            if (imgUrlInput) imgUrlInput.value = downloadURL;
+            
+        } catch (err) {
+            console.error("Main image upload failed:", err);
+            alert("Image upload failed: " + err.message);
+            removeImagePreview();
+        } finally {
+            state.activeUploads.delete(uploadId);
+            if (progressOverlay) progressOverlay.classList.add("hidden");
+            updateDrawerButtonsState();
+        }
     }
 }
 
@@ -2839,20 +3005,12 @@ function handleFormSubmit(e) {
         logActivity("created", `Task: "${taskData.title}" (${taskData.client})`, taskData.client);
     }
 
-    const fileToUpload = state.pendingImageFile;
-    state.pendingImageFile = null; // Clear it immediately
-
     saveData(id || taskData.id);
     closeDrawer();
     populateOwnerFilter();
     populateMonthDropdowns();
     updateDashboard();
     renderTracker();
-
-    // Trigger background upload so UI remains instant
-    if (fileToUpload) {
-        uploadImageInBackground(fileToUpload, id || taskData.id);
-    }
 }
 
 // Generate simple client-side UUID
