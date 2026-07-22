@@ -235,6 +235,7 @@ function showToast(title, body, duration = 4000, actionCallback = null, actionTe
 const state = {
     localWrites: new Set(),
     isBulkWriting: false,
+    pendingNotifications: {},
     tasks: [],
     filteredTasks: [],
     currentPage: 1,
@@ -657,7 +658,14 @@ async function loadData() {
                     
                     // 3. Filter by active client (only show if it matches the current workspace)
                     if (client !== state.activeClient) {
-                        return; // Not the active workspace, ignore
+                        if (!state.pendingNotifications) state.pendingNotifications = {};
+                        if (!state.pendingNotifications[client]) state.pendingNotifications[client] = [];
+                        
+                        state.pendingNotifications[client].push({
+                            type: change.type,
+                            title: task.title || 'Untitled'
+                        });
+                        return; // Not the active workspace, queue and ignore immediate toast
                     }
                     
                     // 4. Trigger Toast Notification
@@ -2499,6 +2507,29 @@ function switchClient(client) {
     renderTracker();
     generateReport();
     updateStorageIndicator();
+
+    // Show pending notifications for this workspace that happened while the user was away
+    if (state.pendingNotifications && state.pendingNotifications[targetClient] && state.pendingNotifications[targetClient].length > 0) {
+        const count = state.pendingNotifications[targetClient].length;
+        if (count > 2) {
+            showToast("🔔 Updates While Away", `${count} tasks were created, updated, or deleted in this workspace while you were away.`, 5000);
+        } else {
+            state.pendingNotifications[targetClient].forEach(notif => {
+                let notifTitle = "🔄 Task Updated";
+                let notifBody = `"${notif.title}" was updated while you were away.`;
+                if (notif.type === 'added') {
+                    notifTitle = "➕ Task Added";
+                    notifBody = `"${notif.title}" was created while you were away.`;
+                } else if (notif.type === 'removed') {
+                    notifTitle = "🗑️ Task Deleted";
+                    notifBody = `"${notif.title}" was deleted while you were away.`;
+                }
+                showToast(notifTitle, notifBody, 4000);
+            });
+        }
+        // Clear queue for this client
+        state.pendingNotifications[targetClient] = [];
+    }
 }
 // Reset all search and drop-down filters
 function resetFilters() {
