@@ -76,7 +76,7 @@ function initToastStyles() {
     document.head.appendChild(style);
 }
 
-function showToast(title, body, duration = 4000, actionCallback = null, actionText = 'Reload') {
+function showToast(title, body, duration = 8000, actionCallback = null, actionText = 'Reload') {
     initToastStyles();
     let container = document.getElementById('toast-container');
     if (!container) {

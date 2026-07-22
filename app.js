@@ -186,7 +186,7 @@ function initToastStyles() {
     document.head.appendChild(style);
 }
 
-function showToast(title, body, duration = 4000, actionCallback = null, actionText = 'Reload') {
+function showToast(title, body, duration = 8000, actionCallback = null, actionText = 'Reload') {
     initToastStyles();
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -690,6 +690,14 @@ async function loadData() {
                 populateOwnerFilter();
                 populateMonthDropdowns();
                 switchClient(state.activeClient);
+                
+                // Customize switcher modal title on first load to welcome user
+                const switcherWelcome = document.getElementById("client-switcher-welcome");
+                if (switcherWelcome && state.currentUser) {
+                    const name = state.currentUser.trim();
+                    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+                    switcherWelcome.textContent = `Welcome, ${capitalized}!`;
+                }
                 
                 // Open Select Workspace modal by default on first load
                 const clientDropdownList = document.getElementById("client-dropdown-list");
