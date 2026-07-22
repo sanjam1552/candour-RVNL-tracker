@@ -112,8 +112,129 @@ function updateCarryForwardTaskMonth(task, activeMonthStr) {
 }
 
 
+function initToastStyles() {
+    if (document.getElementById('toast-container-style')) return;
+    const style = document.createElement('style');
+    style.id = 'toast-container-style';
+    style.innerHTML = `
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .custom-toast {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 14px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1);
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            min-width: 280px;
+            max-width: 380px;
+            pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.08);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .custom-toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .custom-toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+        .custom-toast-title {
+            font-weight: 600;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .custom-toast-body {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .custom-toast-action {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            margin-top: 8px;
+            align-self: flex-start;
+            transition: background 0.2s;
+        }
+        .custom-toast-action:hover {
+            background: #2563eb;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function showToast(title, body, duration = 4000, actionCallback = null, actionText = 'Reload') {
+    initToastStyles();
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = 'custom-toast';
+    
+    let html = `<div class="custom-toast-title">${title}</div>`;
+    html += `<div class="custom-toast-body">${body}</div>`;
+    if (actionCallback) {
+        html += `<button class="custom-toast-action">${actionText}</button>`;
+    }
+    toast.innerHTML = html;
+    
+    if (actionCallback) {
+        toast.querySelector('.custom-toast-action').addEventListener('click', () => {
+            actionCallback();
+        });
+    }
+    
+    container.appendChild(toast);
+    
+    // Trigger transition
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // Auto dismiss
+    if (duration > 0) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, duration);
+    }
+}
+
+
 // Application State
 const state = {
+    localWrites: new Set(),
+    isBulkWriting: false,
     tasks: [],
     filteredTasks: [],
     currentPage: 1,
@@ -438,21 +559,17 @@ async function loadData() {
             
             localStorage.setItem("rvnl_user_permissions", JSON.stringify(state.userPermissions));
             
-            // Auto reload if user is running an older cached version (with loop protection)
+            // Show notification if user is running an older cached version
             if (configData.version && configData.version !== APP_VERSION) {
-                const reloadKey = "version_reload_attempt";
-                const lastReload = sessionStorage.getItem(reloadKey);
-                const now = Date.now();
-                
-                if (lastReload && (now - parseInt(lastReload, 10)) < 15000) {
-                    console.warn(`Version reload loop prevented. Local: ${APP_VERSION}, Database: ${configData.version}`);
-                } else {
-                    sessionStorage.setItem(reloadKey, now.toString());
-                    console.log(`New version detected (${configData.version}). Force reloading...`);
-                    alert("A new version of the Reporting Tool is available. The page will reload automatically to update.");
-                    window.location.reload(true);
-                    return;
-                }
+                showToast(
+                    "⚡ New Update Available",
+                    `A new version of the app is available. Click reload to update.`,
+                    0, // Keep open
+                    () => {
+                        window.location.reload(true);
+                    },
+                    "Reload Now"
+                );
             } else if (!configData.version) {
                 // Seed version field in Firestore settings
                 await configRef.set({ version: APP_VERSION }, { merge: true });
@@ -465,6 +582,24 @@ async function loadData() {
         
         // Populate Google Sheet Sync UI
         updateGoogleSheetSyncUI();
+
+        // Listen to settings config changes in real-time to detect version updates
+        configRef.onSnapshot(snapshot => {
+            if (snapshot.exists) {
+                const updatedConfig = snapshot.data();
+                if (updatedConfig.version && updatedConfig.version !== APP_VERSION) {
+                    showToast(
+                        "⚡ New Update Available",
+                        `A new version of the app is available. Click reload to update.`,
+                        0, // Keep open
+                        () => {
+                            window.location.reload(true);
+                        },
+                        "Reload Now"
+                    );
+                }
+            }
+        });
 
         // Database migration completed successfully. Real-time subcollection is active.
 
@@ -496,6 +631,45 @@ async function loadData() {
                 
                 loadedTasks.push(task);
             });
+
+            // Process changes for Toast notifications if it's not the first load
+            if (!isFirstLoad && snapshot.docChanges) {
+                snapshot.docChanges().forEach(change => {
+                    const task = change.doc.data();
+                    const taskId = change.doc.id;
+                    if (!task.id) task.id = taskId;
+                    
+                    // 1. Check if this change was initiated by the local user
+                    if (state.localWrites && state.localWrites.has(task.id)) {
+                        state.localWrites.delete(task.id);
+                        return; // Ignore local actions
+                    }
+                    if (state.isBulkWriting) {
+                        return; // Ignore bulk actions
+                    }
+                    
+                    // 2. Check if user has permission for this client
+                    const client = task.client || "RVNL";
+                    const hasAccess = getUserClientPermission(state.currentUserEmail, client) !== "None";
+                    if (!hasAccess) {
+                        return; // No permission, ignore
+                    }
+                    
+                    // 3. Filter by active client (only show if it matches the current workspace)
+                    if (client !== state.activeClient) {
+                        return; // Not the active workspace, ignore
+                    }
+                    
+                    // 4. Trigger Toast Notification
+                    if (change.type === 'added') {
+                        showToast("➕ Task Added", `"${task.title || 'Untitled'}" was created.`);
+                    } else if (change.type === 'modified') {
+                        showToast("🔄 Task Updated", `"${task.title || 'Untitled'}" was updated.`);
+                    } else if (change.type === 'removed') {
+                        showToast("🗑️ Task Deleted", `"${task.title || 'Untitled'}" was deleted.`);
+                    }
+                });
+            }
 
             state.tasks = loadedTasks;
             
@@ -798,6 +972,7 @@ async function saveData(taskOrId = null, isBulkWrite = false) {
     try {
         if (taskOrId) {
             let taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
+            state.localWrites.add(taskId);
             const task = typeof taskOrId === 'string' ? state.tasks.find(t => t.id === taskOrId) : taskOrId;
             if (task) {
                 const taskToSave = { ...task };
@@ -810,6 +985,7 @@ async function saveData(taskOrId = null, isBulkWrite = false) {
                 syncToGoogleSheet('save', taskToSave);
             }
         } else if (isBulkWrite) {
+            state.isBulkWriting = true;
             console.log("Writing all tasks to Firestore subcollection...");
             const tasksToSave = state.tasks.map(task => {
                 if (task.image && task.image.startsWith("blob:")) {
@@ -840,6 +1016,8 @@ async function saveData(taskOrId = null, isBulkWrite = false) {
         console.error('Firestore save error:', err);
         setSyncStatus('offline');
         localStorage.setItem('rvnl_tracker_data', JSON.stringify(state.tasks));
+    } finally {
+        state.isBulkWriting = false;
     }
     updateStorageIndicator();
 }
@@ -1545,7 +1723,7 @@ function setupEventListeners() {
                 if (activeClient === "Legrand") activeLogoSrc = "inputs/ldcs logo.png";
                 else if (activeClient === "iCode") activeLogoSrc = "inputs/icode black.png";
                 else if (activeClient === "Kompact AI") activeLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
-                else if (activeClient === "BT Group") activeLogoSrc = "inputs/1920_bt-group-logo-png.png";
+                else if (activeClient === "BT Group") activeLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
                 else if (activeClient === "Candour") activeLogoSrc = "inputs/candour logo.png";
                 
                 const switcherActiveLogo = document.getElementById("switcher-active-logo");
@@ -1564,11 +1742,15 @@ function setupEventListeners() {
                 e.stopPropagation();
                 const selectedClient = opt.getAttribute("data-client");
                 
-                const contentBox = document.getElementById("client-switcher-modal-content");
-                if (contentBox) {
+                try {
                     // 1. Instantly switch the active client workspace in the background
                     switchClient(selectedClient);
-                    
+                } catch (err) {
+                    console.error("Error switching client workspace:", err);
+                }
+                
+                const contentBox = document.getElementById("client-switcher-modal-content");
+                if (contentBox) {
                     // 2. Trigger the exit animation
                     contentBox.classList.add("minimizing");
                     clientDropdownList.classList.add("minimizing");
@@ -1579,7 +1761,6 @@ function setupEventListeners() {
                         clientDropdownList.classList.remove("minimizing");
                     }, 500);
                 } else {
-                    switchClient(selectedClient);
                     clientDropdownList.classList.add("hidden");
                 }
             });
@@ -1590,7 +1771,7 @@ function setupEventListeners() {
                 if (hoveredClient === "Legrand") hoveredLogoSrc = "inputs/ldcs logo.png";
                 else if (hoveredClient === "iCode") hoveredLogoSrc = "inputs/icode black.png";
                 else if (hoveredClient === "Kompact AI") hoveredLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
-                else if (hoveredClient === "BT Group") hoveredLogoSrc = "inputs/1920_bt-group-logo-png.png";
+                else if (hoveredClient === "BT Group") hoveredLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
                 else if (hoveredClient === "Candour") hoveredLogoSrc = "inputs/candour logo.png";
                 
                 const switcherActiveLogo = document.getElementById("switcher-active-logo");
@@ -2277,7 +2458,7 @@ function switchClient(client) {
         logoSrc = "inputs/logo kompact-text-shapes-2x.png";
         displayName = "Kompact AI";
     } else if (targetClient === "BT Group") {
-        logoSrc = "inputs/1920_bt-group-logo-png.png";
+        logoSrc = "inputs/BT_Logo_Purple_RGB.png";
         displayName = "BT Group";
     } else if (targetClient === "Candour") {
         logoSrc = "inputs/candour logo.png";
@@ -3515,6 +3696,7 @@ async function deleteTask(id) {
             
             // Delete from Firestore
             setSyncStatus('saving');
+            state.localWrites.add(id);
             try {
                 // Sync deletion to Google Sheet in background
                 syncToGoogleSheet('delete', taskToDelete);
@@ -4547,7 +4729,7 @@ function generateReport() {
         } else if (state.activeClient === "iCode") {
             reportLogo.src = "inputs/icode black.png";
         } else if (state.activeClient === "BT Group") {
-            reportLogo.src = "inputs/1920_bt-group-logo-png.png";
+            reportLogo.src = "inputs/BT_Logo_Purple_RGB.png";
         } else if (state.activeClient === "Candour") {
             reportLogo.src = "inputs/candour logo.png";
         }

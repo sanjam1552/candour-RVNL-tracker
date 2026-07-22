@@ -2,6 +2,125 @@
 const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
 const APP_VERSION = "1.1.0";
 
+function initToastStyles() {
+    if (document.getElementById('toast-container-style')) return;
+    const style = document.createElement('style');
+    style.id = 'toast-container-style';
+    style.innerHTML = `
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .custom-toast {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 14px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1);
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            min-width: 280px;
+            max-width: 380px;
+            pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.08);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .custom-toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .custom-toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+        .custom-toast-title {
+            font-weight: 600;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .custom-toast-body {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .custom-toast-action {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            margin-top: 8px;
+            align-self: flex-start;
+            transition: background 0.2s;
+        }
+        .custom-toast-action:hover {
+            background: #2563eb;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function showToast(title, body, duration = 4000, actionCallback = null, actionText = 'Reload') {
+    initToastStyles();
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = 'custom-toast';
+    
+    let html = `<div class="custom-toast-title">${title}</div>`;
+    html += `<div class="custom-toast-body">${body}</div>`;
+    if (actionCallback) {
+        html += `<button class="custom-toast-action">${actionText}</button>`;
+    }
+    toast.innerHTML = html;
+    
+    if (actionCallback) {
+        toast.querySelector('.custom-toast-action').addEventListener('click', () => {
+            actionCallback();
+        });
+    }
+    
+    container.appendChild(toast);
+    
+    // Trigger transition
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // Auto dismiss
+    if (duration > 0) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, duration);
+    }
+}
+
+
 const state = {
     tasks: [],
     filteredTasks: [],
@@ -243,23 +362,37 @@ async function loadDashboardData() {
         const configSnapshot = await configRef.get();
         if (configSnapshot.exists) {
             const configData = configSnapshot.data();
-            // Auto reload if user is running an older cached version (with loop protection)
+            // Show notification if user is running an older cached version
             if (configData.version && configData.version !== APP_VERSION) {
-                const reloadKey = "version_reload_attempt_portal";
-                const lastReload = sessionStorage.getItem(reloadKey);
-                const now = Date.now();
-                
-                if (lastReload && (now - parseInt(lastReload, 10)) < 15000) {
-                    console.warn(`Version reload loop prevented. Local: ${APP_VERSION}, Database: ${configData.version}`);
-                } else {
-                    sessionStorage.setItem(reloadKey, now.toString());
-                    console.log(`New version detected (${configData.version}). Force reloading...`);
-                    alert("A new version of the RVNL Portal is available. The page will reload automatically to update.");
-                    window.location.reload(true);
-                    return;
-                }
+                showToast(
+                    "⚡ New Update Available",
+                    `A new version of the RVNL Portal is available. Click reload to update.`,
+                    0, // Keep open
+                    () => {
+                        window.location.reload(true);
+                    },
+                    "Reload Now"
+                );
             }
         }
+
+        // Listen to settings config changes in real-time to detect version updates
+        configRef.onSnapshot(snapshot => {
+            if (snapshot.exists) {
+                const updatedConfig = snapshot.data();
+                if (updatedConfig.version && updatedConfig.version !== APP_VERSION) {
+                    showToast(
+                        "⚡ New Update Available",
+                        `A new version of the RVNL Portal is available. Click reload to update.`,
+                        0, // Keep open
+                        () => {
+                            window.location.reload(true);
+                        },
+                        "Reload Now"
+                    );
+                }
+            }
+        });
 
         const itemsRef = db.collection('rvnl_tracker').doc('tasks_store').collection('items');
         const snapshot = await itemsRef.where('client', '==', 'RVNL').get();
