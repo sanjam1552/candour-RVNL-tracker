@@ -51,6 +51,19 @@
             <div id="login-error-msg" style="margin-top: 15px; font-size: 12px; color: var(--accent-red); font-weight: 600; display: none;"></div>
         </div>
     </div>
+    <!-- ACCESS PENDING MODAL OVERLAY -->
+    <div id="access-pending-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 15, 25, 0.95); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 24px; padding: 40px; max-width: 420px; width: 100%; box-shadow: var(--glass-shadow); text-align: center;">
+            <div style="font-size: 40px; color: var(--accent-amber); margin-bottom: 20px;"><i class="fa-solid fa-user-lock"></i></div>
+            <h3 style="margin-bottom: 10px; font-family: var(--font-heading); font-size: 22px; font-weight: 700;">Access Pending Approval</h3>
+            <p id="access-pending-email" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; font-size: 14px;"></p>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">Your account is authenticated, but an administrator must configure your client access permissions before you can enter the portal.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                <button type="button" id="access-pending-refresh-btn" class="btn btn-primary" style="width: 100%; padding: 14px; font-weight: 600; border-radius: 12px; font-size: 14px;">I've Been Approved (Refresh)</button>
+                <button type="button" id="access-pending-logout-btn" class="btn btn-secondary" style="width: 100%; padding: 14px; font-weight: 600; border-radius: 12px; font-size: 14px; background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.25);">Logout / Switch Account</button>
+            </div>
+        </div>
+    </div>
 
     <div class="app-container">
         <!-- Sidebar Navigation -->
@@ -790,6 +803,39 @@
                     </div>
 
                     <div class="settings-grid">
+                        <!-- USER ACCESS CONTROL MATRIX CARD -->
+                        <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                            <div class="settings-icon" style="color: var(--accent-blue);"><i class="fa-solid fa-users-gear"></i></div>
+                            <h3>User Access & Client Permissions Matrix</h3>
+                            <div style="display: flex; justify-content: flex-start; margin-top: 15px; width: 100%;">
+                                <div style="position: relative; width: 100%; max-width: 350px;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
+                                    <input type="text" id="permissions-search" placeholder="Search by email..." style="width: 100%; padding: 8px 10px 8px 35px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px; outline: none;">
+                                </div>
+                            </div>
+                            
+                            <div class="permissions-matrix-wrapper" style="margin-top: 15px; overflow-x: auto; width: 100%;">
+                                <table class="permissions-matrix-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                                    <thead>
+                                        <tr id="permissions-matrix-header" style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                                            <!-- Dynamically populated -->
+                                        </tr>
+                                    </thead>
+                                    <tbody id="permissions-matrix-body">
+                                        <!-- Dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="add-permission-row" style="display: flex; gap: 10px; margin-top: 20px; width: 100%; flex-wrap: wrap; align-items: center;">
+                                <input type="email" id="new-user-email" placeholder="e.g. member@candour.co.in" style="flex-grow: 1; min-width: 200px; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                <button type="button" id="add-user-permission-btn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add User</button>
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button type="button" id="save-permissions-btn" class="btn btn-primary" style="background: var(--accent-green); border-color: var(--accent-green); color: #fff;"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
+                            </div>
+                        </div>
+
                         <!-- EMERGENCY RESTORE CARD -->
                         <div class="settings-card card-full" style="border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.05);">
                             <div class="settings-icon" style="color: var(--accent-amber);"><i class="fa-solid fa-rotate-left"></i></div>
@@ -904,38 +950,7 @@
                             </div>
                             <span id="password-control-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">Password lock configuration</span>
                         </div>
-                        <!-- USER ACCESS CONTROL MATRIX CARD -->
-                        <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
-                            <div class="settings-icon" style="color: var(--accent-blue);"><i class="fa-solid fa-users-gear"></i></div>
-                            <h3>User Access & Client Permissions Matrix</h3>
-                            <div style="display: flex; justify-content: flex-start; margin-top: 15px; width: 100%;">
-                                <div style="position: relative; width: 100%; max-width: 350px;">
-                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
-                                    <input type="text" id="permissions-search" placeholder="Search by email..." style="width: 100%; padding: 8px 10px 8px 35px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px; outline: none;">
-                                </div>
-                            </div>
-                            
-                            <div class="permissions-matrix-wrapper" style="margin-top: 15px; overflow-x: auto; width: 100%;">
-                                <table class="permissions-matrix-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
-                                    <thead>
-                                        <tr id="permissions-matrix-header" style="border-bottom: 2px solid var(--border-color); text-align: left;">
-                                            <!-- Dynamically populated -->
-                                        </tr>
-                                    </thead>
-                                    <tbody id="permissions-matrix-body">
-                                        <!-- Dynamically populated -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <div class="add-permission-row" style="display: flex; gap: 10px; margin-top: 20px; width: 100%; flex-wrap: wrap; align-items: center;">
-                                <input type="email" id="new-user-email" placeholder="e.g. member@candour.co.in" style="flex-grow: 1; min-width: 200px; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
-                                <button type="button" id="add-user-permission-btn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add User</button>
-                            </div>
-                            <div style="margin-top: 15px;">
-                                <button type="button" id="save-permissions-btn" class="btn btn-primary" style="background: var(--accent-green); border-color: var(--accent-green); color: #fff;"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
-                            </div>
-                        </div>
+
 
                         <div class="settings-card card-full">
                             <h3>Reset to Preloaded Data</h3>

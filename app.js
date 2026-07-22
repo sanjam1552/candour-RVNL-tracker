@@ -420,11 +420,13 @@ async function loadData() {
             
             // Auto register current user email if they just logged in and are missing from the list
             if (state.currentUserEmail && !state.userPermissions[state.currentUserEmail]) {
+                const isSuper = ADMIN_EMAILS.includes(state.currentUserEmail);
                 state.userPermissions[state.currentUserEmail] = {
-                    isAdmin: ADMIN_EMAILS.includes(state.currentUserEmail)
+                    isAdmin: isSuper
                 };
                 ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
-                    state.userPermissions[state.currentUserEmail][client] = "Full";
+                    // Super admins get Full access automatically, others default to None (Access Pending)
+                    state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
                 });
                 needsSave = true;
             }
@@ -1594,6 +1596,25 @@ function setupEventListeners() {
             }
         });
     }
+    
+    // Access pending overlay buttons
+    const pendingRefreshBtn = document.getElementById("access-pending-refresh-btn");
+    if (pendingRefreshBtn) {
+        pendingRefreshBtn.addEventListener("click", () => {
+            window.location.reload();
+        });
+    }
+    
+    const pendingLogoutBtn = document.getElementById("access-pending-logout-btn");
+    if (pendingLogoutBtn) {
+        pendingLogoutBtn.addEventListener("click", () => {
+            firebase.auth().signOut().then(() => {
+                window.location.reload();
+            }).catch(err => {
+                console.error("Sign-out error:", err);
+            });
+        });
+    }
 
     // Initialize API Key Status display
     updateApiKeyStatus();
@@ -1696,9 +1717,9 @@ function getUserClientPermission(email, client) {
         return "Full";
     }
     
-    // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to Full
+    // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
     if (lowerEmail.endsWith("@candour.co.in")) {
-        return "Full";
+        return "None";
     }
     
     // 4. Default for anyone else
@@ -2099,8 +2120,23 @@ async function cleanupOrphanedImages() {
 function switchClient(client) {
     // 1. Determine allowed clients for current user
     const allowedClients = getClientList().filter(c => getUserClientPermission(state.currentUserEmail, c) !== "None");
+    const isUserAdmin = checkUserIsAdmin(state.currentUserEmail);
     
-    // 2. If user has no access to the requested client, redirect to first allowed client
+    // 2. If user has no access to any clients and is not an admin, lock them out with "Access Pending" overlay
+    const accessPendingOverlay = document.getElementById("access-pending-overlay");
+    const accessPendingEmail = document.getElementById("access-pending-email");
+    
+    if (state.currentUserEmail && allowedClients.length === 0 && !isUserAdmin) {
+        if (accessPendingOverlay) {
+            if (accessPendingEmail) accessPendingEmail.textContent = state.currentUserEmail;
+            accessPendingOverlay.style.display = "flex";
+        }
+        return;
+    } else {
+        if (accessPendingOverlay) accessPendingOverlay.style.display = "none";
+    }
+    
+    // 3. If user has no access to the requested client, redirect to first allowed client
     let targetClient = client;
     if (allowedClients.length > 0 && !allowedClients.includes(client)) {
         targetClient = allowedClients[0];
