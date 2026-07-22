@@ -230,6 +230,46 @@ function showToast(title, body, duration = 8000, actionCallback = null, actionTe
     }
 }
 
+let initialCodeHash = null;
+
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString();
+}
+
+async function checkCodeUpdate() {
+    try {
+        const response = await fetch(window.location.pathname, {
+            headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (response.ok) {
+            const html = await response.text();
+            const currentHash = hashString(html);
+            if (initialCodeHash === null) {
+                initialCodeHash = currentHash;
+            } else if (currentHash !== initialCodeHash) {
+                showToast(
+                    "⚡ New Update Available",
+                    `A new version of the app is available. Click reload to update.`,
+                    0, // Keep open
+                    () => {
+                        window.location.reload(true);
+                    },
+                    "Reload Now"
+                );
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to check code update:", err);
+    }
+}
+
+
 
 // Application State
 const state = {
@@ -560,47 +600,17 @@ async function loadData() {
             
             localStorage.setItem("rvnl_user_permissions", JSON.stringify(state.userPermissions));
             
-            // Show notification if user is running an older cached version
-            if (configData.version && configData.version !== APP_VERSION) {
-                showToast(
-                    "⚡ New Update Available",
-                    `A new version of the app is available. Click reload to update.`,
-                    0, // Keep open
-                    () => {
-                        window.location.reload(true);
-                    },
-                    "Reload Now"
-                );
-            } else if (!configData.version) {
-                // Seed version field in Firestore settings
-                await configRef.set({ version: APP_VERSION }, { merge: true });
-            }
         } else {
             state.settingsPassword = null;
             state.googleSheetSyncUrl = "";
-            await configRef.set({ version: APP_VERSION });
         }
         
         // Populate Google Sheet Sync UI
         updateGoogleSheetSyncUI();
 
-        // Listen to settings config changes in real-time to detect version updates
-        configRef.onSnapshot(snapshot => {
-            if (snapshot.exists) {
-                const updatedConfig = snapshot.data();
-                if (updatedConfig.version && updatedConfig.version !== APP_VERSION) {
-                    showToast(
-                        "⚡ New Update Available",
-                        `A new version of the app is available. Click reload to update.`,
-                        0, // Keep open
-                        () => {
-                            window.location.reload(true);
-                        },
-                        "Reload Now"
-                    );
-                }
-            }
-        });
+        // Initialize HTML code update checker and start 5-minute polling interval
+        checkCodeUpdate();
+        setInterval(checkCodeUpdate, 300000); // Check every 5 minutes (300,000 ms)
 
         // Database migration completed successfully. Real-time subcollection is active.
 
@@ -2519,6 +2529,9 @@ function switchClient(client) {
     renderTracker();
     generateReport();
     updateStorageIndicator();
+
+    // Check if code has changed on the server
+    checkCodeUpdate();
 
     // Show pending notifications for this workspace that happened while the user was away
     if (state.pendingNotifications && state.pendingNotifications[targetClient] && state.pendingNotifications[targetClient].length > 0) {

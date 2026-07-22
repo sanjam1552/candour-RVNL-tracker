@@ -120,6 +120,46 @@ function showToast(title, body, duration = 8000, actionCallback = null, actionTe
     }
 }
 
+let initialCodeHash = null;
+
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString();
+}
+
+async function checkCodeUpdate() {
+    try {
+        const response = await fetch(window.location.pathname, {
+            headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (response.ok) {
+            const html = await response.text();
+            const currentHash = hashString(html);
+            if (initialCodeHash === null) {
+                initialCodeHash = currentHash;
+            } else if (currentHash !== initialCodeHash) {
+                showToast(
+                    "⚡ New Update Available",
+                    `A new version of the RVNL Portal is available. Click reload to update.`,
+                    0, // Keep open
+                    () => {
+                        window.location.reload(true);
+                    },
+                    "Reload Now"
+                );
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to check code update:", err);
+    }
+}
+
+
 
 const state = {
     tasks: [],
@@ -357,42 +397,9 @@ logoutBtn.addEventListener("click", () => {
 // Load Data from Firestore
 async function loadDashboardData() {
     try {
-        // Version Check
-        const configRef = db.collection('rvnl_tracker').doc('settings_config');
-        const configSnapshot = await configRef.get();
-        if (configSnapshot.exists) {
-            const configData = configSnapshot.data();
-            // Show notification if user is running an older cached version
-            if (configData.version && configData.version !== APP_VERSION) {
-                showToast(
-                    "⚡ New Update Available",
-                    `A new version of the RVNL Portal is available. Click reload to update.`,
-                    0, // Keep open
-                    () => {
-                        window.location.reload(true);
-                    },
-                    "Reload Now"
-                );
-            }
-        }
-
-        // Listen to settings config changes in real-time to detect version updates
-        configRef.onSnapshot(snapshot => {
-            if (snapshot.exists) {
-                const updatedConfig = snapshot.data();
-                if (updatedConfig.version && updatedConfig.version !== APP_VERSION) {
-                    showToast(
-                        "⚡ New Update Available",
-                        `A new version of the RVNL Portal is available. Click reload to update.`,
-                        0, // Keep open
-                        () => {
-                            window.location.reload(true);
-                        },
-                        "Reload Now"
-                    );
-                }
-            }
-        });
+        // Initialize HTML code update checker and start 5-minute polling interval
+        checkCodeUpdate();
+        setInterval(checkCodeUpdate, 300000); // Check every 5 minutes (300,000 ms)
 
         const itemsRef = db.collection('rvnl_tracker').doc('tasks_store').collection('items');
         const snapshot = await itemsRef.where('client', '==', 'RVNL').get();
