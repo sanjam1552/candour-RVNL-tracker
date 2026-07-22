@@ -1678,14 +1678,14 @@ function getUserClientPermission(email, client) {
     if (!email) return "None";
     const lowerEmail = email.toLowerCase();
     
-    // 1. If user is super admin / lead, they have Full Access to all clients
-    if (ADMIN_EMAILS.includes(lowerEmail)) {
-        return "Full";
-    }
-    
-    // 2. Check if there is a permission entry for this user
+    // 1. Check if there is an explicit permission entry for this user first
     if (state.userPermissions && state.userPermissions[lowerEmail]) {
         return state.userPermissions[lowerEmail][client] || "None";
+    }
+    
+    // 2. Fallback: If user is super admin / lead, default to Full Access
+    if (ADMIN_EMAILS.includes(lowerEmail)) {
+        return "Full";
     }
     
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to Full
