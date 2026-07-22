@@ -1712,6 +1712,10 @@ function setupEventListeners() {
     if (clientSelectorBtn && clientDropdownList) {
         clientSelectorBtn.addEventListener("click", (e) => {
             e.stopPropagation();
+            const switcherWelcome = document.getElementById("client-switcher-welcome");
+            if (switcherWelcome) {
+                switcherWelcome.textContent = "Select Workspace";
+            }
             clientDropdownList.classList.toggle("hidden");
         });
         
