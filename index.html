@@ -904,6 +904,34 @@
                             </div>
                             <span id="password-control-status" style="font-size: 11px; margin-top: 8px; display: block; color: var(--text-muted);">Password lock configuration</span>
                         </div>
+                        <!-- USER ACCESS CONTROL MATRIX CARD -->
+                        <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                            <div class="settings-icon" style="color: var(--accent-blue);"><i class="fa-solid fa-users-gear"></i></div>
+                            <h3>User Access & Client Permissions Matrix</h3>
+                            <p>Assign client visibility and access levels (Full Access / Read-Only / No Access) for each team member's email address. Unconfigured @candour.co.in emails default to Full Access.</p>
+                            
+                            <div class="permissions-matrix-wrapper" style="margin-top: 20px; overflow-x: auto; width: 100%;">
+                                <table class="permissions-matrix-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                                    <thead>
+                                        <tr id="permissions-matrix-header" style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                                            <!-- Dynamically populated -->
+                                        </tr>
+                                    </thead>
+                                    <tbody id="permissions-matrix-body">
+                                        <!-- Dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="add-permission-row" style="display: flex; gap: 10px; margin-top: 20px; width: 100%; flex-wrap: wrap; align-items: center;">
+                                <input type="email" id="new-user-email" placeholder="e.g. member@candour.co.in" style="flex-grow: 1; min-width: 200px; padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                <button type="button" id="add-user-permission-btn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add User</button>
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button type="button" id="save-permissions-btn" class="btn btn-primary" style="background: var(--accent-green); border-color: var(--accent-green); color: #fff;"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
+                            </div>
+                        </div>
+
                         <div class="settings-card card-full">
                             <h3>Reset to Preloaded Data</h3>
                             <p>If you wish to wipe out your custom changes and return to the baseline records parsed from your June 2026 reports, click the button below. This action cannot be undone.</p>

@@ -144,7 +144,8 @@ const state = {
     activityLogs: [],
     excludedReportTaskIds: new Set(),
     currentReportSmItems: [],
-    currentReportPrItems: []
+    currentReportPrItems: [],
+    userPermissions: {} // email -> { client -> "Full"|"ReadOnly"|"None" }
 };
 
 // Target Date helper for weekly mapping
@@ -384,6 +385,52 @@ async function loadData() {
             const configData = configSnapshot.data();
             state.settingsPassword = configData.password || null;
             state.googleSheetSyncUrl = configData.googleSheetSyncUrl || "";
+            state.userPermissions = configData.userPermissions || {};
+            
+            // Seed defaults so admin doesn't have to add them manually
+            const seedEmails = [
+                "sanjam@candour.co.in",
+                "komal@candour.co.in",
+                "stutio2465@gmail.com",
+                "eesha@candour.co.in",
+                "suvrata@candour.co.in",
+                "alka@candour.co.in",
+                "durgesh@candour.co.in",
+                "puja@candour.co.in",
+                "aadrita@candour.co.in",
+                "govind@candour.co.in",
+                "saloni@candour.co.in",
+                "neha@candour.co.in",
+                "sanjamcreatives@gmail.com"
+            ];
+            
+            let needsSave = false;
+            seedEmails.forEach(e => {
+                const lowerEmail = e.toLowerCase();
+                if (!state.userPermissions[lowerEmail]) {
+                    state.userPermissions[lowerEmail] = {};
+                    ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
+                        state.userPermissions[lowerEmail][client] = "Full";
+                    });
+                    needsSave = true;
+                }
+            });
+            
+            // Auto register current user email if they just logged in and are missing from the list
+            if (state.currentUserEmail && !state.userPermissions[state.currentUserEmail]) {
+                state.userPermissions[state.currentUserEmail] = {};
+                ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
+                    state.userPermissions[state.currentUserEmail][client] = "Full";
+                });
+                needsSave = true;
+            }
+            
+            if (needsSave) {
+                configRef.set({ userPermissions: state.userPermissions }, { merge: true })
+                    .catch(err => console.error("Error saving seeded permissions:", err));
+            }
+            
+            localStorage.setItem("rvnl_user_permissions", JSON.stringify(state.userPermissions));
             
             // Auto reload if user is running an older cached version (with loop protection)
             if (configData.version && configData.version !== APP_VERSION) {
@@ -488,6 +535,11 @@ async function loadData() {
         });
         
         state.settingsPassword = localStorage.getItem("rvnl_settings_password") || null;
+        try {
+            state.userPermissions = JSON.parse(localStorage.getItem("rvnl_user_permissions") || "{}");
+        } catch(e) {
+            state.userPermissions = {};
+        }
 
         const localLogs = localStorage.getItem("rvnl_activity_logs");
         if (localLogs) {
@@ -1372,6 +1424,16 @@ function setupEventListeners() {
     const removePassBtn = document.getElementById("remove-password-btn");
     if (removePassBtn) removePassBtn.addEventListener("click", handleRemovePassword);
 
+    // User Access Matrix listeners
+    const addUserPermBtn = document.getElementById("add-user-permission-btn");
+    if (addUserPermBtn) {
+        addUserPermBtn.addEventListener("click", handleAddUserPermission);
+    }
+    const savePermsBtn = document.getElementById("save-permissions-btn");
+    if (savePermsBtn) {
+        savePermsBtn.addEventListener("click", handleSavePermissions);
+    }
+
     // 11. API Key & AI Narrative Handlers
     const saveApiKeyBtn = document.getElementById("save-api-key-btn");
     if (saveApiKeyBtn) {
@@ -1610,11 +1672,202 @@ function adjustClientSpecificOptions(client) {
     checkReadOnlyPermissions();
 }
 
+const ADMIN_EMAILS = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+
+function getUserClientPermission(email, client) {
+    if (!email) return "None";
+    const lowerEmail = email.toLowerCase();
+    
+    // 1. If user is super admin / lead, they have Full Access to all clients
+    if (ADMIN_EMAILS.includes(lowerEmail)) {
+        return "Full";
+    }
+    
+    // 2. Check if there is a permission entry for this user
+    if (state.userPermissions && state.userPermissions[lowerEmail]) {
+        return state.userPermissions[lowerEmail][client] || "None";
+    }
+    
+    // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to Full
+    if (lowerEmail.endsWith("@candour.co.in")) {
+        return "Full";
+    }
+    
+    // 4. Default for anyone else
+    return "None";
+}
+
+function getClientList() {
+    const options = document.querySelectorAll(".client-option");
+    const list = [];
+    options.forEach(opt => {
+        const clientName = opt.getAttribute("data-client");
+        if (clientName && !list.includes(clientName)) list.push(clientName);
+    });
+    if (list.length === 0) {
+        return ["RVNL", "Legrand", "iCode", "Kompact AI"];
+    }
+    return list;
+}
+
 function checkReadOnlyPermissions() {
-    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    const isReadOnly = getUserClientPermission(state.currentUserEmail, state.activeClient) === "ReadOnly";
     const quickAddBtn = document.getElementById("quick-add-btn");
     if (quickAddBtn) {
-        quickAddBtn.style.display = isKomalLdcs ? "none" : "";
+        quickAddBtn.style.display = isReadOnly ? "none" : "";
+    }
+    
+    // Hide administrative controls if the user is not in ADMIN_EMAILS
+    const isAdmin = ADMIN_EMAILS.includes((state.currentUserEmail || "").toLowerCase());
+    const resetBtn = document.getElementById("reset-db-btn");
+    if (resetBtn) resetBtn.style.display = isAdmin ? "" : "none";
+    
+    const importCard = document.querySelector('.settings-card .import-actions')?.closest('.settings-card');
+    if (importCard) importCard.style.display = isAdmin ? "" : "none";
+    
+    const googleSheetSyncCard = document.querySelector('.settings-card .sync-url-input-group')?.closest('.settings-card');
+    if (googleSheetSyncCard) googleSheetSyncCard.style.display = isAdmin ? "" : "none";
+    
+    // Hide password control card if not admin
+    const passwordControlCard = document.getElementById("change-password-input")?.closest('.settings-card');
+    if (passwordControlCard) passwordControlCard.style.display = isAdmin ? "" : "none";
+    
+    // Hide team permissions matrix card if not admin
+    const teamPermissionsCard = document.getElementById("new-user-email")?.closest('.settings-card');
+    if (teamPermissionsCard) teamPermissionsCard.style.display = isAdmin ? "" : "none";
+}
+
+// Render the user permissions matrix inside the Settings tab
+function renderPermissionsMatrix() {
+    const header = document.getElementById("permissions-matrix-header");
+    const body = document.getElementById("permissions-matrix-body");
+    if (!header || !body) return;
+    
+    const clients = getClientList();
+    
+    // 1. Build Header Row
+    let headerHtml = `<th style="padding: 10px; font-weight: 600; font-size: 13px;">Team Member Email</th>`;
+    clients.forEach(client => {
+        headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">${client}</th>`;
+    });
+    headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">Actions</th>`;
+    header.innerHTML = headerHtml;
+    
+    // 2. Build Body Rows
+    body.innerHTML = "";
+    const users = Object.keys(state.userPermissions || {}).sort();
+    
+    if (users.length === 0) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="${clients.length + 2}" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                    No team member permission mappings configured yet. Click "Add User" to begin.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    users.forEach(userEmail => {
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid var(--border-color)";
+        
+        let rowHtml = `<td style="padding: 10px; font-weight: 500;">${userEmail}</td>`;
+        
+        clients.forEach(client => {
+            const currentPerm = (state.userPermissions[userEmail] && state.userPermissions[userEmail][client]) || "None";
+            rowHtml += `
+                <td style="padding: 10px; text-align: center;">
+                    <select class="permissions-matrix-select" data-user="${userEmail}" data-client="${client}">
+                        <option value="Full" ${currentPerm === "Full" ? "selected" : ""}>Full Access</option>
+                        <option value="ReadOnly" ${currentPerm === "ReadOnly" ? "selected" : ""}>Read-Only</option>
+                        <option value="None" ${currentPerm === "None" ? "selected" : ""}>No Access</option>
+                    </select>
+                </td>
+            `;
+        });
+        
+        rowHtml += `
+            <td style="padding: 10px; text-align: center;">
+                <button type="button" class="btn btn-danger-sm remove-user-perm-btn" data-user="${userEmail}">
+                    <i class="fa-solid fa-user-minus"></i> Remove
+                </button>
+            </td>
+        `;
+        
+        tr.innerHTML = rowHtml;
+        body.appendChild(tr);
+    });
+    
+    // Wire up change listeners on selects
+    body.querySelectorAll(".permissions-matrix-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const user = e.target.getAttribute("data-user");
+            const client = e.target.getAttribute("data-client");
+            const val = e.target.value;
+            
+            if (!state.userPermissions[user]) state.userPermissions[user] = {};
+            state.userPermissions[user][client] = val;
+        });
+    });
+    
+    // Wire up remove button click listeners
+    body.querySelectorAll(".remove-user-perm-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const user = btn.getAttribute("data-user");
+            if (confirm(`Are you sure you want to remove all custom permissions for ${user}?`)) {
+                delete state.userPermissions[user];
+                renderPermissionsMatrix();
+            }
+        });
+    });
+}
+
+function handleAddUserPermission() {
+    const emailInput = document.getElementById("new-user-email");
+    if (!emailInput) return;
+    
+    const email = emailInput.value.trim().toLowerCase();
+    if (!email) {
+        alert("Please enter a valid email address.");
+        return;
+    }
+    
+    if (state.userPermissions[email]) {
+        alert("This user already exists in the permissions matrix.");
+        return;
+    }
+    
+    // Initialize default permissions (No Access by default for safety, or ReadOnly)
+    state.userPermissions[email] = {};
+    getClientList().forEach(client => {
+        state.userPermissions[email][client] = "None";
+    });
+    
+    emailInput.value = "";
+    renderPermissionsMatrix();
+}
+
+async function handleSavePermissions() {
+    setSyncStatus('saving');
+    const configRef = db.collection('rvnl_tracker').doc('settings_config');
+    try {
+        await configRef.set({
+            userPermissions: state.userPermissions,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        localStorage.setItem("rvnl_user_permissions", JSON.stringify(state.userPermissions));
+        setSyncStatus('synced');
+        alert("User permissions saved successfully!");
+        
+        // Re-evaluate current user permissions and apply limits immediately
+        checkReadOnlyPermissions();
+        switchClient(state.activeClient);
+    } catch (err) {
+        console.error("Error saving permissions:", err);
+        alert("Failed to save permissions to Firestore database: " + err.message);
+        setSyncStatus('offline');
     }
 }
     // Helper to recursively list all files in Firebase Storage
@@ -1774,10 +2027,26 @@ async function cleanupOrphanedImages() {
     }
 }
 
-// Global Switch Client function
 function switchClient(client) {
-    state.activeClient = client;
-    localStorage.setItem("activeClient", client);
+    // 1. Determine allowed clients for current user
+    const allowedClients = getClientList().filter(c => getUserClientPermission(state.currentUserEmail, c) !== "None");
+    
+    // 2. If user has no access to the requested client, redirect to first allowed client
+    let targetClient = client;
+    if (allowedClients.length > 0 && !allowedClients.includes(client)) {
+        targetClient = allowedClients[0];
+    }
+    
+    // 3. Filter client options in dropdown switcher UI
+    document.querySelectorAll(".client-option").forEach(opt => {
+        const cName = opt.getAttribute("data-client");
+        const hasAccess = allowedClients.includes(cName);
+        opt.style.display = hasAccess ? "flex" : "none";
+        opt.classList.toggle("active", cName === targetClient);
+    });
+
+    state.activeClient = targetClient;
+    localStorage.setItem("activeClient", targetClient);
     state.filters.type = "all";
     state.filters.center = "all";
     const filterTypeEl = document.getElementById("filter-type");
@@ -1788,19 +2057,14 @@ function switchClient(client) {
     // Toggle center filter visibility
     const filterCenterGroup = document.getElementById("filter-center-group");
     if (filterCenterGroup) {
-        if (client === "iCode") {
+        if (targetClient === "iCode") {
             filterCenterGroup.classList.remove("hidden");
         } else {
             filterCenterGroup.classList.add("hidden");
         }
     }
 
-    adjustClientSpecificOptions(client);
-    
-    // Update active dropdown item styles
-    document.querySelectorAll(".client-option").forEach(opt => {
-        opt.classList.toggle("active", opt.getAttribute("data-client") === client);
-    });
+    adjustClientSpecificOptions(targetClient);
     
     // Update UI Logos and Titles
     const activeLogo = document.getElementById("active-client-logo");
@@ -1810,13 +2074,13 @@ function switchClient(client) {
     
     let logoSrc = "inputs/RVNL (R)logo_vector.png";
     let displayName = "RVNL";
-    if (client === "Legrand") {
+    if (targetClient === "Legrand") {
         logoSrc = "inputs/ldcs logo.png";
         displayName = "Legrand";
-    } else if (client === "iCode") {
+    } else if (targetClient === "iCode") {
         logoSrc = "inputs/icode black.png";
         displayName = "iCode";
-    } else if (client === "Kompact AI") {
+    } else if (targetClient === "Kompact AI") {
         logoSrc = "inputs/logo kompact-text-shapes-2x.png";
         displayName = "Kompact AI";
     }
@@ -1831,7 +2095,7 @@ function switchClient(client) {
     const briefingContent = document.getElementById("briefing-content-container");
     const briefingTabBtn = document.querySelector('.nav-btn[data-tab="briefing"]');
     
-    if (client === "RVNL") {
+    if (targetClient === "RVNL") {
         if (briefingTabBtn) briefingTabBtn.style.display = "";
         if (briefingWarning) briefingWarning.classList.add("hidden");
         if (briefingContent) briefingContent.style.display = "block";
@@ -1995,6 +2259,7 @@ async function handleSettingsUnlockSubmit() {
             lockScreen.classList.add("hidden");
             actualContent.style.display = "block";
             updateStorageIndicator();
+            renderPermissionsMatrix();
         } catch (err) {
             console.error('Error saving password:', err);
             statusText.textContent = "Failed to save password to database. Please try again.";
@@ -2006,6 +2271,7 @@ async function handleSettingsUnlockSubmit() {
             lockScreen.classList.add("hidden");
             actualContent.style.display = "block";
             updateStorageIndicator();
+            renderPermissionsMatrix();
         } else {
             statusText.textContent = "Incorrect password. Access denied.";
             passwordInput.value = "";
@@ -2578,16 +2844,16 @@ function openDrawer(taskId = null, prefillData = null) {
         title.textContent = "Add Creative Asset or PR Activity";
     }
 
-    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    const isReadOnly = (getUserClientPermission(state.currentUserEmail, state.activeClient) === "ReadOnly");
     
     // Hide/show save button
     const saveTaskBtn = document.getElementById("save-task-btn");
     if (saveTaskBtn) {
-        saveTaskBtn.style.display = isKomalLdcs ? "none" : "";
+        saveTaskBtn.style.display = isReadOnly ? "none" : "";
     }
 
-    // Set drawer title for Komal viewing Legrand
-    if (isKomalLdcs && taskId) {
+    // Set drawer title for read-only view
+    if (isReadOnly && taskId) {
         title.textContent = "View Task Details (Read-Only)";
     }
 
@@ -2595,7 +2861,7 @@ function openDrawer(taskId = null, prefillData = null) {
     const formElements = form.elements;
     for (let i = 0; i < formElements.length; i++) {
         if (formElements[i].id !== "cancel-drawer-btn" && formElements[i].id !== "close-drawer-btn") {
-            if (isKomalLdcs) {
+            if (isReadOnly) {
                 formElements[i].setAttribute("disabled", "true");
             } else {
                 formElements[i].removeAttribute("disabled");
@@ -2755,7 +3021,7 @@ function updateDrawerButtonsState() {
     const saveBtn = document.getElementById("save-task-btn");
     const cancelBtn = document.getElementById("cancel-drawer-btn");
     const closeBtn = document.getElementById("close-drawer-btn");
-    const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && state.activeClient === "Legrand");
+    const isReadOnly = (getUserClientPermission(state.currentUserEmail, state.activeClient) === "ReadOnly");
     
     if (state.activeUploads && state.activeUploads.size > 0) {
         if (saveBtn) {
@@ -2768,7 +3034,7 @@ function updateDrawerButtonsState() {
         if (saveBtn) {
             saveBtn.removeAttribute("disabled");
             saveBtn.innerHTML = `Save Changes`;
-            if (isKomalLdcs) saveBtn.style.display = "none";
+            if (isReadOnly) saveBtn.style.display = "none";
         }
         if (cancelBtn) cancelBtn.removeAttribute("disabled");
         if (closeBtn) closeBtn.removeAttribute("disabled");
@@ -2919,8 +3185,8 @@ function handleFormSubmit(e) {
         }
     }
 
-    if (state.currentUserEmail === "komal@candour.co.in" && taskClient === "Legrand") {
-        alert("Access Denied: You do not have permission to modify Legrand (LDCS) tasks.");
+    if (getUserClientPermission(state.currentUserEmail, taskClient) === "ReadOnly") {
+        alert(`Access Denied: You have Read-Only permissions for ${taskClient}.`);
         return;
     }
 
@@ -3024,8 +3290,9 @@ function generateUUID() {
 // Delete item
 async function deleteTask(id) {
     const taskToDelete = state.tasks.find(t => t.id === id);
-    if (taskToDelete && state.currentUserEmail === "komal@candour.co.in" && taskToDelete.client === "Legrand") {
-        alert("Access Denied: You do not have permission to delete Legrand (LDCS) tasks.");
+    const client = taskToDelete ? taskToDelete.client : state.activeClient;
+    if (getUserClientPermission(state.currentUserEmail, client) === "ReadOnly") {
+        alert(`Access Denied: You have Read-Only permissions for ${client}.`);
         return;
     }
     if (confirm("Are you sure you want to delete this item?")) {
@@ -3070,6 +3337,11 @@ async function deleteTask(id) {
 async function duplicateTask(id) {
     const task = state.tasks.find(t => t.id === id);
     if (task) {
+        const client = task.client || state.activeClient;
+        if (getUserClientPermission(state.currentUserEmail, client) === "ReadOnly") {
+            alert(`Access Denied: You have Read-Only permissions for ${client}.`);
+            return;
+        }
         const copy = { 
             ...task, 
             id: generateUUID(), 
@@ -3734,7 +4006,7 @@ function renderTrackerTable() {
             <td>${linksHtml}</td>
             <td>
                 <div class="actions-flex">
-                    ${(state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand")) ? `
+                    ${(getUserClientPermission(state.currentUserEmail, task.client || state.activeClient) === "ReadOnly") ? `
                         <button class="action-btn-mini edit-btn" data-id="${task.id}" title="View Details" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);"><i class="fa-solid fa-eye"></i></button>
                     ` : `
                         <button class="action-btn-mini edit-btn" data-id="${task.id}" title="Edit"><i class="fa-solid fa-pencil"></i></button>
@@ -3799,13 +4071,13 @@ function renderTrackerKanban() {
         
         const card = document.createElement("div");
         card.className = "kanban-card";
-        const isKomalLdcs = (state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand"));
-        card.setAttribute("draggable", isKomalLdcs ? "false" : "true");
+        const isReadOnly = (getUserClientPermission(state.currentUserEmail, task.client || state.activeClient) === "ReadOnly");
+        card.setAttribute("draggable", isReadOnly ? "false" : "true");
         card.setAttribute("data-id", task.id);
         
         // Drag events
         card.addEventListener("dragstart", (e) => {
-            if (isKomalLdcs) {
+            if (isReadOnly) {
                 e.preventDefault();
                 return;
             }
@@ -3931,8 +4203,8 @@ function renderTrackerKanban() {
             const taskId = e.dataTransfer.getData("text/plain");
             const task = state.tasks.find(t => t.id === taskId);
             if (task) {
-                if (state.currentUserEmail === "komal@candour.co.in" && (task.client === "Legrand" || state.activeClient === "Legrand")) {
-                    alert("Access Denied: You do not have permission to modify Legrand (LDCS) tasks.");
+                if (getUserClientPermission(state.currentUserEmail, task.client || state.activeClient) === "ReadOnly") {
+                    alert(`Access Denied: You have Read-Only permissions for ${task.client || state.activeClient}.`);
                     return;
                 }
                 if (task.status !== status) {
