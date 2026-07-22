@@ -411,7 +411,7 @@ async function loadData() {
                     state.userPermissions[lowerEmail] = {
                         isAdmin: ADMIN_EMAILS.includes(lowerEmail)
                     };
-                    ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
+                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group"].forEach(client => {
                         state.userPermissions[lowerEmail][client] = "Full";
                     });
                     needsSave = true;
@@ -424,7 +424,7 @@ async function loadData() {
                 state.userPermissions[state.currentUserEmail] = {
                     isAdmin: isSuper
                 };
-                ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
+                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group"].forEach(client => {
                     // Super admins get Full access automatically, others default to None (Access Pending)
                     state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
                 });
@@ -1637,6 +1637,12 @@ function adjustClientSpecificOptions(client) {
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update</option>
             `;
+        } else if (client === "BT Group") {
+            filterType.innerHTML = `
+                <option value="all">All Types</option>
+                <option value="Social Media">Social Media Post</option>
+                <option value="Creative / Collateral">Creative / Collateral</option>
+            `;
         } else {
             filterType.innerHTML = `
                 <option value="all">All Types</option>
@@ -1669,6 +1675,10 @@ function adjustClientSpecificOptions(client) {
             if (client === "Legrand" || client === "Kompact AI") {
                 const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
                 if (creativeDrawerOpt) creativeDrawerOpt.remove();
+            }
+            if (client === "BT Group") {
+                const prDrawerOpt = taskTypeSelect.querySelector('option[value="PR Update"]');
+                if (prDrawerOpt) prDrawerOpt.remove();
             }
         }
     }
@@ -2188,6 +2198,9 @@ function switchClient(client) {
     } else if (targetClient === "Kompact AI") {
         logoSrc = "inputs/logo kompact-text-shapes-2x.png";
         displayName = "Kompact AI";
+    } else if (targetClient === "BT Group") {
+        logoSrc = "inputs/1920_bt-group-logo-png.png";
+        displayName = "BT Group";
     }
     
     if (activeLogo) activeLogo.src = logoSrc;
@@ -3480,10 +3493,10 @@ function updateDashboard() {
     document.getElementById("stat-total-pr").textContent = pr;
     document.getElementById("stat-total-wip").textContent = wip;
 
-    // Dynamically adjust stats grid columns if active client is iCode (no PR coverage)
+    // Dynamically adjust stats grid columns if active client is iCode or BT Group (no PR coverage)
     const prCard = document.getElementById("stat-card-pr");
     const statsGrid = document.querySelector(".stats-grid");
-    if (state.activeClient === "iCode") {
+    if (state.activeClient === "iCode" || state.activeClient === "BT Group") {
         if (prCard) prCard.style.display = "none";
         if (statsGrid) statsGrid.style.gridTemplateColumns = "repeat(3, 1fr)";
     } else {
@@ -3572,14 +3585,17 @@ function renderTrendChart() {
                 data: smData,
                 backgroundColor: '#3b82f6',
                 borderRadius: 4
-            },
-            {
+            }
+        ];
+
+        if (state.activeClient !== "BT Group") {
+            datasets.push({
                 label: 'PR Activities',
                 data: prData,
                 backgroundColor: '#8b5cf6',
                 borderRadius: 4
-            }
-        ];
+            });
+        }
 
         if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI") {
             datasets.push({
@@ -3654,6 +3670,13 @@ function renderShareChart() {
                 getPRPublicationsCount(clientTasks)
             ];
             bgColors = ['#10b981', '#8b5cf6'];
+        } else if (state.activeClient === "BT Group") {
+            categories = ['Social Media', 'Creative / Collateral'];
+            dataVals = [
+                clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
+                clientTasks.filter(t => t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length
+            ];
+            bgColors = ['#10b981', '#f59e0b'];
         } else {
             categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
             dataVals = [
@@ -4346,6 +4369,28 @@ function generateReport() {
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
     
+    // Set client-specific default narrative text dynamically
+    const editNarrativeEl = document.getElementById("edit-report-narrative");
+    const narrativeTextEl = document.getElementById("report-narrative-text");
+    if (editNarrativeEl && narrativeTextEl) {
+        let defaultNarrative = "";
+        if (state.activeClient === "BT Group") {
+            defaultNarrative = `During this period, Candour Communications actively spearheaded social content strategies and creative asset development for BT Group. Social media accounts saw consistent growth driven by corporate updates, campaign assets, and community engagement.`;
+        } else if (state.activeClient === "iCode") {
+            defaultNarrative = `During this period, Candour Communications actively spearheaded educational campaigns and localized marketing strategies for iCode. Campaigns drove sign-ups and student engagements across Plano, Murphy, and Redmond centers.`;
+        } else {
+            const clientName = state.activeClient === "Legrand" ? "Sanjay Motwani" : state.activeClient;
+            defaultNarrative = `During this period, Candour Communications actively spearheaded media coverage, press communications, and social content strategies for ${clientName}. Social media accounts saw consistent growth driven by key event updates, corporate milestones, and brand announcements.`;
+        }
+        
+        const currentVal = editNarrativeEl.value.trim();
+        const isDefault = currentVal.includes("for RVNL") || currentVal.includes("for iCode") || currentVal.includes("for BT Group") || currentVal.includes("for Sanjay Motwani") || currentVal === "" || currentVal.startsWith("During this period, Candour Communications actively spearheaded media coverage, press communications");
+        if (isDefault) {
+            editNarrativeEl.value = defaultNarrative;
+            narrativeTextEl.textContent = defaultNarrative;
+        }
+    }
+    
     let selectedMonths = [];
     if (state.activeClient === "Legrand" && periodType === "monthly") {
         const checkboxes = document.querySelectorAll(".report-month-chk:checked");
@@ -4379,7 +4424,9 @@ function generateReport() {
     
     // Update Report Branding dynamically
     const reportTitle = document.getElementById("report-client-title");
+    const reportSubtitle = document.getElementById("report-client-subtitle");
     const reportLogo = document.getElementById("report-client-logo");
+    
     if (reportTitle) {
         if (state.activeClient === "RVNL") {
             reportTitle.textContent = "Rail Vikas Nigam Limited (RVNL)";
@@ -4389,8 +4436,21 @@ function generateReport() {
             reportTitle.textContent = "Sanjay Motwani Leadership Profiling";
         } else if (state.activeClient === "iCode") {
             reportTitle.textContent = "iCode";
+        } else if (state.activeClient === "BT Group") {
+            reportTitle.textContent = "BT Group";
         }
     }
+    
+    if (reportSubtitle) {
+        if (state.activeClient === "BT Group") {
+            reportSubtitle.textContent = "Social Media & Creative Marketing Report";
+        } else if (state.activeClient === "iCode") {
+            reportSubtitle.textContent = "Social Media & Campaigns Report";
+        } else {
+            reportSubtitle.textContent = "PR, Social Media & Creative Marketing Report";
+        }
+    }
+    
     if (reportLogo) {
         if (state.activeClient === "RVNL") {
             reportLogo.src = "inputs/RVNL logo.png";
@@ -4400,6 +4460,8 @@ function generateReport() {
             reportLogo.src = "inputs/ldcs logo.png";
         } else if (state.activeClient === "iCode") {
             reportLogo.src = "inputs/icode black.png";
+        } else if (state.activeClient === "BT Group") {
+            reportLogo.src = "inputs/1920_bt-group-logo-png.png";
         }
     }
 
@@ -4427,6 +4489,8 @@ function generateReport() {
         reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
     } else if (state.activeClient === "iCode") {
         reportItems = reportItems.filter(t => t.type === "Social Media");
+    } else if (state.activeClient === "BT Group") {
+        reportItems = reportItems.filter(t => t.type !== "PR Update");
     }
 
     // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
@@ -4542,40 +4606,71 @@ function renderReportView() {
         if (defaultStats) defaultStats.classList.remove("hidden");
         if (icodeStats) icodeStats.classList.add("hidden");
 
-        const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
-        document.getElementById("rep-stat-pr").textContent = totalPrPublications;
-        document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
-        if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
-            document.getElementById("rep-stat-sm").textContent = smItems.filter(t => t.status === "Published/Closed").length;
-        } else {
-            document.getElementById("rep-stat-sm").textContent = smItems.length;
-        }
-        document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
-
+        const prBox = document.getElementById("rep-stat-pr")?.closest('.summary-stat-box');
+        const prReleaseBox = document.getElementById("rep-stat-pr-releases")?.closest('.summary-stat-box');
         const collateralBox = document.getElementById("rep-stat-collateral-box");
-        if (collateralBox) {
-            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
-                collateralBox.style.display = "none";
-            } else {
-                collateralBox.style.display = "";
-            }
-        }
-
         const secondaryRow = document.getElementById("report-stats-row-secondary");
-        if (secondaryRow) {
-            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
-                secondaryRow.style.display = "none";
-            } else {
-                secondaryRow.style.display = "";
-            }
-        }
-
+        const firstRow = document.querySelector("#report-stats-summary-default .row-2col:first-child");
+        
+        const reportSecPr = document.getElementById("report-sec-pr");
+        const creativeTitleEl = document.getElementById("report-sec-creative-title");
         const prTitleEl = document.getElementById("report-sec-pr-title");
-        if (prTitleEl) {
+        
+        if (state.activeClient === "BT Group") {
+            // 1. Hide PR stats boxes
+            if (prBox) prBox.style.display = "none";
+            if (prReleaseBox) prReleaseBox.style.display = "none";
+            
+            // 2. Move Collaterals next to Social Media
+            if (firstRow && collateralBox) firstRow.appendChild(collateralBox);
+            if (collateralBox) collateralBox.style.display = "";
+            
+            // 3. Hide secondary row
+            if (secondaryRow) secondaryRow.style.display = "none";
+            
+            // 4. Hide PR section & renumber creative section to 3
+            if (reportSecPr) reportSecPr.style.display = "none";
+            if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 3. Creative Collaterals & Graphic Designs`;
+            
+            // 5. Populate statistics
+            document.getElementById("rep-stat-sm").textContent = smItems.length;
+            document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+        } else {
+            // Restore default displays
+            if (prBox) prBox.style.display = "";
+            if (prReleaseBox) prReleaseBox.style.display = "";
+            if (secondaryRow && prReleaseBox) secondaryRow.insertBefore(prReleaseBox, collateralBox);
+            if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
+            
+            // Show PR section & restore creative title to 4
+            if (reportSecPr) reportSecPr.style.display = "";
+            if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
+            
             if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
-                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
+                if (collateralBox) collateralBox.style.display = "none";
+                if (secondaryRow) secondaryRow.style.display = "none";
             } else {
-                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
+                if (collateralBox) collateralBox.style.display = "";
+                if (secondaryRow) secondaryRow.style.display = "";
+            }
+            
+            const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
+            if (document.getElementById("rep-stat-pr")) document.getElementById("rep-stat-pr").textContent = totalPrPublications;
+            if (document.getElementById("rep-stat-pr-releases")) document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
+            
+            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+                document.getElementById("rep-stat-sm").textContent = smItems.filter(t => t.status === "Published/Closed").length;
+            } else {
+                document.getElementById("rep-stat-sm").textContent = smItems.length;
+            }
+            document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+            
+            if (prTitleEl) {
+                if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+                    prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
+                } else {
+                    prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
+                }
             }
         }
     }
