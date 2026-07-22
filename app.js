@@ -408,7 +408,9 @@ async function loadData() {
             seedEmails.forEach(e => {
                 const lowerEmail = e.toLowerCase();
                 if (!state.userPermissions[lowerEmail]) {
-                    state.userPermissions[lowerEmail] = {};
+                    state.userPermissions[lowerEmail] = {
+                        isAdmin: ADMIN_EMAILS.includes(lowerEmail)
+                    };
                     ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
                         state.userPermissions[lowerEmail][client] = "Full";
                     });
@@ -418,7 +420,9 @@ async function loadData() {
             
             // Auto register current user email if they just logged in and are missing from the list
             if (state.currentUserEmail && !state.userPermissions[state.currentUserEmail]) {
-                state.userPermissions[state.currentUserEmail] = {};
+                state.userPermissions[state.currentUserEmail] = {
+                    isAdmin: ADMIN_EMAILS.includes(state.currentUserEmail)
+                };
                 ["RVNL", "Legrand", "iCode", "Kompact AI"].forEach(client => {
                     state.userPermissions[state.currentUserEmail][client] = "Full";
                 });
@@ -1433,6 +1437,10 @@ function setupEventListeners() {
     if (savePermsBtn) {
         savePermsBtn.addEventListener("click", handleSavePermissions);
     }
+    const searchPermsInput = document.getElementById("permissions-search");
+    if (searchPermsInput) {
+        searchPermsInput.addEventListener("input", renderPermissionsMatrix);
+    }
 
     // 11. API Key & AI Narrative Handlers
     const saveApiKeyBtn = document.getElementById("save-api-key-btn");
@@ -1710,6 +1718,23 @@ function getClientList() {
     return list;
 }
 
+function checkUserIsAdmin(email) {
+    if (!email) return false;
+    const lowerEmail = email.toLowerCase();
+    
+    // 1. Hardcoded super-admins (never locked out)
+    if (ADMIN_EMAILS.includes(lowerEmail)) {
+        return true;
+    }
+    
+    // 2. Read from database permissions
+    if (state.userPermissions && state.userPermissions[lowerEmail]) {
+        return state.userPermissions[lowerEmail].isAdmin === true;
+    }
+    
+    return false;
+}
+
 function checkReadOnlyPermissions() {
     const isReadOnly = getUserClientPermission(state.currentUserEmail, state.activeClient) === "ReadOnly";
     const quickAddBtn = document.getElementById("quick-add-btn");
@@ -1717,8 +1742,8 @@ function checkReadOnlyPermissions() {
         quickAddBtn.style.display = isReadOnly ? "none" : "";
     }
     
-    // Hide administrative controls if the user is not in ADMIN_EMAILS
-    const isAdmin = ADMIN_EMAILS.includes((state.currentUserEmail || "").toLowerCase());
+    // Hide administrative controls if the user is not an Admin
+    const isAdmin = checkUserIsAdmin(state.currentUserEmail);
     const resetBtn = document.getElementById("reset-db-btn");
     if (resetBtn) resetBtn.style.display = isAdmin ? "" : "none";
     
@@ -1735,6 +1760,17 @@ function checkReadOnlyPermissions() {
     // Hide team permissions matrix card if not admin
     const teamPermissionsCard = document.getElementById("new-user-email")?.closest('.settings-card');
     if (teamPermissionsCard) teamPermissionsCard.style.display = isAdmin ? "" : "none";
+
+    // Hide/show the Admin Panel tab in the sidebar
+    const settingsTabBtn = document.querySelector('.nav-btn[data-tab="settings"]');
+    if (settingsTabBtn) {
+        settingsTabBtn.style.display = isAdmin ? "" : "none";
+    }
+    
+    // If not admin and on settings tab, redirect to dashboard
+    if (!isAdmin && state.activeTab === "settings") {
+        switchTab("dashboard");
+    }
 }
 
 // Render the user permissions matrix inside the Settings tab
@@ -1747,6 +1783,7 @@ function renderPermissionsMatrix() {
     
     // 1. Build Header Row
     let headerHtml = `<th style="padding: 10px; font-weight: 600; font-size: 13px;">Team Member Email</th>`;
+    headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">Is Admin?</th>`;
     clients.forEach(client => {
         headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">${client}</th>`;
     });
@@ -1755,12 +1792,18 @@ function renderPermissionsMatrix() {
     
     // 2. Build Body Rows
     body.innerHTML = "";
-    const users = Object.keys(state.userPermissions || {}).sort();
+    let users = Object.keys(state.userPermissions || {}).sort();
+    
+    const searchInput = document.getElementById("permissions-search");
+    const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : "";
+    if (searchQuery) {
+        users = users.filter(u => u.toLowerCase().includes(searchQuery));
+    }
     
     if (users.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="${clients.length + 2}" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                <td colspan="${clients.length + 3}" style="text-align: center; padding: 20px; color: var(--text-muted);">
                     No team member permission mappings configured yet. Click "Add User" to begin.
                 </td>
             </tr>
@@ -1772,7 +1815,20 @@ function renderPermissionsMatrix() {
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid var(--border-color)";
         
+        const userIsAdmin = checkUserIsAdmin(userEmail);
+        const isSuperAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
+        
         let rowHtml = `<td style="padding: 10px; font-weight: 500;">${userEmail}</td>`;
+        
+        // Admin column checkbox (super admins disabled from toggling to prevent lockouts)
+        rowHtml += `
+            <td style="padding: 10px; text-align: center;">
+                <input type="checkbox" class="permissions-matrix-admin-checkbox" data-user="${userEmail}" 
+                    ${userIsAdmin ? "checked" : ""} 
+                    ${isSuperAdmin ? "disabled" : ""} 
+                    style="width: 15px; height: 15px; cursor: ${isSuperAdmin ? 'not-allowed' : 'pointer'};">
+            </td>
+        `;
         
         clients.forEach(client => {
             const currentPerm = (state.userPermissions[userEmail] && state.userPermissions[userEmail][client]) || "None";
@@ -1811,6 +1867,17 @@ function renderPermissionsMatrix() {
         });
     });
     
+    // Wire up change listeners on admin checkboxes
+    body.querySelectorAll(".permissions-matrix-admin-checkbox").forEach(checkbox => {
+        checkbox.addEventListener("change", (e) => {
+            const user = e.target.getAttribute("data-user");
+            const val = e.target.checked;
+            
+            if (!state.userPermissions[user]) state.userPermissions[user] = {};
+            state.userPermissions[user].isAdmin = val;
+        });
+    });
+    
     // Wire up remove button click listeners
     body.querySelectorAll(".remove-user-perm-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
@@ -1838,8 +1905,10 @@ function handleAddUserPermission() {
         return;
     }
     
-    // Initialize default permissions (No Access by default for safety, or ReadOnly)
-    state.userPermissions[email] = {};
+    // Initialize default permissions (No Access and not admin by default)
+    state.userPermissions[email] = {
+        isAdmin: false
+    };
     getClientList().forEach(client => {
         state.userPermissions[email][client] = "None";
     });
@@ -2197,20 +2266,20 @@ function checkSettingsPasswordState() {
         // No password set yet, prompt to create one
         lockScreen.classList.remove("hidden");
         actualContent.style.display = "none";
-        titleText.textContent = "Set Access Password";
-        descText.textContent = "Please set a password to secure your Backup & Data settings.";
+        titleText.textContent = "Set Admin Password";
+        descText.textContent = "Please set a password to secure your Admin Panel & settings.";
         unlockBtn.textContent = "Set Password";
         lockIcon.className = "fa-solid fa-lock-open";
         lockIcon.style.color = "var(--accent-amber)";
         if (removeBtn) removeBtn.style.display = "none";
-        if (passwordStatus) passwordStatus.textContent = "No password configuration set. Tab is currently open.";
+        if (passwordStatus) passwordStatus.textContent = "No password configuration set. Panel is currently open.";
     } else {
         // Password is set, show lock overlay screen
         lockScreen.classList.remove("hidden");
         actualContent.style.display = "none";
-        titleText.textContent = "Password Protected";
-        descText.textContent = "Please enter your password to access Data Management & Settings.";
-        unlockBtn.textContent = "Unlock Tab";
+        titleText.textContent = "Admin Panel Protected";
+        descText.textContent = "Please enter your password to access the Admin Panel & Controls.";
+        unlockBtn.textContent = "Unlock Panel";
         lockIcon.className = "fa-solid fa-lock";
         lockIcon.style.color = "var(--accent-purple)";
         if (removeBtn) removeBtn.style.display = "inline-block";

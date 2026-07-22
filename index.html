@@ -103,7 +103,7 @@
                     <i class="fa-solid fa-file-invoice"></i> <span>Report Builder</span>
                 </button>
                 <button class="nav-btn" data-tab="settings">
-                    <i class="fa-solid fa-database"></i> <span>Backup & Data</span>
+                    <i class="fa-solid fa-user-gear"></i> <span>Admin Panel</span>
                 </button>
                 <button class="nav-btn" data-tab="briefing">
                     <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Daily Briefing</span>
@@ -784,8 +784,8 @@
                 <div id="settings-actual-content">
                     <div class="section-header">
                         <div class="section-title">
-                            <h2>Data Management & Backup</h2>
-                            <p>Export your tracked data as a backup file or import existing databases to keep your team interconnected.</p>
+                            <h2>Admin Panel & Controls</h2>
+                            <p>Manage user access permissions, export/import tracker data, configure Google Sheet sync, and manage database security settings.</p>
                         </div>
                     </div>
 
@@ -908,9 +908,14 @@
                         <div class="settings-card card-full" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
                             <div class="settings-icon" style="color: var(--accent-blue);"><i class="fa-solid fa-users-gear"></i></div>
                             <h3>User Access & Client Permissions Matrix</h3>
-                            <p>Assign client visibility and access levels (Full Access / Read-Only / No Access) for each team member's email address. Unconfigured @candour.co.in emails default to Full Access.</p>
+                            <div style="display: flex; justify-content: flex-start; margin-top: 15px; width: 100%;">
+                                <div style="position: relative; width: 100%; max-width: 350px;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
+                                    <input type="text" id="permissions-search" placeholder="Search by email..." style="width: 100%; padding: 8px 10px 8px 35px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 13px; outline: none;">
+                                </div>
+                            </div>
                             
-                            <div class="permissions-matrix-wrapper" style="margin-top: 20px; overflow-x: auto; width: 100%;">
+                            <div class="permissions-matrix-wrapper" style="margin-top: 15px; overflow-x: auto; width: 100%;">
                                 <table class="permissions-matrix-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
                                     <thead>
                                         <tr id="permissions-matrix-header" style="border-bottom: 2px solid var(--border-color); text-align: left;">
