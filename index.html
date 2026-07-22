@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="index.css?v=1.9.0">
 </head>
 <body>
     <!-- PRELOADER OVERLAY -->
@@ -85,28 +85,6 @@
                         <span id="active-client-name" style="font-weight: 600; font-family: var(--font-heading); font-size: 14px;">RVNL</span>
                     </div>
                     <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-secondary);"></i>
-                </div>
-                <div class="client-dropdown hidden" id="client-dropdown-list" style="position: absolute; left: 0; right: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; margin-top: 6px; box-shadow: var(--glass-shadow); z-index: 100; overflow: hidden; padding: 4px;">
-                    <div class="client-option active" data-client="RVNL" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
-                        <img src="inputs/RVNL (R)logo_vector.png" alt="RVNL Logo" style="width: 20px; height: 20px; object-fit: contain;">
-                        <span style="font-weight: 500;">RVNL</span>
-                    </div>
-                    <div class="client-option" data-client="Legrand" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
-                        <img src="inputs/ldcs logo.png" alt="Legrand Logo" style="width: 20px; height: 20px; object-fit: contain;">
-                        <span style="font-weight: 500;">Legrand</span>
-                    </div>
-                    <div class="client-option" data-client="iCode" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
-                        <img src="inputs/icode black.png" alt="iCode Logo" style="width: 20px; height: 20px; object-fit: contain;">
-                        <span style="font-weight: 500;">iCode</span>
-                    </div>
-                    <div class="client-option" data-client="Kompact AI" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
-                        <img src="inputs/logo kompact-text-shapes-2x.png" alt="Kompact AI Logo" style="width: 20px; height: 20px; object-fit: contain;">
-                        <span style="font-weight: 500;">Kompact AI</span>
-                    </div>
-                    <div class="client-option" data-client="BT Group" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background var(--transition-fast);">
-                        <img src="inputs/1920_bt-group-logo-png.png" alt="BT Group Logo" style="width: 20px; height: 20px; object-fit: contain;">
-                        <span style="font-weight: 500;">BT Group</span>
-                    </div>
                 </div>
             </div>
             <nav class="nav-links">
@@ -1170,6 +1148,43 @@
                     <button type="submit" class="btn btn-primary" id="save-task-btn">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="client-modal-overlay hidden" id="client-dropdown-list">
+        <div class="client-modal-content" id="client-switcher-modal-content">
+            <button type="button" class="client-modal-close" id="close-client-switcher-btn" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+            <div class="posh-icon-container" style="width: 75px; height: 75px; border-radius: 50%; background: #ffffff; border: 1px solid rgba(139, 92, 246, 0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; overflow: hidden; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.12);"><img id="switcher-active-logo" src="inputs/RVNL (R)logo_vector.png" alt="Active Workspace Logo" style="width: 45px; height: 45px; object-fit: contain;"></div>
+            <h2 style="margin: 0 0 6px 0; font-family: var(--font-heading); font-size: 24px; font-weight: 700; text-align: center; color: var(--text-primary);">Select Workspace</h2>
+            <p style="margin: 0 0 32px 0; font-size: 13px; color: #475569; text-align: center; line-height: 1.4; max-width: 480px; margin-left: auto; margin-right: auto;">Select a client workspace to manage tasks, view dashboard metrics, and build reports.</p>
+            <div class="client-grid-scroll">
+                <div class="client-grid">
+                    <div class="client-option active" data-client="RVNL">
+                        <img src="inputs/RVNL (R)logo_vector.png" alt="RVNL Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>RVNL</span>
+                    </div>
+                    <div class="client-option" data-client="Legrand">
+                        <img src="inputs/ldcs logo.png" alt="Legrand Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>Legrand</span>
+                    </div>
+                    <div class="client-option" data-client="iCode">
+                        <img src="inputs/icode black.png" alt="iCode Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>iCode</span>
+                    </div>
+                    <div class="client-option" data-client="Kompact AI">
+                        <img src="inputs/logo kompact-text-shapes-2x.png" alt="Kompact AI Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>Kompact AI</span>
+                    </div>
+                    <div class="client-option" data-client="BT Group">
+                        <img src="inputs/1920_bt-group-logo-png.png" alt="BT Group Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>BT Group</span>
+                    </div>
+                    <div class="client-option" data-client="Candour">
+                        <img src="inputs/candour logo.png" alt="Candour Logo" style="width: 75px; height: 75px; object-fit: contain;">
+                        <span>Candour</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

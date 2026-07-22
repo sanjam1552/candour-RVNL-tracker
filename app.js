@@ -411,7 +411,7 @@ async function loadData() {
                     state.userPermissions[lowerEmail] = {
                         isAdmin: ADMIN_EMAILS.includes(lowerEmail)
                     };
-                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group"].forEach(client => {
+                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour"].forEach(client => {
                         state.userPermissions[lowerEmail][client] = "Full";
                     });
                     needsSave = true;
@@ -424,7 +424,7 @@ async function loadData() {
                 state.userPermissions[state.currentUserEmail] = {
                     isAdmin: isSuper
                 };
-                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group"].forEach(client => {
+                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour"].forEach(client => {
                     // Super admins get Full access automatically, others default to None (Access Pending)
                     state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
                 });
@@ -508,6 +508,11 @@ async function loadData() {
                 populateOwnerFilter();
                 populateMonthDropdowns();
                 switchClient(state.activeClient);
+                
+                // Open Select Workspace modal by default on first load
+                const clientDropdownList = document.getElementById("client-dropdown-list");
+                if (clientDropdownList) clientDropdownList.classList.remove("hidden");
+                
                 setPreloaderProgress(100);
                 hidePreloader();
             } else {
@@ -558,6 +563,11 @@ async function loadData() {
         populateOwnerFilter();
         populateMonthDropdowns();
         switchClient(state.activeClient);
+        
+        // Open Select Workspace modal by default on first load
+        const clientDropdownList = document.getElementById("client-dropdown-list");
+        if (clientDropdownList) clientDropdownList.classList.remove("hidden");
+        
         if (state.activeTab === 'settings') {
             checkSettingsPasswordState();
         }
@@ -1511,18 +1521,86 @@ function setupEventListeners() {
             clientDropdownList.classList.toggle("hidden");
         });
         
-        document.addEventListener("click", (e) => {
-            if (!clientSelectorBtn.contains(e.target) && !clientDropdownList.contains(e.target)) {
+        // Close modal when clicking the close button
+        const closeBtn = document.getElementById("close-client-switcher-btn");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                clientDropdownList.classList.add("hidden");
+            });
+        }
+
+        // Close modal when clicking on the overlay background itself
+        clientDropdownList.addEventListener("click", (e) => {
+            if (e.target === clientDropdownList) {
                 clientDropdownList.classList.add("hidden");
             }
         });
         
+        const clientGrid = document.querySelector(".client-grid");
+        if (clientGrid) {
+            clientGrid.addEventListener("mouseleave", () => {
+                let activeLogoSrc = "inputs/RVNL (R)logo_vector.png";
+                const activeClient = state.activeClient;
+                if (activeClient === "Legrand") activeLogoSrc = "inputs/ldcs logo.png";
+                else if (activeClient === "iCode") activeLogoSrc = "inputs/icode black.png";
+                else if (activeClient === "Kompact AI") activeLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
+                else if (activeClient === "BT Group") activeLogoSrc = "inputs/1920_bt-group-logo-png.png";
+                else if (activeClient === "Candour") activeLogoSrc = "inputs/candour logo.png";
+                
+                const switcherActiveLogo = document.getElementById("switcher-active-logo");
+                if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(activeLogoSrc)) {
+                    switcherActiveLogo.classList.add("changing");
+                    setTimeout(() => {
+                        switcherActiveLogo.src = activeLogoSrc;
+                        switcherActiveLogo.classList.remove("changing");
+                    }, 120);
+                }
+            });
+        }
+
         document.querySelectorAll(".client-option").forEach(opt => {
             opt.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const selectedClient = opt.getAttribute("data-client");
-                switchClient(selectedClient);
-                clientDropdownList.classList.add("hidden");
+                
+                const contentBox = document.getElementById("client-switcher-modal-content");
+                if (contentBox) {
+                    // 1. Instantly switch the active client workspace in the background
+                    switchClient(selectedClient);
+                    
+                    // 2. Trigger the exit animation
+                    contentBox.classList.add("minimizing");
+                    clientDropdownList.classList.add("minimizing");
+                    
+                    setTimeout(() => {
+                        clientDropdownList.classList.add("hidden");
+                        contentBox.classList.remove("minimizing");
+                        clientDropdownList.classList.remove("minimizing");
+                    }, 500);
+                } else {
+                    switchClient(selectedClient);
+                    clientDropdownList.classList.add("hidden");
+                }
+            });
+
+            opt.addEventListener("mouseenter", () => {
+                const hoveredClient = opt.getAttribute("data-client");
+                let hoveredLogoSrc = "inputs/RVNL (R)logo_vector.png";
+                if (hoveredClient === "Legrand") hoveredLogoSrc = "inputs/ldcs logo.png";
+                else if (hoveredClient === "iCode") hoveredLogoSrc = "inputs/icode black.png";
+                else if (hoveredClient === "Kompact AI") hoveredLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
+                else if (hoveredClient === "BT Group") hoveredLogoSrc = "inputs/1920_bt-group-logo-png.png";
+                else if (hoveredClient === "Candour") hoveredLogoSrc = "inputs/candour logo.png";
+                
+                const switcherActiveLogo = document.getElementById("switcher-active-logo");
+                if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(hoveredLogoSrc)) {
+                    switcherActiveLogo.classList.add("changing");
+                    setTimeout(() => {
+                        switcherActiveLogo.src = hoveredLogoSrc;
+                        switcherActiveLogo.classList.remove("changing");
+                    }, 120);
+                }
             });
         });
     }
@@ -2201,12 +2279,18 @@ function switchClient(client) {
     } else if (targetClient === "BT Group") {
         logoSrc = "inputs/1920_bt-group-logo-png.png";
         displayName = "BT Group";
+    } else if (targetClient === "Candour") {
+        logoSrc = "inputs/candour logo.png";
+        displayName = "Candour";
     }
     
     if (activeLogo) activeLogo.src = logoSrc;
     if (activeName) activeName.textContent = displayName;
     if (sidebarLogo) sidebarLogo.src = logoSrc;
     if (sidebarTitle) sidebarTitle.textContent = displayName;
+    
+    const switcherActiveLogo = document.getElementById("switcher-active-logo");
+    if (switcherActiveLogo) switcherActiveLogo.src = logoSrc;
     
     // Show/hide briefing warning and tab button in sidebar
     const briefingWarning = document.getElementById("briefing-client-warning");
@@ -4438,6 +4522,8 @@ function generateReport() {
             reportTitle.textContent = "iCode";
         } else if (state.activeClient === "BT Group") {
             reportTitle.textContent = "BT Group";
+        } else if (state.activeClient === "Candour") {
+            reportTitle.textContent = "Candour Communications";
         }
     }
     
@@ -4462,6 +4548,8 @@ function generateReport() {
             reportLogo.src = "inputs/icode black.png";
         } else if (state.activeClient === "BT Group") {
             reportLogo.src = "inputs/1920_bt-group-logo-png.png";
+        } else if (state.activeClient === "Candour") {
+            reportLogo.src = "inputs/candour logo.png";
         }
     }
 
