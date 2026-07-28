@@ -8548,7 +8548,7 @@ function loadChatMessages() {
 
     // WIPE OLD CHAT RENDER IMMEDIATELY and show cached messages if they exist
     if (state.chatMessagesCache[currentChatTarget]) {
-        renderChatMessagesList(state.chatMessagesCache[currentChatTarget], viewport);
+        renderChatMessagesList(state.chatMessagesCache[currentChatTarget], viewport, true);
     } else {
         viewport.innerHTML = `<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; font-size: 12.5px; color: var(--text-muted); gap: 10px; font-family: var(--font-body);">
             <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 20px; color: #8b5cf6;"></i>
@@ -8624,7 +8624,9 @@ function loadChatMessages() {
 
         // Render function
         const triggerRender = () => {
-            renderChatMessagesList(recentMessages, viewport);
+            // Force scroll if it's the initial load, or if a new message was appended
+            const shouldForceScroll = isFirstLoad || (recentMessages.length > existingCache.length);
+            renderChatMessagesList(recentMessages, viewport, shouldForceScroll);
             isFirstLoad = false; // Mark initial load complete only after rendering occurs
         };
 
@@ -8756,7 +8758,7 @@ async function markMessagesAsRead(target) {
     }
 }
 
-function renderChatMessagesList(messagesArray, viewport) {
+function renderChatMessagesList(messagesArray, viewport, forceScroll = false) {
     if (!viewport) return;
     viewport.innerHTML = "";
 
@@ -8828,14 +8830,18 @@ function renderChatMessagesList(messagesArray, viewport) {
         viewport.appendChild(row);
     });
 
-    // Auto Scroll to bottom (only if the user is already near the bottom, or on first render)
-    const threshold = 150; // pixels from bottom
+    // Auto Scroll to bottom (if forced, or if user is already looking at bottom history)
+    const threshold = 180; // pixels from bottom
     const isNearBottom = (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight) < threshold;
 
-    if (isNearBottom || messagesArray.length <= 5) {
+    if (forceScroll || isNearBottom || messagesArray.length <= 5) {
+        // Execute synchronously before browser paint cycle to prevent snapping animations
+        viewport.scrollTop = viewport.scrollHeight;
+        
+        // Execute a fast backup check to absorb lazy image loads or layouts
         setTimeout(() => {
             viewport.scrollTop = viewport.scrollHeight;
-        }, 50);
+        }, 15);
     }
 }
 
