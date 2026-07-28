@@ -8683,11 +8683,18 @@ function monitorUnreadMessageBadge() {
             const counts = {};
             let totalUnread = 0;
             let rosterChanged = false;
+            const isDrawerOpen = drawer.classList.contains("active");
 
             snapshot.forEach(doc => {
                 const msg = doc.data();
                 const sender = msg.senderEmail;
                 if (sender) {
+                    // If we are actively viewing this chat, auto-read it in background
+                    if (isDrawerOpen && currentChatTarget === sender) {
+                        doc.ref.update({ read: true });
+                        return; // Skip adding to unread count
+                    }
+
                     counts[sender] = (counts[sender] || 0) + 1;
                     totalUnread++;
 
@@ -8708,7 +8715,7 @@ function monitorUnreadMessageBadge() {
             // Update floating toggle button badge
             const unreadBadge = toggleBtn.querySelector(".chat-unread-badge");
             if (unreadBadge) {
-                if (totalUnread > 0 && !drawer.classList.contains("active")) {
+                if (totalUnread > 0 && !isDrawerOpen) {
                     unreadBadge.textContent = totalUnread;
                     unreadBadge.style.display = "flex";
                 } else {
@@ -8821,10 +8828,15 @@ function renderChatMessagesList(messagesArray, viewport) {
         viewport.appendChild(row);
     });
 
-    // Auto Scroll to bottom
-    setTimeout(() => {
-        viewport.scrollTop = viewport.scrollHeight;
-    }, 50);
+    // Auto Scroll to bottom (only if the user is already near the bottom, or on first render)
+    const threshold = 150; // pixels from bottom
+    const isNearBottom = (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight) < threshold;
+
+    if (isNearBottom || messagesArray.length <= 5) {
+        setTimeout(() => {
+            viewport.scrollTop = viewport.scrollHeight;
+        }, 50);
+    }
 }
 
 
