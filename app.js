@@ -8164,6 +8164,10 @@ function initDeveloperChat() {
 
     // 5. Setup listener to monitor for incoming message count badges
     monitorUnreadMessageBadge();
+
+    // 6. Setup custom groups creation and synchronization
+    setupCustomGroupModal();
+    monitorCustomGroups();
 }
 
 function injectChatMarkup() {
@@ -8340,7 +8344,10 @@ function injectChatMarkup() {
                     <input type="text" id="chat-sidebar-search" placeholder="Search chats..." style="width: 100%; height: 28px; padding: 0 8px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; box-sizing: border-box;">
                 </div>
                 <div>
-                    <label style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding-left: 6px; display: block; margin-bottom: 6px;">Groups</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding-right: 4px;">
+                        <label style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding-left: 6px; display: block; margin: 0;">Groups</label>
+                        <button id="btn-create-custom-group" title="Create Custom Group" style="background: none; border: none; color: #8b5cf6; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px;"><i class="fa-solid fa-plus"></i></button>
+                    </div>
                     <div id="chat-channels-list" style="display: flex; flex-direction: column; gap: 3px;">
                         <!-- Rendered dynamically -->
                     </div>
@@ -8376,6 +8383,31 @@ function injectChatMarkup() {
             </div>
 
         </div>
+
+        <!-- Custom Group Creation Modal Overlay -->
+        <div id="custom-group-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); z-index: 1001; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; font-family: var(--font-body);">
+            <div style="background: var(--bg-primary, #ffffff); border: 1px solid var(--border-color); border-radius: 12px; width: 340px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 14px;">
+                <h4 style="margin: 0; font-family: var(--font-heading); color: var(--text-primary); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-users-gear" style="color:#8b5cf6;"></i> Create Custom Group</h4>
+                
+                <div>
+                    <label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 5px;">Group Name</label>
+                    <input type="text" id="custom-group-name-input" placeholder="e.g. Creative Review" style="width: 100%; height: 32px; padding: 0 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 5px;">Select Members</label>
+                    <input type="text" id="custom-group-member-search" placeholder="Search members..." style="width: 100%; height: 28px; padding: 0 8px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; box-sizing: border-box; margin-bottom: 6px; font-family: var(--font-body);">
+                    <div id="custom-group-members-checklist" style="max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; background: rgba(0,0,0,0.01);">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+                    <button id="btn-custom-group-cancel" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-muted); cursor: pointer;">Cancel</button>
+                    <button id="btn-custom-group-submit" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; border: none; background: #8b5cf6; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-check"></i> Create</button>
+                </div>
+            </div>
+        </div>
     `;
 
     document.body.appendChild(toggle);
@@ -8408,7 +8440,8 @@ function renderChatSidebarList(filterText) {
     // 1. Build and Filter Group Channels list
     const allGroups = [
         { id: 'group_all', name: 'All Team', type: 'hashtag' },
-        ...getClientList().map(c => ({ id: `group_${c}`, name: c, type: 'users' }))
+        ...getClientList().map(c => ({ id: `group_${c}`, name: c, type: 'users' })),
+        ...(state.customGroups || []).map(g => ({ id: g.id, name: g.name, type: 'people-group' }))
     ];
 
     allGroups.forEach(group => {
@@ -8516,6 +8549,16 @@ function updateChatHeaderUI() {
     if (currentChatTarget === 'group_all') {
         titleEl.textContent = "# All Team Channel";
         descEl.textContent = "General team group conversation";
+    } else if (currentChatTarget.startsWith('group_custom_')) {
+        const groupObj = (state.customGroups || []).find(g => g.id === currentChatTarget);
+        if (groupObj) {
+            titleEl.textContent = `👥 ${groupObj.name}`;
+            const displayMembers = groupObj.members.map(m => m.split("@")[0]).join(", ");
+            descEl.textContent = `Members: ${displayMembers}`;
+        } else {
+            titleEl.textContent = `👥 Custom Group`;
+            descEl.textContent = `Custom group conversation`;
+        }
     } else if (currentChatTarget.startsWith('group_')) {
         const clientName = currentChatTarget.replace('group_', '');
         titleEl.textContent = `👥 ${clientName} Room`;
@@ -8843,6 +8886,150 @@ function renderChatMessagesList(messagesArray, viewport, forceScroll = false) {
             viewport.scrollTop = viewport.scrollHeight;
         }, 15);
     }
+}
+
+function setupCustomGroupModal() {
+    const createBtn = document.getElementById("btn-create-custom-group");
+    const modal = document.getElementById("custom-group-modal");
+    const cancelBtn = document.getElementById("btn-custom-group-cancel");
+    const submitBtn = document.getElementById("btn-custom-group-submit");
+    const nameInput = document.getElementById("custom-group-name-input");
+    const checklist = document.getElementById("custom-group-members-checklist");
+    const searchInput = document.getElementById("custom-group-member-search");
+
+    if (!createBtn || !modal || !cancelBtn || !submitBtn || !nameInput || !checklist || !searchInput) return;
+
+    let selectedEmails = new Set();
+
+    function renderChecklist(filterQuery = "") {
+        checklist.innerHTML = "";
+        const developers = Object.keys(state.userPermissions || {}).filter(email => email !== state.currentUserEmail);
+        const filtered = developers.filter(email => {
+            const shortName = email.split("@")[0].toLowerCase();
+            return shortName.includes(filterQuery.toLowerCase()) || email.toLowerCase().includes(filterQuery.toLowerCase());
+        });
+
+        if (filtered.length === 0) {
+            checklist.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); padding: 4px;">No members match search.</div>`;
+            return;
+        }
+
+        filtered.forEach(email => {
+            const shortName = email.split("@")[0];
+            const label = document.createElement("label");
+            label.style.cssText = "display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-primary); cursor: pointer; padding: 2px 0;";
+            
+            const isChecked = selectedEmails.has(email) ? "checked" : "";
+            label.innerHTML = `<input type="checkbox" value="${email}" ${isChecked} style="margin: 0;"> <span>${shortName} (${email})</span>`;
+            
+            // Listen for checks to update our Set
+            const checkbox = label.querySelector("input");
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) {
+                    selectedEmails.add(email);
+                } else {
+                    selectedEmails.delete(email);
+                }
+            });
+
+            checklist.appendChild(label);
+        });
+    }
+
+    // Show Modal & load members list
+    createBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        nameInput.value = "";
+        searchInput.value = "";
+        selectedEmails.clear();
+        renderChecklist("");
+        modal.style.display = "flex";
+    });
+
+    // Handle typing in search input
+    searchInput.addEventListener("input", (e) => {
+        renderChecklist(e.target.value.trim());
+    });
+
+    // Hide Modal
+    cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        modal.style.display = "none";
+    });
+
+    // Submit Group Creation to Firestore
+    submitBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const name = nameInput.value.trim();
+        if (!name) {
+            alert("Please enter a group name.");
+            return;
+        }
+
+        const members = [state.currentUserEmail, ...Array.from(selectedEmails)];
+
+        if (members.length < 2) {
+            alert("Please select at least one other member to create a group.");
+            return;
+        }
+
+        const groupId = `group_custom_${Date.now()}`;
+        const payload = {
+            id: groupId,
+            name: name,
+            members: members,
+            createdBy: state.currentUserEmail,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        try {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Creating...`;
+            
+            await db.collection('rvnl_tracker').doc('chats_store').collection('custom_groups').doc(groupId).set(payload);
+            
+            modal.style.display = "none";
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> Create`;
+            
+            // Switch target to new group
+            currentChatTarget = groupId;
+            updateChatHeaderUI();
+            loadChatMessages();
+        } catch (err) {
+            console.error("Failed to create custom group: ", err);
+            alert("Failed to create group: " + err.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> Create`;
+        }
+    });
+}
+
+function monitorCustomGroups() {
+    if (!state.currentUserEmail) return;
+
+    db.collection('rvnl_tracker').doc('chats_store').collection('custom_groups')
+        .where('members', 'array-contains', state.currentUserEmail)
+        .onSnapshot(snapshot => {
+            const groupsList = [];
+            snapshot.forEach(doc => {
+                groupsList.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            state.customGroups = groupsList;
+
+            // Re-render sidebar to display new groups
+            const searchInput = document.getElementById("chat-sidebar-search");
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+            renderChatSidebarList(query);
+            
+            // Update chat header UI in case current group details loaded or changed names
+            updateChatHeaderUI();
+        }, err => {
+            console.error("Custom groups sync failed: ", err);
+        });
 }
 
 
