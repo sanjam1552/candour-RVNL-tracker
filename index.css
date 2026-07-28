@@ -2227,7 +2227,7 @@ h1, h2, h3, h4, h5, h6 {
     transform: perspective(1200px) rotateX(0deg) translateY(0) scale(1);
     transform-origin: center center;
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, filter 0.4s ease;
-    overflow: visible;
+    overflow: hidden;
 }
 
 /* 3D perspectiva exit drop */
@@ -2246,9 +2246,8 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     right: 0;
     height: 6px;
-    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
+    background: linear-gradient(90deg, var(--accent-amber, #f59e0b), var(--accent-blue, #3b82f6), var(--accent-purple, #8b5cf6));
+    z-index: 1;
 }
 
 /* 3D perspectiva entrance drop */
@@ -2798,8 +2797,80 @@ button:disabled, .btn:disabled {
 .sentiment-neutral { background-color: #94a3b8; }
 .sentiment-negative { background-color: #f87171; }
 
+/* ====================================================
+   DEVELOPER MODE STYLING (Exclusive to sanjam@candour.co.in)
+   ==================================================== */
+.dev-badge {
+    margin-left: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    height: 18px;
+    border-radius: 6px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    color: #7c3aed;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-sizing: border-box;
+}
 
+/* Adjust layout when in dark mode */
+body.dark-theme .dev-badge {
+    background: rgba(167, 139, 250, 0.15);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: #c084fc;
+}
 
+.dev-feature-btn {
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    outline: none !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 14px 16px !important;
+    color: var(--text-secondary) !important;
+    font-size: 15px !important;
+    font-family: var(--font-body) !important;
+    font-weight: 500 !important;
+    border-radius: 12px !important;
+    text-align: left !important;
+    transition: all var(--transition-fast) !important;
+    box-shadow: none !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
 
+.dev-feature-btn:hover {
+    background: rgba(139, 92, 246, 0.06) !important;
+    color: var(--text-primary) !important;
+}
 
+.beta-pill {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    height: 16px;
+    border-radius: 4px;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    color: #8b5cf6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
 
+body.dark-theme .beta-pill {
+    background: rgba(167, 139, 250, 0.15);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: #a78bfa;
+}

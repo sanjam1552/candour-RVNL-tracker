@@ -124,7 +124,7 @@ function initToastStyles() {
     style.innerHTML = `
         #toast-container {
             position: fixed;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
             z-index: 10000;
             display: flex;
@@ -308,6 +308,8 @@ const state = {
     currentTaskPublications: [],
     currentTaskSpokespersons: [],
     currentTaskReferenceLinks: [],
+    activeChatDMs: [], // active DM threads (emails)
+    chatMessagesCache: {}, // threadId/roomId -> array of messages for instant switching
     currentUser: "",
     currentUserEmail: "",
     activityLogs: [],
@@ -651,6 +653,11 @@ async function loadData() {
             
             localStorage.setItem("rvnl_user_permissions", JSON.stringify(state.userPermissions));
             
+            // Refresh Developer Chat side list if loaded
+            if (typeof renderChatSidebarList === "function") {
+                renderChatSidebarList("");
+            }
+            
         } else {
             state.settingsPassword = null;
             state.googleSheetSyncUrl = "";
@@ -871,7 +878,22 @@ function initUserSession() {
             if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
                 state.currentUserEmail = email.toLowerCase();
-                if (displayNameEl) displayNameEl.textContent = state.currentUser;
+                
+                // Developer check & personalization
+                if (displayNameEl) {
+                    const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+                    if (devEmails.includes(state.currentUserEmail)) {
+                        displayNameEl.innerHTML = `${state.currentUser} <span class="dev-badge"><i class="fa-solid fa-code"></i> Developer</span>`;
+                        const devLabSection = document.getElementById("dev-lab-section");
+                        if (devLabSection) devLabSection.classList.remove("hidden");
+                        
+                        // Initialize Developer-Only Chat System
+                        initDeveloperChat();
+                    } else {
+                        displayNameEl.textContent = state.currentUser;
+                    }
+                }
+                
                 if (overlay) overlay.style.display = "none";
                 if (errorMsgEl) errorMsgEl.style.display = "none";
                 if (infoMsgEl) infoMsgEl.style.display = "none";
@@ -8018,5 +8040,747 @@ function parseBriefingMarkdown(markdown) {
 
     return sections;
 }
+
+
+// ====================================================
+// REAL-TIME FIRESTORE DEV-BETA CHAT ENGINE
+// ====================================================
+let chatUnsubscribe = null;
+let currentChatTarget = 'group_all'; // 'group_all', 'group_CLIENT', or user email string for DM
+
+function initDeveloperChat() {
+    // Bootstrap chat messages cache from localStorage
+    try {
+        state.chatMessagesCache = JSON.parse(localStorage.getItem("rvnl_chat_messages_cache")) || {};
+    } catch(e) {
+        state.chatMessagesCache = {};
+    }
+
+    // 1. Create Floating Toggle Trigger & Chat Container markup dynamically
+    injectChatMarkup();
+
+    // 2. Wire up UI Open/Close Toggle listeners
+    const toggleBtn = document.getElementById("dev-chat-toggle-btn");
+    const closeBtn = document.getElementById("dev-chat-close-btn");
+    const drawer = document.getElementById("dev-chat-drawer");
+
+    if (toggleBtn && drawer) {
+        toggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            drawer.classList.toggle("active");
+            if (drawer.classList.contains("active")) {
+                loadChatMessages();
+                // Clear unread badge
+                const unreadBadge = toggleBtn.querySelector(".chat-unread-badge");
+                if (unreadBadge) unreadBadge.style.display = "none";
+            }
+        });
+    }
+
+    if (closeBtn && drawer) {
+        closeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            drawer.classList.remove("active");
+        });
+    }
+
+    // Wire up sidebar Lab Features link to open chat as well
+    const teamChatSidebarBtn = document.querySelector(".dev-feature-btn");
+    if (teamChatSidebarBtn) {
+        // Override original alert behavior to open the drawer
+        teamChatSidebarBtn.setAttribute("onclick", "");
+        teamChatSidebarBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (drawer) {
+                drawer.classList.add("active");
+                loadChatMessages();
+            }
+        });
+    }
+
+    // Close chat drawer when clicking outside it
+    window.addEventListener("click", (e) => {
+        if (drawer && drawer.classList.contains("active")) {
+            // Check if click target is outside the drawer AND outside toggle buttons
+            const isClickInsideDrawer = drawer.contains(e.target);
+            const isClickOnToggle = toggleBtn && toggleBtn.contains(e.target);
+            const isClickOnSidebarBtn = teamChatSidebarBtn && teamChatSidebarBtn.contains(e.target);
+            
+            if (!isClickInsideDrawer && !isClickOnToggle && !isClickOnSidebarBtn) {
+                drawer.classList.remove("active");
+            }
+        }
+    });
+
+    // 3. Wire up Chat Target switching click handlers (Channels vs DMs)
+    setupChatChannelSwitchers();
+
+    // 4. Wire up Message Send form submission & input events directly
+    const sendForm = document.getElementById("dev-chat-send-form");
+    const sendInput = document.getElementById("dev-chat-input");
+    
+    async function triggerMessageSend() {
+        if (!sendInput) return;
+        const text = sendInput.value.trim();
+        if (!text) return;
+
+        console.log("Form/button triggered message send: ", text);
+        sendInput.value = "";
+        await sendChatMessage(text);
+    }
+
+    if (sendForm && sendInput) {
+        sendForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await triggerMessageSend();
+        });
+
+        // Add Enter key event listener directly to input as backup
+        sendInput.addEventListener("keydown", async (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                await triggerMessageSend();
+            }
+        });
+    }
+
+    // Direct click handler on the send button as secondary backup
+    const sendButton = sendForm ? sendForm.querySelector("button[type='submit']") : null;
+    if (sendButton) {
+        sendButton.addEventListener("click", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await triggerMessageSend();
+        });
+    }
+
+    // 5. Setup listener to monitor for incoming message count badges
+    monitorUnreadMessageBadge();
+}
+
+function injectChatMarkup() {
+    if (document.getElementById("dev-chat-drawer")) return; // Already injected
+
+    // Create Toggle Button
+    const toggle = document.createElement("button");
+    toggle.id = "dev-chat-toggle-btn";
+    toggle.className = "no-print";
+    toggle.style.cssText = "position: fixed; bottom: 25px; right: 25px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #3b82f6); color: #fff; border: none; cursor: pointer; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35); display: flex; align-items: center; justify-content: center; font-size: 22px; z-index: 999; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);";
+    toggle.innerHTML = `<i class="fa-solid fa-comments"></i><span class="chat-unread-badge" style="display: none; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid #fff;"></span>`;
+    
+    // Add hover zoom effect
+    toggle.addEventListener("mouseenter", () => {
+        toggle.style.transform = "scale(1.08) translateY(-2px)";
+        toggle.style.boxShadow = "0 12px 30px rgba(124, 58, 237, 0.45)";
+    });
+    toggle.addEventListener("mouseleave", () => {
+        toggle.style.transform = "scale(1) translateY(0)";
+        toggle.style.boxShadow = "0 8px 24px rgba(124, 58, 237, 0.35)";
+    });
+
+    // Create Chat Slide-out Panel
+    const drawer = document.createElement("div");
+    drawer.id = "dev-chat-drawer";
+    drawer.className = "no-print";
+    drawer.style.cssText = "position: fixed; top: 0; right: -600px; width: 600px; height: 100%; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-left: 1px solid rgba(139, 92, 246, 0.15); box-shadow: -10px 0 40px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-sizing: border-box; overflow: hidden; font-family: 'Inter', sans-serif;";
+    
+    // Style tags for theme compatibility & animations
+    const style = document.createElement("style");
+    style.id = "dev-chat-custom-styles";
+    style.innerHTML = `
+        #dev-chat-drawer.active { right: 0 !important; }
+        body.dark-theme #dev-chat-drawer {
+            background: rgba(15, 23, 42, 0.95) !important;
+            border-left-color: rgba(167, 139, 250, 0.12) !important;
+        }
+        .chat-channel-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+        .chat-channel-item:hover {
+            background: rgba(139, 92, 246, 0.05);
+            color: var(--text-primary);
+        }
+        .chat-channel-item.active {
+            background: rgba(139, 92, 246, 0.08);
+            color: #7c3aed;
+            font-weight: 600;
+        }
+        body.dark-theme .chat-channel-item.active {
+            color: #c084fc;
+            background: rgba(167, 139, 250, 0.12);
+        }
+        .chat-messages-container {
+            background-color: #f8fafc;
+            background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.04) 0%, rgba(239, 68, 68, 0.04) 100%);
+            position: relative;
+        }
+        body.dark-theme .chat-messages-container {
+            background-color: #0f172a !important;
+            background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.07) 0%, rgba(239, 68, 68, 0.07) 100%) !important;
+        }
+        .message-bubble {
+            max-width: 80%;
+            padding: 10px 14px 16px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        .message-incoming {
+            background: rgba(255, 255, 255, 0.85);
+            color: #1e293b;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        body.dark-theme .message-incoming {
+            background: rgba(30, 41, 59, 0.7);
+            color: #f1f5f9;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        .message-outgoing {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(239, 68, 68, 0.1) 100%);
+            color: #1e293b;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            border-color: rgba(139, 92, 246, 0.25);
+        }
+        body.dark-theme .message-outgoing {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(239, 68, 68, 0.18) 100%);
+            color: #f8fafc;
+            border-color: rgba(167, 139, 250, 0.25);
+        }
+        .message-time-meta {
+            position: absolute;
+            bottom: 3.5px;
+            right: 10px;
+            font-size: 9px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        body.dark-theme .message-time-meta {
+            color: #94a3b8;
+        }
+        .message-date-divider {
+            align-self: center;
+            background: rgba(255,255,255,0.9);
+            color: #475569;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            margin: 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(139, 92, 246, 0.1);
+        }
+        body.dark-theme .message-date-divider {
+            background: #1e293b;
+            color: #94a3b8;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        .chat-badge-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #005c4b;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+    `;
+    document.head.appendChild(style);
+
+    drawer.innerHTML = `
+        <!-- Header -->
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; color: #8b5cf6;"><i class="fa-solid fa-comments"></i></span>
+                <span style="font-size: 15px; font-weight: 700; font-family: var(--font-heading); color: var(--text-primary);">Team Workspace Chat</span>
+            </div>
+            <button id="dev-chat-close-btn" style="background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Two Columns Container -->
+        <div style="display: flex; flex: 1; overflow: hidden; height: 100%;">
+            
+            <!-- Left Panel (Sidebar lists Channels & DMs) -->
+            <div style="width: 180px; border-right: 1px solid var(--border-color); padding: 12px 6px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; background: rgba(0,0,0,0.015);">
+                <!-- Search Box -->
+                <div style="padding: 0 4px;">
+                    <input type="text" id="chat-sidebar-search" placeholder="Search chats..." style="width: 100%; height: 28px; padding: 0 8px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding-left: 6px; display: block; margin-bottom: 6px;">Groups</label>
+                    <div id="chat-channels-list" style="display: flex; flex-direction: column; gap: 3px;">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding-left: 6px; display: block; margin-bottom: 6px;">Direct Messages</label>
+                    <div id="chat-dms-list" style="display: flex; flex-direction: column; gap: 3px;">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel (Active Chat Frame) -->
+            <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Target Header -->
+                <div style="padding: 10px 16px; border-bottom: 1px solid var(--border-color); background: rgba(255,255,255,0.01);">
+                    <div id="chat-header-target-name" style="font-size: 13px; font-weight: 700; color: var(--text-primary);"># All Team Channel</div>
+                    <div id="chat-header-target-desc" style="font-size: 10.5px; color: var(--text-muted); margin-top: 1.5px;">Public group conversation</div>
+                </div>
+
+                <!-- Messages Stream Viewport -->
+                <div id="chat-messages-viewport" class="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Messages will render here -->
+                </div>
+
+                <!-- Input box Footer -->
+                <div style="padding: 12px 14px; border-top: 1px solid var(--border-color);">
+                    <form id="dev-chat-send-form" style="display: flex; gap: 8px; width: 100%;">
+                        <input type="text" id="dev-chat-input" placeholder="Type a message..." autocomplete="off" style="flex: 1; height: 36px; padding: 0 12px; font-size: 12.5px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+                        <button type="submit" style="width: 36px; height: 36px; border-radius: 50%; background: #7c3aed; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;"><i class="fa-solid fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(toggle);
+    document.body.appendChild(drawer);
+}
+
+function setupChatChannelSwitchers() {
+    // Render the channels & DMs list initially
+    renderChatSidebarList("");
+
+    // Bind search keypress listener
+    const searchInput = document.getElementById("chat-sidebar-search");
+    if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+            renderChatSidebarList(e.target.value.trim());
+        });
+    }
+}
+
+function renderChatSidebarList(filterText) {
+    const channelsContainer = document.getElementById("chat-channels-list");
+    const dmsContainer = document.getElementById("chat-dms-list");
+    if (!channelsContainer || !dmsContainer) return;
+
+    channelsContainer.innerHTML = "";
+    dmsContainer.innerHTML = "";
+
+    const query = filterText.toLowerCase();
+
+    // 1. Build and Filter Group Channels list
+    const allGroups = [
+        { id: 'group_all', name: 'All Team', type: 'hashtag' },
+        ...getClientList().map(c => ({ id: `group_${c}`, name: c, type: 'users' }))
+    ];
+
+    allGroups.forEach(group => {
+        if (query && !group.name.toLowerCase().includes(query)) return;
+
+        const div = document.createElement("div");
+        div.className = `chat-channel-item ${currentChatTarget === group.id ? 'active' : ''}`;
+        div.setAttribute("data-target", group.id);
+        div.innerHTML = `<i class="fa-solid fa-${group.type}" style="font-size: 10px;"></i> <span>${group.name}</span>`;
+        
+        div.addEventListener("click", (e) => {
+            e.stopPropagation();
+            currentChatTarget = group.id;
+            updateChatHeaderUI();
+            loadChatMessages();
+            renderChatSidebarList(filterText); // Refresh active styling classes
+        });
+        channelsContainer.appendChild(div);
+    });
+
+    // Initialize activeChatDMs from localStorage if present
+    if (!state.activeChatDMs || state.activeChatDMs.length === 0) {
+        try {
+            state.activeChatDMs = JSON.parse(localStorage.getItem("rvnl_active_chat_dms")) || [];
+        } catch(e) {
+            state.activeChatDMs = [];
+        }
+    }
+
+    // 2. Direct Messages (Registered users)
+    const allUsers = Object.keys(state.userPermissions || {}).filter(email => email !== state.currentUserEmail);
+    
+    if (query) {
+        // Search Mode: Show all matching users to allow starting a new chat
+        allUsers.forEach(email => {
+            const shortName = email.split("@")[0];
+            if (!shortName.toLowerCase().includes(query) && !email.toLowerCase().includes(query)) return;
+
+            const div = document.createElement("div");
+            div.className = `chat-channel-item ${currentChatTarget === email ? 'active' : ''}`;
+            div.setAttribute("data-target", email);
+            div.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 6px; color: var(--text-muted); font-weight: 500;"></i> <span>${shortName} <span style="font-size: 8.5px; opacity:0.65; color:var(--accent-purple);">(add)</span></span>`;
+            
+            div.addEventListener("click", (e) => {
+                e.stopPropagation();
+                // Add to active DM list if not already present
+                if (!state.activeChatDMs.includes(email)) {
+                    state.activeChatDMs.push(email);
+                    localStorage.setItem("rvnl_active_chat_dms", JSON.stringify(state.activeChatDMs));
+                }
+                currentChatTarget = email;
+                
+                // Clear search input box on selection
+                const searchInput = document.getElementById("chat-sidebar-search");
+                if (searchInput) searchInput.value = "";
+
+                updateChatHeaderUI();
+                loadChatMessages();
+                renderChatSidebarList(""); // Refresh to normal view (with only active DMs)
+            });
+            dmsContainer.appendChild(div);
+        });
+
+        if (dmsContainer.children.length === 0) {
+            dmsContainer.innerHTML = `<div style="padding: 6px; font-size: 10.5px; color: var(--text-muted);">No users found.</div>`;
+        }
+    } else {
+        // Default Mode: Only show active pinned conversations
+        state.activeChatDMs.forEach(email => {
+            const shortName = email.split("@")[0];
+            const div = document.createElement("div");
+            div.className = `chat-channel-item ${currentChatTarget === email ? 'active' : ''}`;
+            div.setAttribute("data-target", email);
+            div.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 6px; color: #34d399;"></i> <span>${shortName}</span>`;
+            
+            div.addEventListener("click", (e) => {
+                e.stopPropagation();
+                currentChatTarget = email;
+                updateChatHeaderUI();
+                loadChatMessages();
+                renderChatSidebarList(""); // Refresh active styling
+            });
+            dmsContainer.appendChild(div);
+        });
+
+        if (state.activeChatDMs.length === 0) {
+            dmsContainer.innerHTML = `<div style="padding: 8px 6px; font-size: 11px; color: var(--text-muted); line-height: 1.3; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: 6px; text-align: center;">Use search to start a DM</div>`;
+        }
+    }
+}
+
+function updateChatHeaderUI() {
+    const titleEl = document.getElementById("chat-header-target-name");
+    const descEl = document.getElementById("chat-header-target-desc");
+    if (!titleEl || !descEl) return;
+
+    if (currentChatTarget === 'group_all') {
+        titleEl.textContent = "# All Team Channel";
+        descEl.textContent = "General team group conversation";
+    } else if (currentChatTarget.startsWith('group_')) {
+        const clientName = currentChatTarget.replace('group_', '');
+        titleEl.textContent = `👥 ${clientName} Room`;
+        descEl.textContent = `Group discussion for ${clientName} campaign work`;
+    } else {
+        const userName = currentChatTarget.split("@")[0];
+        titleEl.textContent = `💬 Direct: ${userName}`;
+        descEl.textContent = `Private message thread with ${currentChatTarget}`;
+    }
+}
+
+function loadChatMessages() {
+    const viewport = document.getElementById("chat-messages-viewport");
+    if (!viewport) return;
+
+    // Run mark as read asynchronously in the background so it doesn't block the UI thread
+    setTimeout(() => {
+        markMessagesAsRead(currentChatTarget);
+    }, 10);
+
+    // Unsubscribe from previous listener if it exists
+    if (chatUnsubscribe) {
+        chatUnsubscribe();
+    }
+
+    // Initialize cache dictionary if missing
+    if (!state.chatMessagesCache) {
+        state.chatMessagesCache = {};
+    }
+
+    // WIPE OLD CHAT RENDER IMMEDIATELY and show cached messages if they exist
+    if (state.chatMessagesCache[currentChatTarget]) {
+        renderChatMessagesList(state.chatMessagesCache[currentChatTarget], viewport);
+    } else {
+        viewport.innerHTML = `<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; font-size: 12.5px; color: var(--text-muted); gap: 10px; font-family: var(--font-body);">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 20px; color: #8b5cf6;"></i>
+            <span>Connecting...</span>
+        </div>`;
+    }
+
+    let queryRef = db.collection('rvnl_tracker').doc('chats_store').collection('messages');
+
+    // Build filters depending on target type
+    if (currentChatTarget === 'group_all') {
+        queryRef = queryRef.where('target', '==', 'group_all');
+    } else if (currentChatTarget.startsWith('group_')) {
+        queryRef = queryRef.where('target', '==', currentChatTarget);
+    } else {
+        // DM private chat matches either senderA->recipientB or senderB->recipientA
+        const threadId1 = `${state.currentUserEmail}_${currentChatTarget}`;
+        const threadId2 = `${currentChatTarget}_${state.currentUserEmail}`;
+        queryRef = queryRef.where('threadId', 'in', [threadId1, threadId2]);
+    }
+
+    let debounceTimer = null;
+    let isFirstLoad = !state.chatMessagesCache[currentChatTarget] || state.chatMessagesCache[currentChatTarget].length === 0;
+
+    chatUnsubscribe = queryRef.onSnapshot({ includeMetadataChanges: false }, snapshot => {
+        if (snapshot.empty) {
+            if (!state.chatMessagesCache[currentChatTarget] || state.chatMessagesCache[currentChatTarget].length === 0) {
+                state.chatMessagesCache[currentChatTarget] = [];
+                localStorage.setItem("rvnl_chat_messages_cache", JSON.stringify(state.chatMessagesCache));
+                viewport.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 11.5px; padding-top: 30px; font-family:var(--font-body);">No messages here yet. Send a message to start!</div>`;
+            }
+            return;
+        }
+
+        // Convert snapshot to array of message objects
+        const messagesList = [];
+        snapshot.forEach(doc => {
+            messagesList.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        // Sort new snapshot messages in-memory by timestamp
+        messagesList.sort((a, b) => {
+            const timeA = a.timestamp ? (a.timestamp.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : Date.now();
+            const timeB = b.timestamp ? (b.timestamp.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : Date.now();
+            return timeA - timeB;
+        });
+
+        // Get existing cached messages
+        const existingCache = state.chatMessagesCache[currentChatTarget] || [];
+
+        // Merge lists cleanly by message ID to prevent partial loads or jumps
+        const mergedMap = new Map();
+        existingCache.forEach(m => mergedMap.set(m.id, m));
+        messagesList.forEach(m => mergedMap.set(m.id, m));
+
+        // Re-sort the merged array
+        const mergedList = Array.from(mergedMap.values());
+        mergedList.sort((a, b) => {
+            const timeA = a.timestamp ? (a.timestamp.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : Date.now();
+            const timeB = b.timestamp ? (b.timestamp.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : Date.now();
+            return timeA - timeB;
+        });
+
+        // Slice to render only the last 100 messages
+        const recentMessages = mergedList.slice(-100);
+        
+        // Save back to local cache and disk
+        state.chatMessagesCache[currentChatTarget] = recentMessages;
+        localStorage.setItem("rvnl_chat_messages_cache", JSON.stringify(state.chatMessagesCache));
+
+        // Render function
+        const triggerRender = () => {
+            renderChatMessagesList(recentMessages, viewport);
+            isFirstLoad = false; // Mark initial load complete only after rendering occurs
+        };
+
+        if (isFirstLoad) {
+            // Debounce rendering during the first load sequence to collect multiple fast snapshots
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(triggerRender, 150);
+        } else {
+            // Instant render for subsequent real-time updates
+            triggerRender();
+        }
+    }, err => {
+        console.error("Chat sync failed: ", err);
+    });
+}
+
+async function sendChatMessage(text) {
+    const threadId = (currentChatTarget && currentChatTarget.includes("@")) 
+        ? `${state.currentUserEmail}_${currentChatTarget}` 
+        : "";
+
+    const nameRaw = state.currentUser || state.currentUserEmail || "User";
+    const senderName = typeof nameRaw === 'string' ? nameRaw.split("<")[0].trim() : String(nameRaw);
+
+    const payload = {
+        text: text,
+        senderEmail: state.currentUserEmail,
+        senderName: senderName,
+        target: currentChatTarget,
+        threadId: threadId,
+        read: false,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        console.log("Attempting to send chat message payload:", payload);
+        await db.collection('rvnl_tracker').doc('chats_store').collection('messages').add(payload);
+        console.log("Message successfully written to Firestore.");
+    } catch (err) {
+        console.error("Error sending message to Firestore: ", err);
+        alert("Failed to send message: " + err.message);
+    }
+}
+
+function monitorUnreadMessageBadge() {
+    // Monitor incoming messages for the floating toggle button badge when closed
+    const drawer = document.getElementById("dev-chat-drawer");
+    const toggleBtn = document.getElementById("dev-chat-toggle-btn");
+    if (!drawer || !toggleBtn) return;
+
+    db.collection('rvnl_tracker').doc('chats_store').collection('messages')
+      .orderBy('timestamp', 'desc')
+      .limit(1)
+      .onSnapshot(snapshot => {
+          if (!snapshot.empty) {
+              const doc = snapshot.docs[0];
+              const msg = doc.data();
+              
+              // Only trigger badge if message is not ours and drawer is closed
+              if (msg.senderEmail !== state.currentUserEmail && !drawer.classList.contains("active")) {
+                  const unreadBadge = toggleBtn.querySelector(".chat-unread-badge");
+                  if (unreadBadge) unreadBadge.style.display = "block";
+              }
+          }
+      });
+}
+
+async function markMessagesAsRead(target) {
+    if (!target || !target.includes("@")) return; // Only apply read status checks for direct messages (DMs)
+    if (!state.currentUserEmail) return;
+
+    try {
+        const unreadDocs = await db.collection('rvnl_tracker').doc('chats_store').collection('messages')
+            .where('senderEmail', '==', target)
+            .where('target', '==', state.currentUserEmail)
+            .where('read', '==', false)
+            .get();
+
+        if (!unreadDocs.empty) {
+            const batch = db.batch();
+            unreadDocs.forEach(doc => {
+                batch.update(doc.ref, { read: true });
+            });
+            await batch.commit();
+            console.log(`Marked ${unreadDocs.size} messages from ${target} as read.`);
+        }
+    } catch (e) {
+        console.error("Failed to mark messages as read: ", e);
+    }
+}
+
+function renderChatMessagesList(messagesArray, viewport) {
+    if (!viewport) return;
+    viewport.innerHTML = "";
+
+    let lastMessageDateStr = "";
+
+    messagesArray.forEach(msg => {
+        const isMe = msg.senderEmail === state.currentUserEmail;
+
+        // 1. Calculate Date Divider
+        let dateDividerHtml = "";
+        const msgDate = msg.timestamp ? (msg.timestamp.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp)) : new Date();
+        const dateStr = msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        if (dateStr !== lastMessageDateStr) {
+            lastMessageDateStr = dateStr;
+            
+            // Friendly today / yesterday labels
+            const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const tempYesterday = new Date();
+            tempYesterday.setDate(tempYesterday.getDate() - 1);
+            const yesterday = tempYesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            let label = dateStr;
+            if (dateStr === today) label = "Today";
+            else if (dateStr === yesterday) label = "Yesterday";
+
+            dateDividerHtml = `<div class="message-date-divider">${label}</div>`;
+        }
+
+        // 2. Format Timestamp for bubble
+        const timeStr = msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        // 3. Sender badge for group chats
+        let senderBadge = "";
+        if (!isMe && (currentChatTarget.startsWith('group_') || currentChatTarget === 'group_all')) {
+            const init = (msg.senderName || msg.senderEmail || "?").substring(0, 2);
+            senderBadge = `<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px; margin-left: 2px;">
+                <div class="chat-badge-avatar" style="width:18px; height:18px; font-size:8px; background: rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); color:#8b5cf6;">${init}</div>
+                <span style="font-size: 10px; font-weight: 700; color: var(--accent-purple, #8b5cf6);">${msg.senderName || msg.senderEmail.split('@')[0]}</span>
+            </div>`;
+        }
+
+        const row = document.createElement("div");
+        row.style.cssText = "display: flex; flex-direction: column; width: 100%; margin-bottom: 6px;";
+        
+        // Build visual checkmarks for outgoing messages based on actual read status
+        let checkmarks = '';
+        if (isMe) {
+            if (msg.read === true) {
+                checkmarks = `<span style="color: #3b82f6; font-size: 9px;" title="Seen"><i class="fa-solid fa-check-double"></i></span>`;
+            } else {
+                checkmarks = `<span style="color: #94a3b8; font-size: 9px;" title="Delivered"><i class="fa-solid fa-check"></i></span>`;
+            }
+        }
+
+        row.innerHTML = `
+            ${dateDividerHtml}
+            <div style="display: flex; flex-direction: column; align-items: ${isMe ? 'flex-end' : 'flex-start'}; width: 100%;">
+                ${senderBadge}
+                <div class="message-bubble ${isMe ? 'message-outgoing' : 'message-incoming'}">
+                    <span style="padding-right: 45px; display: inline-block;">${msg.text}</span>
+                    <div class="message-time-meta">
+                        <span>${timeStr}</span>
+                        ${checkmarks}
+                    </div>
+                </div>
+            </div>
+        `;
+        viewport.appendChild(row);
+    });
+
+    // Auto Scroll to bottom
+    setTimeout(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+    }, 50);
+}
+
+
 
 
