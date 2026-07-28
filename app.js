@@ -307,6 +307,7 @@ const state = {
     pendingImageFile: null,
     currentTaskPublications: [],
     currentTaskSpokespersons: [],
+    currentTaskReferenceLinks: [],
     currentUser: "",
     currentUserEmail: "",
     activityLogs: [],
@@ -1598,6 +1599,22 @@ function setupEventListeners() {
                 name: ""
             });
             renderDrawerSpokespersons();
+        });
+    }
+
+    // Add reference link row
+    const btnAddRefLink = document.getElementById("btn-add-ref-link");
+    if (btnAddRefLink) {
+        btnAddRefLink.addEventListener("click", () => {
+            if (!state.currentTaskReferenceLinks) {
+                state.currentTaskReferenceLinks = [];
+            }
+            state.currentTaskReferenceLinks.push({
+                id: generateUUID(),
+                label: "",
+                url: ""
+            });
+            renderDrawerReferenceLinks();
         });
     }
 
@@ -3447,7 +3464,55 @@ function renderDrawerSpokespersons() {
     });
 }
 
-// Returns { icon, color, label } for a given social media platform subType
+function renderDrawerReferenceLinks() {
+    const container = document.getElementById("ref-links-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const list = state.currentTaskReferenceLinks || [];
+
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 10px; color: var(--text-muted); font-size: 12px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 8px;">No reference links added yet. Click "+ Add Link" to attach URLs.</div>`;
+        return;
+    }
+
+    list.forEach((link, idx) => {
+        const row = document.createElement("div");
+        row.style.cssText = "display: flex; gap: 8px; align-items: center; width: 100%;";
+        row.innerHTML = `
+            <input type="text" class="ref-link-label-input" data-index="${idx}" value="${link.label || ''}" placeholder="Label (e.g. Presentation, Brief...)" style="flex: 1; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+            <input type="url" class="ref-link-url-input" data-index="${idx}" value="${link.url || ''}" placeholder="https://..." style="flex: 2; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+            <button type="button" class="btn-remove-ref-link" data-index="${idx}" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 13px; padding: 4px 8px; flex-shrink: 0;" title="Remove Link">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        `;
+        container.appendChild(row);
+    });
+
+    container.querySelectorAll(".ref-link-label-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskReferenceLinks[idx].label = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".ref-link-url-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskReferenceLinks[idx].url = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".btn-remove-ref-link").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const idx = parseInt(btn.getAttribute("data-index"));
+            state.currentTaskReferenceLinks.splice(idx, 1);
+            renderDrawerReferenceLinks();
+        });
+    });
+}
+
+
 function getPlatformIcon(subType) {
     const platforms = {
         'LinkedIn':    { icon: 'fa-brands fa-linkedin',   color: '#0077b5', label: 'LinkedIn' },
@@ -3544,6 +3609,8 @@ function openDrawer(taskId = null, prefillData = null) {
     renderDrawerPublications();
     state.currentTaskSpokespersons = [];
     renderDrawerSpokespersons();
+    state.currentTaskReferenceLinks = [];
+    renderDrawerReferenceLinks();
 
     if (taskId) {
         title.textContent = "Edit Tracked Item";
@@ -3582,6 +3649,12 @@ function openDrawer(taskId = null, prefillData = null) {
             document.getElementById("task-canva-link").value = task.canvaLink || "";
             document.getElementById("task-live-link").value = task.liveLink || "";
             document.getElementById("task-remarks").value = task.remarks || "";
+
+            // Load reference links
+            state.currentTaskReferenceLinks = (task.referenceLinks && task.referenceLinks.length > 0)
+                ? JSON.parse(JSON.stringify(task.referenceLinks))
+                : [];
+            renderDrawerReferenceLinks();
             
             if (wipWhoInput) wipWhoInput.value = task.wipWho || "";
             if (wipWhyInput) wipWhyInput.value = task.wipWhy || "";
@@ -4042,7 +4115,10 @@ function handleFormSubmit(e) {
         engagement,
         image,
         wipWho,
-        wipWhy
+        wipWhy,
+        referenceLinks: (state.currentTaskReferenceLinks || [])
+            .filter(l => l.url && l.url.trim() !== "")
+            .map(l => ({ id: l.id || generateUUID(), label: l.label || "", url: l.url || "" }))
     };
 
     if (type === "PR Update") {
@@ -4850,6 +4926,14 @@ function renderTrackerTable() {
         if (task.image) {
             linksHtml += `<a href="#" class="link-circle img-link btn-view-image" data-id="${task.id}" title="View Media Clipping"><i class="fa-solid fa-image"></i></a>`;
         }
+        if (task.referenceLinks && task.referenceLinks.length > 0) {
+            task.referenceLinks.forEach(refLink => {
+                if (refLink.url && refLink.url.startsWith("http")) {
+                    const label = refLink.label ? refLink.label : "Reference Link";
+                    linksHtml += `<a href="${refLink.url}" target="_blank" class="link-circle" style="background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.25); color: #8b5cf6;" title="${label}"><i class="fa-solid fa-link"></i></a>`;
+                }
+            });
+        }
         linksHtml += '</div>';
 
         // PR Specific details to display
@@ -4914,7 +4998,7 @@ function renderTrackerTable() {
         // Remarks (Details & Comments)
         let remarksHtml = "";
         if (task.remarks && task.remarks.trim() !== "") {
-            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 500px; white-space: pre-line;">${task.remarks}</div>`;
+            remarksHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 420px; overflow-wrap: break-word; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${task.remarks.replace(/"/g, '&quot;')}">${task.remarks}</div>`;
         }
 
         const titleAndImageHtml = trackerImageHtml 

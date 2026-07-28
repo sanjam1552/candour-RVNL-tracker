@@ -1203,6 +1203,19 @@
                     <textarea id="task-remarks" placeholder="Add details of approvals, dependencies, or comments..." rows="3"></textarea>
                 </div>
 
+                <!-- Reference Links Section -->
+                <div class="form-section" style="border-top: 1px dashed var(--border-color); padding-top: 14px; margin-top: 4px; margin-bottom: 16px;">
+                    <h4 style="font-size: 13px; margin-bottom: 12px; color: var(--accent-purple, #8b5cf6); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: 600;">
+                        <span><i class="fa-solid fa-link" style="margin-right: 6px;"></i> Reference Links</span>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-add-ref-link" style="padding: 4px 10px; font-size: 11px; height: 26px; border-radius: 8px; font-family: var(--font-body); font-weight: 600; background: rgba(139,92,246,0.15); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.3);">
+                            <i class="fa-solid fa-plus"></i> Add Link
+                        </button>
+                    </h4>
+                    <div id="ref-links-container" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamic reference link rows rendered by JS -->
+                    </div>
+                </div>
+
                 <div class="drawer-footer">
                     <button type="button" class="btn btn-secondary" id="cancel-drawer-btn">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="save-task-btn">Save Changes</button>
