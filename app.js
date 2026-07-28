@@ -79,6 +79,11 @@ function getPublishDateValue(task) {
     return task.createdAt || 0;
 }
 
+// Returns true if the client workspace is PR-only (no Social Media/Creative assets)
+function isPROnlyClient(client) {
+    return client === "Zoom";
+}
+
 // Check if a task is active in a given month (either its month matches, or it is carried forward from a previous month)
 function isTaskActiveInMonth(task, selectedMonthStr) {
     if (!task.month) return false;
@@ -301,6 +306,7 @@ const state = {
     activeUploads: new Set(),
     pendingImageFile: null,
     currentTaskPublications: [],
+    currentTaskSpokespersons: [],
     currentUser: "",
     currentUserEmail: "",
     activityLogs: [],
@@ -322,6 +328,50 @@ function getWeekFromDateStr(dateStr) {
     if (day <= 21) return "Week 3";
     if (day <= 28) return "Week 4";
     return "Week 5";
+}
+
+// Calculate PR deadline status (overdue or remaining days)
+function getPRDeadlineStatus(task) {
+    if (!task || !task.targetCompletionDate) return null;
+    
+    // If completed or not used by client, return "Completed" status
+    if (task.status === "Published/Closed" || task.status === "Not used by client") {
+        return {
+            status: "completed",
+            text: "Completed",
+            days: 0
+        };
+    }
+    
+    const targetDate = new Date(task.targetCompletionDate);
+    // Strip time portion for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        const overdueDays = Math.abs(diffDays);
+        return {
+            status: "overdue",
+            text: `Overdue by ${overdueDays} day${overdueDays > 1 ? 's' : ''}`,
+            days: diffDays
+        };
+    } else if (diffDays === 0) {
+        return {
+            status: "pending",
+            text: "Due today",
+            days: 0
+        };
+    } else {
+        return {
+            status: "pending",
+            text: `Due in ${diffDays} day${diffDays > 1 ? 's' : ''}`,
+            days: diffDays
+        };
+    }
 }
 
 // Format date to local readable format
@@ -573,7 +623,7 @@ async function loadData() {
                     state.userPermissions[lowerEmail] = {
                         isAdmin: ADMIN_EMAILS.includes(lowerEmail)
                     };
-                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour"].forEach(client => {
+                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"].forEach(client => {
                         state.userPermissions[lowerEmail][client] = "Full";
                     });
                     needsSave = true;
@@ -586,7 +636,7 @@ async function loadData() {
                 state.userPermissions[state.currentUserEmail] = {
                     isAdmin: isSuper
                 };
-                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour"].forEach(client => {
+                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"].forEach(client => {
                     // Super admins get Full access automatically, others default to None (Access Pending)
                     state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
                 });
@@ -632,7 +682,8 @@ async function loadData() {
                 else if (task.status === "Awaiting Review" || task.status === "Sent for internal approval") task.status = "Sent for internal approval";
                 else if (task.status === "Awaiting Approval" || task.status === "Sent to client") task.status = "Sent to client";
                 else if (task.status === "Published" || task.status === "Published/Closed") task.status = "Published/Closed";
-                else if (["On Hold", "Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
+                else if (task.status === "On Hold" || task.status === "On hold") task.status = "On hold";
+                else if (["Not Published", "Not posted by client missed", "Not used by client"].includes(task.status)) {
                     task.status = "Not used by client";
                 }
                 
@@ -1518,11 +1569,35 @@ function setupEventListeners() {
             state.currentTaskPublications.push({
                 id: generateUUID(),
                 name: "",
+                headline: "",
                 link: "",
                 image: "",
-                date: ""
+                date: "",
+                coverageType: "",
+                journalist: "",
+                tier: "",
+                sentiment: "",
+                syndication: "",
+                agencyGenerated: "",
+                keyMessages: "",
+                _isExpanded: false
             });
             renderDrawerPublications();
+        });
+    }
+
+    // Add spokesperson row
+    const btnAddSpokesperson = document.getElementById("btn-add-spokesperson");
+    if (btnAddSpokesperson) {
+        btnAddSpokesperson.addEventListener("click", () => {
+            if (!state.currentTaskSpokespersons) {
+                state.currentTaskSpokespersons = [];
+            }
+            state.currentTaskSpokespersons.push({
+                id: generateUUID(),
+                name: ""
+            });
+            renderDrawerSpokespersons();
         });
     }
 
@@ -1755,6 +1830,8 @@ function setupEventListeners() {
                 else if (activeClient === "Kompact AI") activeLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
                 else if (activeClient === "BT Group") activeLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
                 else if (activeClient === "Candour") activeLogoSrc = "inputs/candour logo.png";
+                else if (activeClient === "Green Shine Solar") activeLogoSrc = "inputs/greenshine logo.png";
+                else if (activeClient === "Zoom") activeLogoSrc = "inputs/Zoom-Logo.png";
                 
                 const switcherActiveLogo = document.getElementById("switcher-active-logo");
                 if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(activeLogoSrc)) {
@@ -1803,6 +1880,8 @@ function setupEventListeners() {
                 else if (hoveredClient === "Kompact AI") hoveredLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
                 else if (hoveredClient === "BT Group") hoveredLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
                 else if (hoveredClient === "Candour") hoveredLogoSrc = "inputs/candour logo.png";
+                else if (hoveredClient === "Green Shine Solar") hoveredLogoSrc = "inputs/greenshine logo.png";
+                else if (hoveredClient === "Zoom") hoveredLogoSrc = "inputs/Zoom-Logo.png";
                 
                 const switcherActiveLogo = document.getElementById("switcher-active-logo");
                 if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(hoveredLogoSrc)) {
@@ -2033,7 +2112,7 @@ function getClientList() {
         if (clientName && !list.includes(clientName)) list.push(clientName);
     });
     if (list.length === 0) {
-        return ["RVNL", "Legrand", "iCode", "Kompact AI"];
+        return ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"];
     }
     return list;
 }
@@ -2493,6 +2572,12 @@ function switchClient(client) {
     } else if (targetClient === "Candour") {
         logoSrc = "inputs/candour logo.png";
         displayName = "Candour";
+    } else if (targetClient === "Green Shine Solar") {
+        logoSrc = "inputs/greenshine logo.png";
+        displayName = "Green Shine Solar";
+    } else if (targetClient === "Zoom") {
+        logoSrc = "inputs/Zoom-Logo.png";
+        displayName = "Zoom";
     }
     
     if (activeLogo) activeLogo.src = logoSrc;
@@ -2790,6 +2875,9 @@ function togglePRFormFields(type) {
     const subTypeSelect = document.getElementById("task-sub-type");
     const lblSubType = document.getElementById("lbl-sub-type");
     const prPubsSection = document.getElementById("pr-publications-section");
+    const prSpokespersonsSection = document.getElementById("pr-spokespersons-section");
+    const prCampaignTypeSection = document.getElementById("pr-campaign-type-section");
+    const prMetaRow = document.getElementById("pr-meta-row");
     
     const liveLinkGroup = document.getElementById("task-live-link").closest(".form-group");
     const canvaLinkGroup = document.getElementById("task-canva-link").closest(".form-group");
@@ -2800,14 +2888,25 @@ function togglePRFormFields(type) {
     const taskWeekGroup = document.getElementById("task-week").closest(".form-group");
     const taskMonthGroup = document.getElementById("task-month").closest(".form-group");
     const taskDateGroup = document.getElementById("task-date").closest(".form-group");
+    const taskStatusSelect = document.getElementById("task-status");
 
     // Always show sub-type group first (will be hidden for Social Media)
     const subTypeGroupEl = subTypeSelect.closest('.form-group');
     if (subTypeGroupEl) subTypeGroupEl.classList.remove('hidden');
 
     if (state.activeClient === "iCode") {
+        if (taskStatusSelect) {
+            taskStatusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
         prFields.classList.add("hidden");
         prPubsSection.classList.add("hidden");
+        if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
         if (imageGroup) imageGroup.classList.remove("hidden");
@@ -2826,8 +2925,20 @@ function togglePRFormFields(type) {
     }
 
     if (type === "PR Update") {
+        if (taskStatusSelect) {
+            taskStatusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Sent to journalist">Sent to journalist</option>
+                <option value="On hold">On hold</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
         prFields.classList.remove("hidden");
         prPubsSection.classList.remove("hidden");
+        if (prMetaRow) prMetaRow.classList.remove("hidden");
         
         // Hide standard singular fields for PR
         if (liveLinkGroup) liveLinkGroup.classList.add("hidden");
@@ -2836,41 +2947,36 @@ function togglePRFormFields(type) {
         if (taskWeekGroup) taskWeekGroup.classList.add("hidden");
         if (taskDateGroup) taskDateGroup.classList.add("hidden");
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-12";
-        if (oldPubGroup) {
-            oldPubGroup.classList.add("hidden");
-            // Change spokesperson to full width since pub is hidden
-            if (spokespersonGroup) spokespersonGroup.className = "form-group col-12";
-        }
+        if (oldPubGroup) oldPubGroup.classList.add("hidden");
+        if (spokespersonGroup) spokespersonGroup.classList.add("hidden");
 
         lblSubType.textContent = "PR Category";
-        if (state.activeClient === "Legrand") {
-            subTypeSelect.innerHTML = `
-                <option value="Press Release">Press Release</option>
-                <option value="Interview">Interview</option>
-                <option value="Event coverage">Event Coverage</option>
-                <option value="Byline Article">Byline Article</option>
-                <option value="Documents">Documents</option>
-            `;
-        } else if (state.activeClient === "Kompact AI") {
-            subTypeSelect.innerHTML = `
-                <option value="Press Release">Press Release</option>
-                <option value="Interview">Interview</option>
-                <option value="Event coverage">Event Coverage</option>
-                <option value="Industry stories">Industry stories</option>
-                <option value="Authored Article">Authored Article</option>
-                <option value="Documents">Documents</option>
-            `;
-        } else {
-            subTypeSelect.innerHTML = `
-                <option value="Press Release">Press Release</option>
-                <option value="Interview">Interview</option>
-                <option value="Event coverage">Event Coverage</option>
-                <option value="Documents">Documents</option>
+        subTypeSelect.innerHTML = `
+            <option value="Press Release">Press Release</option>
+            <option value="Interview">Interview</option>
+            <option value="Byline or Authored Article">Byline or Authored Article</option>
+            <option value="Press Conference or Roundtable">Press Conference or Roundtable</option>
+            <option value="Leadership Profiling">Leadership Profiling</option>
+            <option value="Award Nomination">Award Nomination</option>
+            <option value="Speaking Opportunity">Speaking Opportunity</option>
+            <option value="Reactive Statement/Industry Story">Reactive Statement/Industry Story</option>
+            <option value="Event coverage">Event Coverage</option>
+            <option value="Documents">Documents</option>
+            <option value="Other">Other</option>
+        `;
+    } else if (type === "Social Media") {
+        if (taskStatusSelect) {
+            taskStatusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
             `;
         }
-    } else if (type === "Social Media") {
         prFields.classList.add("hidden");
         prPubsSection.classList.add("hidden");
+        if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
         if (imageGroup) imageGroup.classList.remove("hidden");
@@ -2879,7 +2985,10 @@ function togglePRFormFields(type) {
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
         if (oldPubGroup) {
             oldPubGroup.classList.remove("hidden");
-            if (spokespersonGroup) spokespersonGroup.className = "form-group col-6";
+            if (spokespersonGroup) {
+                spokespersonGroup.classList.remove("hidden");
+                spokespersonGroup.className = "form-group col-6";
+            }
         }
         
         // Social media posts go to ALL platforms — hide sub-type selector
@@ -2888,8 +2997,18 @@ function togglePRFormFields(type) {
         subTypeSelect.innerHTML = `<option value="All Platforms">All Platforms</option>`;
         return; // early return to avoid showing sub-type group below
     } else {
+        if (taskStatusSelect) {
+            taskStatusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
         prFields.classList.add("hidden");
         prPubsSection.classList.add("hidden");
+        if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
         if (imageGroup) imageGroup.classList.remove("hidden");
@@ -2898,7 +3017,10 @@ function togglePRFormFields(type) {
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
         if (oldPubGroup) {
             oldPubGroup.classList.remove("hidden");
-            if (spokespersonGroup) spokespersonGroup.className = "form-group col-6";
+            if (spokespersonGroup) {
+                spokespersonGroup.classList.remove("hidden");
+                spokespersonGroup.className = "form-group col-6";
+            }
         }
         
         lblSubType.textContent = "Asset Sub-category";
@@ -2963,6 +3085,17 @@ function renderDrawerPublications() {
     container.innerHTML = "";
 
     const list = state.currentTaskPublications || [];
+
+    // Toggle drawer expansion class based on whether any publication exists
+    const drawer = document.querySelector(".task-drawer");
+    if (drawer) {
+        if (list.length > 0) {
+            drawer.classList.add("expanded");
+        } else {
+            drawer.classList.remove("expanded");
+        }
+    }
+
     if (list.length === 0) {
         container.innerHTML = `<div style="text-align: center; padding: 12px; color: var(--text-muted); font-size: 12px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-radius: 8px;">No publications added yet. Click "Add Publication" to list coverages.</div>`;
         return;
@@ -2973,17 +3106,24 @@ function renderDrawerPublications() {
         row.className = "pr-pub-row";
         row.style.cssText = "background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative;";
         
+        const isExpanded = pub._isExpanded || false;
+        
         row.innerHTML = `
             <button type="button" class="btn-remove-pub" data-index="${idx}" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 13px;" title="Remove Publication">
                 <i class="fa-solid fa-trash"></i>
             </button>
             
-            <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 0;">
-                <div style="flex: 1; min-width: 0;">
+            <!-- Row 1: Core Fields -->
+            <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 0; align-items: flex-end;">
+                <div style="flex: 1.5; min-width: 0;">
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Publication Name</label>
                     <input type="text" class="pub-name-input" data-index="${idx}" value="${pub.name || ''}" placeholder="e.g. The Hindu" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                 </div>
-                <div style="flex: 1; min-width: 0;">
+                <div style="flex: 2; min-width: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Headline</label>
+                    <input type="text" class="pub-headline-input" data-index="${idx}" value="${pub.headline || ''}" placeholder="e.g. Green Shine Solar Launches New Plant" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+                <div style="flex: 2; min-width: 0;">
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Live / Verification Link</label>
                     <input type="url" class="pub-link-input" data-index="${idx}" value="${pub.link || ''}" placeholder="https://..." style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                 </div>
@@ -2991,34 +3131,107 @@ function renderDrawerPublications() {
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Pub Date</label>
                     <input type="text" class="pub-date-input" data-index="${idx}" value="${pub.date || ''}" placeholder="e.g. 5th June" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                 </div>
+                <button type="button" class="btn-toggle-pub-details btn btn-secondary btn-sm" data-index="${idx}" style="height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; gap: 4px; font-weight: 600; white-space: nowrap; margin-bottom: 0;" title="${isExpanded ? 'Hide Details' : 'Show Details'}">
+                    <i class="fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
+                    <span>${isExpanded ? 'Less' : 'More'}</span>
+                </button>
             </div>
             
-            <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Press Clipping Image</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="file" class="pub-file-input" id="pub-file-${pub.id}" data-index="${idx}" accept="image/*" style="display: none;">
-                    <label for="pub-file-${pub.id}" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; border-radius: 8px; margin: 0; box-sizing: border-box; white-space: nowrap;"><i class="fa-solid fa-upload"></i> Upload</label>
-                    <input type="text" class="pub-image-url-input" data-index="${idx}" value="${pub.image || ''}" placeholder="Or enter Image URL / Paste (Ctrl+V) image..." style="flex: 1; font-size: 12px; padding: 6px 10px; height: 32px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
-                    
-                    ${pub.image ? `
-                    <div class="pub-img-preview-container" style="position: relative; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; background: var(--bg-primary); flex-shrink: 0;">
-                        <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: cover;">
-                        <div class="pub-img-preview-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')">
-                            <i class="fa-solid fa-eye" style="font-size: 10px; color: #fff;"></i>
-                        </div>
-                    </div>` : ''}
-                </div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 4.5px; display: flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-circle-info" style="font-size: 9px; color: var(--accent-blue);"></i>
-                    <span>Tip: Click here and press <strong>Ctrl+V</strong> to paste copied image.</span>
-                </div>
-                <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span class="pub-upload-text">Uploading clipping to storage...</span>
-                        <span class="pub-upload-percent">0%</span>
+            <!-- Collapsible details container -->
+            <div class="pub-details-collapsible ${isExpanded ? '' : 'hidden'}" style="display: flex; flex-direction: column; gap: 12px; border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 4px;">
+                
+                <!-- Row 2: Coverage Type, Journalist, Tier -->
+                <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 0;">
+                    <div style="flex: 1; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Coverage Type</label>
+                        <select class="pub-coverage-type-select" data-index="${idx}" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="">-- Select Type --</option>
+                            <option value="Print" ${pub.coverageType === 'Print' ? 'selected' : ''}>Print</option>
+                            <option value="Online" ${pub.coverageType === 'Online' ? 'selected' : ''}>Online</option>
+                            <option value="Television" ${pub.coverageType === 'Television' ? 'selected' : ''}>Television</option>
+                            <option value="Podcast" ${pub.coverageType === 'Podcast' ? 'selected' : ''}>Podcast</option>
+                            <option value="Social" ${pub.coverageType === 'Social' ? 'selected' : ''}>Social</option>
+                        </select>
                     </div>
-                    <div class="pub-upload-progress-container">
-                        <div class="pub-upload-progress-bar"></div>
+                    <div style="flex: 1.5; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Journalist Name</label>
+                        <input type="text" class="pub-journalist-input" data-index="${idx}" value="${pub.journalist || ''}" placeholder="e.g. Jane Doe" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Publication Tier</label>
+                        <select class="pub-tier-select" data-index="${idx}" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="">-- Select Tier --</option>
+                            <option value="Tier 1" ${pub.tier === 'Tier 1' ? 'selected' : ''}>Tier 1</option>
+                            <option value="Tier 2" ${pub.tier === 'Tier 2' ? 'selected' : ''}>Tier 2</option>
+                            <option value="Tier 3" ${pub.tier === 'Tier 3' ? 'selected' : ''}>Tier 3</option>
+                            <option value="Other" ${pub.tier === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Row 3: Sentiment, Syndication, Generated by Agency -->
+                <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 0;">
+                    <div style="flex: 1; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Sentiment</label>
+                        <select class="pub-sentiment-select" data-index="${idx}" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="">-- Select Sentiment --</option>
+                            <option value="Positive" ${pub.sentiment === 'Positive' ? 'selected' : ''}>Positive</option>
+                            <option value="Neutral" ${pub.sentiment === 'Neutral' ? 'selected' : ''}>Neutral</option>
+                            <option value="Negative" ${pub.sentiment === 'Negative' ? 'selected' : ''}>Negative</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Syndication / Own</label>
+                        <select class="pub-syndication-select" data-index="${idx}" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="">-- Select Option --</option>
+                            <option value="Own" ${pub.syndication === 'Own' ? 'selected' : ''}>Own</option>
+                            <option value="Syndication" ${pub.syndication === 'Syndication' ? 'selected' : ''}>Syndication</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Generated by Agency</label>
+                        <select class="pub-agency-generated-select" data-index="${idx}" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="">-- Select Option --</option>
+                            <option value="Yes" ${pub.agencyGenerated === 'Yes' ? 'selected' : ''}>Yes</option>
+                            <option value="No" ${pub.agencyGenerated === 'No' ? 'selected' : ''}>No</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 4: Key Messages -->
+                <div style="width: 100%; margin-bottom: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Key Messages</label>
+                    <input type="text" class="pub-key-messages-input" data-index="${idx}" value="${pub.keyMessages || ''}" placeholder="e.g. Focus on clean energy, sustainable operations, expansion" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+                
+                <!-- Row 5: Press Clipping Image (Existing) -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Press Clipping Image</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="file" class="pub-file-input" id="pub-file-${pub.id}" data-index="${idx}" accept="image/*" style="display: none;">
+                        <label for="pub-file-${pub.id}" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; border-radius: 8px; margin: 0; box-sizing: border-box; white-space: nowrap;"><i class="fa-solid fa-upload"></i> Upload Image</label>
+                        <input type="text" class="pub-image-url-input" data-index="${idx}" value="${pub.image || ''}" placeholder="Or enter Image URL / Paste (Ctrl+V) image..." style="flex: 1; font-size: 12px; padding: 6px 10px; height: 32px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                        
+                        ${pub.image ? `
+                        <div class="pub-img-preview-container" style="position: relative; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; background: var(--bg-primary); flex-shrink: 0;">
+                            <img src="${pub.image}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div class="pub-img-preview-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; cursor: pointer;" onclick="viewImageInNewWindow('${pub.image}')">
+                                <i class="fa-solid fa-eye" style="font-size: 10px; color: #fff;"></i>
+                            </div>
+                        </div>` : ''}
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-muted); margin-top: 4.5px; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-circle-info" style="font-size: 9px; color: var(--accent-blue);"></i>
+                        <span>Tip: Click here and press <strong>Ctrl+V</strong> to paste copied image.</span>
+                    </div>
+                    <div class="pub-upload-status" style="font-size: 10.5px; color: var(--accent-blue); font-weight: 500; margin-top: 4px; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span class="pub-upload-text">Uploading clipping to storage...</span>
+                            <span class="pub-upload-percent">0%</span>
+                        </div>
+                        <div class="pub-upload-progress-container">
+                            <div class="pub-upload-progress-bar"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3043,6 +3256,13 @@ function renderDrawerPublications() {
         });
     });
 
+    container.querySelectorAll(".pub-headline-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].headline = e.target.value;
+        });
+    });
+
     container.querySelectorAll(".pub-link-input").forEach(input => {
         input.addEventListener("input", (e) => {
             const idx = parseInt(e.target.getAttribute("data-index"));
@@ -3054,6 +3274,64 @@ function renderDrawerPublications() {
         input.addEventListener("input", (e) => {
             const idx = parseInt(e.target.getAttribute("data-index"));
             state.currentTaskPublications[idx].date = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-coverage-type-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].coverageType = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-journalist-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].journalist = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-tier-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].tier = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-sentiment-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].sentiment = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-syndication-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].syndication = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-agency-generated-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].agencyGenerated = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".pub-key-messages-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskPublications[idx].keyMessages = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".btn-toggle-pub-details").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const idx = parseInt(btn.getAttribute("data-index"));
+            const pub = state.currentTaskPublications[idx];
+            pub._isExpanded = !(pub._isExpanded || false);
+            renderDrawerPublications();
         });
     });
 
@@ -3127,6 +3405,48 @@ function renderDrawerPublications() {
     });
 }
 
+function renderDrawerSpokespersons() {
+    const container = document.getElementById("pr-spokespersons-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const list = state.currentTaskSpokespersons || [];
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 12px; color: var(--text-muted); font-size: 12px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-radius: 8px;">No spokespersons added yet. Click "Add Spokesperson".</div>`;
+        return;
+    }
+
+    list.forEach((sp, idx) => {
+        const row = document.createElement("div");
+        row.className = "pr-spokesperson-row";
+        row.style.cssText = "display: flex; gap: 10px; align-items: center; width: 100%; margin-bottom: 0;";
+        
+        row.innerHTML = `
+            <input type="text" class="spokesperson-name-input" data-index="${idx}" value="${sp.name || ''}" placeholder="e.g. CMD / Director Projects" style="flex: 1; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+            <button type="button" class="btn-remove-spokesperson btn btn-danger-sm" data-index="${idx}" style="padding: 6px 10px; height: 36px; border-radius: 8px; font-size: 12px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" title="Remove Spokesperson">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        `;
+        container.appendChild(row);
+    });
+
+    // Wire up events for inputs and buttons inside the newly rendered rows
+    container.querySelectorAll(".spokesperson-name-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.getAttribute("data-index"));
+            state.currentTaskSpokespersons[idx].name = e.target.value;
+        });
+    });
+
+    container.querySelectorAll(".btn-remove-spokesperson").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const idx = parseInt(btn.getAttribute("data-index"));
+            state.currentTaskSpokespersons.splice(idx, 1);
+            renderDrawerSpokespersons();
+        });
+    });
+}
+
 // Returns { icon, color, label } for a given social media platform subType
 function getPlatformIcon(subType) {
     const platforms = {
@@ -3148,7 +3468,7 @@ function getPlatformIcon(subType) {
 function toggleWipCommentFields(status) {
     const group = document.getElementById("wip-comments-group");
     if (!group) return;
-    if (status === "WIP" || status === "Sent for internal approval") {
+    if (status === "WIP" || status === "Sent for internal approval" || status === "On hold" || status === "Sent to journalist") {
         group.classList.remove("hidden");
     } else {
         group.classList.add("hidden");
@@ -3168,6 +3488,19 @@ function openDrawer(taskId = null, prefillData = null) {
         cb.checked = false;
     });
 
+    // Reset PR campaign type checkboxes
+    document.querySelectorAll('input[name="pr-campaign-type"]').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Reset PR deadlines & priority
+    const targetCompDateInput = document.getElementById("task-target-completion-date");
+    const oppDeadlineInput = document.getElementById("task-opportunity-deadline");
+    const prPrioritySelect = document.getElementById("task-priority");
+    if (targetCompDateInput) targetCompDateInput.value = "";
+    if (oppDeadlineInput) oppDeadlineInput.value = "";
+    if (prPrioritySelect) prPrioritySelect.value = "Medium";
+
     // Reset WIP comment fields
     const wipWhoInput = document.getElementById("task-wip-who");
     const wipWhyInput = document.getElementById("task-wip-why");
@@ -3182,19 +3515,35 @@ function openDrawer(taskId = null, prefillData = null) {
     document.getElementById("task-week").value = getCurrentWeekStr();
     document.getElementById("task-status").value = "WIP";
     
-    if (state.activeClient === "iCode") {
-        document.getElementById("task-type").value = "Organic";
+    const taskTypeSelect = document.getElementById("task-type");
+    if (isPROnlyClient(state.activeClient)) {
+        taskTypeSelect.innerHTML = `<option value="PR Update">PR Update (Press Release / Media)</option>`;
+        taskTypeSelect.value = "PR Update";
+        togglePRFormFields("PR Update");
+    } else if (state.activeClient === "iCode") {
+        taskTypeSelect.innerHTML = `
+            <option value="Organic">Organic Post</option>
+            <option value="Paid">Paid Campaign</option>
+        `;
+        taskTypeSelect.value = "Organic";
         togglePRFormFields("Social Media");
         document.querySelectorAll('input[name="icode-campaign-type"]').forEach(cb => {
             cb.checked = (cb.value === "Organic");
         });
     } else {
-        document.getElementById("task-type").value = "Social Media";
+        taskTypeSelect.innerHTML = `
+            <option value="Social Media">Social Media Post</option>
+            <option value="PR Update">PR Update (Press Release / Media)</option>
+            <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+        `;
+        taskTypeSelect.value = "Social Media";
         togglePRFormFields("Social Media");
     }
     toggleWipCommentFields("WIP"); // default status is WIP
     state.currentTaskPublications = [];
     renderDrawerPublications();
+    state.currentTaskSpokespersons = [];
+    renderDrawerSpokespersons();
 
     if (taskId) {
         title.textContent = "Edit Tracked Item";
@@ -3242,6 +3591,19 @@ function openDrawer(taskId = null, prefillData = null) {
                 document.getElementById("task-spokesperson").value = task.spokesperson || "";
                 document.getElementById("task-publication").value = task.publication || "";
                 
+                // Prefill PR deadlines & priority
+                if (targetCompDateInput) targetCompDateInput.value = task.targetCompletionDate || "";
+                if (oppDeadlineInput) oppDeadlineInput.value = task.opportunityDeadline || "";
+                if (prPrioritySelect) prPrioritySelect.value = task.priority || "Medium";
+
+                // Prefill checkboxes for PR campaign type (Organic / Paid)
+                const prCampaignTypes = Array.isArray(task.campaignType) 
+                    ? task.campaignType 
+                    : (task.campaignType ? [task.campaignType] : []);
+                document.querySelectorAll('input[name="pr-campaign-type"]').forEach(cb => {
+                    cb.checked = prCampaignTypes.includes(cb.value);
+                });
+
                 let publicationsList = [];
                 if (task.publicationsList && task.publicationsList.length > 0) {
                     publicationsList = JSON.parse(JSON.stringify(task.publicationsList));
@@ -3256,6 +3618,18 @@ function openDrawer(taskId = null, prefillData = null) {
                 }
                 state.currentTaskPublications = publicationsList;
                 renderDrawerPublications();
+
+                let spokespersonsList = [];
+                if (task.spokespersonsList && task.spokespersonsList.length > 0) {
+                    spokespersonsList = JSON.parse(JSON.stringify(task.spokespersonsList));
+                } else if (task.spokesperson) {
+                    spokespersonsList = task.spokesperson.split(",").map(name => name.trim()).filter(Boolean).map(name => ({
+                        id: generateUUID(),
+                        name: name
+                    }));
+                }
+                state.currentTaskSpokespersons = spokespersonsList;
+                renderDrawerSpokespersons();
             }
 
             // Image clipping preview if it exists
@@ -3314,6 +3688,8 @@ function openDrawer(taskId = null, prefillData = null) {
 // Close Drawer
 function closeDrawer() {
     document.getElementById("task-drawer-overlay").classList.remove("active");
+    const drawer = document.querySelector(".task-drawer");
+    if (drawer) drawer.classList.remove("expanded");
 }
 
 // Compress and scale uploaded images to a standard size for optimization
@@ -3601,8 +3977,8 @@ function handleFormSubmit(e) {
     const engagement = "";
     
     // WIP comment fields
-    const wipWho = (status === "WIP" || status === "Sent for internal approval") ? (document.getElementById("task-wip-who") ? document.getElementById("task-wip-who").value.trim() : "") : "";
-    const wipWhy = (status === "WIP" || status === "Sent for internal approval") ? (document.getElementById("task-wip-why") ? document.getElementById("task-wip-why").value.trim() : "") : "";
+    const wipWho = (status === "WIP" || status === "Sent for internal approval" || status === "On hold" || status === "Sent to journalist") ? (document.getElementById("task-wip-who") ? document.getElementById("task-wip-who").value.trim() : "") : "";
+    const wipWhy = (status === "WIP" || status === "Sent for internal approval" || status === "On hold" || status === "Sent to journalist") ? (document.getElementById("task-wip-why") ? document.getElementById("task-wip-why").value.trim() : "") : "";
     
     // Check image source (file upload base64 or custom URL)
     let image = "";
@@ -3670,13 +4046,37 @@ function handleFormSubmit(e) {
     };
 
     if (type === "PR Update") {
-        taskData.spokesperson = document.getElementById("task-spokesperson").value;
+        const selectedPRCampaignTypes = Array.from(document.querySelectorAll('input[name="pr-campaign-type"]:checked')).map(cb => cb.value);
+        taskData.campaignType = selectedPRCampaignTypes;
+
+        const targetCompDateVal = document.getElementById("task-target-completion-date") ? document.getElementById("task-target-completion-date").value : "";
+        const oppDeadlineVal = document.getElementById("task-opportunity-deadline") ? document.getElementById("task-opportunity-deadline").value : "";
+        const priorityVal = document.getElementById("task-priority") ? document.getElementById("task-priority").value : "Medium";
+        
+        taskData.targetCompletionDate = targetCompDateVal;
+        taskData.opportunityDeadline = oppDeadlineVal;
+        taskData.priority = priorityVal;
+
+        taskData.spokespersonsList = (state.currentTaskSpokespersons || []).map(sp => ({
+            id: sp.id || generateUUID(),
+            name: sp.name || ""
+        })).filter(sp => sp.name.trim() !== "");
+        taskData.spokesperson = taskData.spokespersonsList.map(sp => sp.name).join(", ");
+        
         taskData.publicationsList = (state.currentTaskPublications || []).map(p => ({
             id: p.id || generateUUID(),
             name: p.name || "",
+            headline: p.headline || "",
             link: p.link || "",
             image: p.image || "",
-            date: p.date || ""
+            date: p.date || "",
+            coverageType: p.coverageType || "",
+            journalist: p.journalist || "",
+            tier: p.tier || "",
+            sentiment: p.sentiment || "",
+            syndication: p.syndication || "",
+            agencyGenerated: p.agencyGenerated || "",
+            keyMessages: p.keyMessages || ""
         }));
         taskData.publication = taskData.publicationsList.map(p => p.name).filter(Boolean).join(", ");
         taskData.liveLink = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].link : "";
@@ -3686,7 +4086,11 @@ function handleFormSubmit(e) {
     } else {
         taskData.spokesperson = "";
         taskData.publication = "";
+        taskData.spokespersonsList = [];
         taskData.publicationsList = [];
+        taskData.targetCompletionDate = "";
+        taskData.opportunityDeadline = "";
+        taskData.priority = "";
     }
 
     if (id) {
@@ -3804,16 +4208,58 @@ async function duplicateTask(id) {
 function updateDashboard() {
     const selectedMonth = state.dashboardMonth || getCurrentMonthStr();
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient && isTaskActiveInMonth(t, selectedMonth));
-    // 1. Calculate general stats
-    const total = clientTasks.length;
-    const linkedin = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-    const pr = getPRPublicationsCount(clientTasks);
-    const wip = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client'].includes(t.status)).length;
+    const isPROnly = isPROnlyClient(state.activeClient);
+    
+    // Dynamically adjust headers and descriptions for PR Only client dashboard
+    const totalCardH3 = document.querySelector("#stat-card-total h3");
+    const totalCardDesc = document.querySelector("#stat-card-total .stat-desc");
+    const smCardH3 = document.querySelector("#stat-card-linkedin h3");
+    const smCardDesc = document.querySelector("#stat-card-linkedin .stat-desc");
+    const prCardH3 = document.querySelector("#stat-card-pr h3");
+    const prCardDesc = document.querySelector("#stat-card-pr .stat-desc");
+    const wipCardH3 = document.querySelector("#stat-card-wip h3");
+    const wipCardDesc = document.querySelector("#stat-card-wip .stat-desc");
 
-    document.getElementById("stat-total-creatives").textContent = total;
-    document.getElementById("stat-total-linkedin").textContent = linkedin;
-    document.getElementById("stat-total-pr").textContent = pr;
-    document.getElementById("stat-total-wip").textContent = wip;
+    if (isPROnly) {
+        if (totalCardH3) totalCardH3.textContent = "Total PR Tasks";
+        if (totalCardDesc) totalCardDesc.textContent = "Ongoing & completed PR runs";
+        if (smCardH3) smCardH3.textContent = "Total Coverages";
+        if (smCardDesc) smCardDesc.textContent = "Publications secured";
+        if (prCardH3) prCardH3.textContent = "Overdue Tasks";
+        if (prCardDesc) prCardDesc.textContent = "PR targets past completion date";
+        if (wipCardH3) wipCardH3.textContent = "In Progress";
+        if (wipCardDesc) wipCardDesc.textContent = "Under draft or review";
+        
+        // Calculate PR-only metrics
+        const totalVal = clientTasks.length;
+        const coveragesVal = getPRPublicationsCount(clientTasks);
+        const overdueVal = clientTasks.filter(t => t.type === "PR Update" && getPRDeadlineStatus(t)?.status === "overdue").length;
+        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold'].includes(t.status)).length;
+        
+        document.getElementById("stat-total-creatives").textContent = totalVal;
+        document.getElementById("stat-total-linkedin").textContent = coveragesVal;
+        document.getElementById("stat-total-pr").textContent = overdueVal;
+        document.getElementById("stat-total-wip").textContent = wipVal;
+    } else {
+        if (totalCardH3) totalCardH3.textContent = "Total Creatives";
+        if (totalCardDesc) totalCardDesc.textContent = "Ongoing & completed";
+        if (smCardH3) smCardH3.textContent = "Social Outputs";
+        if (smCardDesc) smCardDesc.textContent = "Published on LinkedIn/X";
+        if (prCardH3) prCardH3.textContent = "PR Coverages";
+        if (prCardDesc) prCardDesc.textContent = "Media coverages secured";
+        if (wipCardH3) wipCardH3.textContent = "Work in Progress";
+        if (wipCardDesc) wipCardDesc.textContent = "Currently active/review";
+        
+        const totalVal = clientTasks.length;
+        const linkedinVal = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
+        const prVal = getPRPublicationsCount(clientTasks);
+        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold'].includes(t.status)).length;
+
+        document.getElementById("stat-total-creatives").textContent = totalVal;
+        document.getElementById("stat-total-linkedin").textContent = linkedinVal;
+        document.getElementById("stat-total-pr").textContent = prVal;
+        document.getElementById("stat-total-wip").textContent = wipVal;
+    }
 
     // Dynamically adjust stats grid columns if active client is iCode or BT Group (no PR coverage)
     const prCard = document.getElementById("stat-card-pr");
@@ -3879,7 +4325,28 @@ function renderTrendChart() {
     const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
 
     let datasets = [];
-    if (state.activeClient === "iCode") {
+    if (isPROnlyClient(state.activeClient)) {
+        const tasksCountData = [];
+        const coveragesCountData = [];
+        months.forEach(m => {
+            tasksCountData.push(clientTasks.filter(t => t.month === m && t.type === 'PR Update').length);
+            coveragesCountData.push(getPRPublicationsCount(clientTasks.filter(t => t.month === m)));
+        });
+        datasets = [
+            {
+                label: 'PR Tasks',
+                data: tasksCountData,
+                backgroundColor: '#8b5cf6',
+                borderRadius: 4
+            },
+            {
+                label: 'Coverages Secured',
+                data: coveragesCountData,
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            }
+        ];
+    } else if (state.activeClient === "iCode") {
         const organicData = [];
         const paidData = [];
         months.forEach(m => {
@@ -3970,7 +4437,26 @@ function renderShareChart() {
     const titleEl = document.getElementById("share-chart-title");
     const subTitleEl = document.getElementById("share-chart-subtitle");
 
-    if (state.activeClient === "iCode") {
+    if (isPROnlyClient(state.activeClient)) {
+        if (titleEl) titleEl.textContent = "Coverage Sentiment";
+        if (subTitleEl) subTitleEl.textContent = "Sentiment breakdown of secure publications";
+        
+        categories = ['Positive', 'Neutral', 'Negative'];
+        let positiveCount = 0;
+        let neutralCount = 0;
+        let negativeCount = 0;
+        
+        clientTasks.forEach(t => {
+            const list = t.publicationsList || [];
+            list.forEach(p => {
+                if (p.sentiment === "Positive") positiveCount++;
+                else if (p.sentiment === "Neutral") neutralCount++;
+                else if (p.sentiment === "Negative") negativeCount++;
+            });
+        });
+        dataVals = [positiveCount, neutralCount, negativeCount];
+        bgColors = ['#10b981', '#94a3b8', '#ef4444'];
+    } else if (state.activeClient === "iCode") {
         if (titleEl) titleEl.textContent = "Center Share";
         if (subTitleEl) subTitleEl.textContent = "Distribution by centers";
         
@@ -4200,7 +4686,7 @@ function renderTracker() {
         if (state.filters.status === 'all') {
             matchesStatus = true;
         } else if (state.filters.status === 'In Progress') {
-            matchesStatus = ['WIP', 'Sent for internal approval', 'Sent to client'].includes(task.status);
+            matchesStatus = ['WIP', 'Sent for internal approval', 'Sent to client', 'On hold', 'Sent to journalist'].includes(task.status);
         } else {
             matchesStatus = task.status === state.filters.status;
         }
@@ -4222,12 +4708,14 @@ function renderTracker() {
         "WIP": 1,
         "Sent for internal approval": 2,
         "Sent to client": 3,
-        "Published/Closed": 4,
-        "Not used by client": 5
+        "Sent to journalist": 4,
+        "On hold": 5,
+        "Published/Closed": 6,
+        "Not used by client": 7
     };
     state.filteredTasks.sort((a, b) => {
-        const priorityA = statusPriority[a.status] || 6;
-        const priorityB = statusPriority[b.status] || 6;
+        const priorityA = statusPriority[a.status] || 8;
+        const priorityB = statusPriority[b.status] || 8;
         if (priorityA !== priorityB) {
             return priorityA - priorityB;
         }
@@ -4321,6 +4809,10 @@ function renderTrackerTable() {
             typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
         } else if (task.type === "PR Update") {
             typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
+            if (task.priority) {
+                const prioClass = task.priority.toLowerCase();
+                typeBadge += `<div style="margin-top: 4px;"><span class="pr-priority-badge pr-priority-${prioClass}"><i class="fa-solid fa-circle" style="font-size: 5px; vertical-align: middle; margin-right: 3px;"></i>${task.priority}</span></div>`;
+            }
         } else {
             if (task.subType === "Video") {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-video"></i> Video</span>`;
@@ -4444,6 +4936,17 @@ function renderTrackerTable() {
                  ${centersHtml}
                </div>`;
 
+        let deadlineBadgeHtml = "";
+        if (task.type === "PR Update" && task.targetCompletionDate) {
+            const dlStatus = getPRDeadlineStatus(task);
+            if (dlStatus) {
+                deadlineBadgeHtml = `<div style="margin-top: 4px;"><span class="deadline-status-badge deadline-${dlStatus.status}">${dlStatus.text}</span></div>`;
+            }
+        }
+
+        const isPR = task.type === "PR Update";
+        const toggleBtnHtml = isPR ? `<button class="action-btn-mini btn-toggle-task-details" data-id="${task.id}" title="Toggle Detailed PR View"><i class="fa-solid fa-chevron-down"></i></button>` : '';
+
         tr.innerHTML = `
             <td>${typeBadge}</td>
             <td>${titleAndImageHtml}</td>
@@ -4451,11 +4954,13 @@ function renderTrackerTable() {
             <td>
                 <div>${task.month}</div>
                 <div style="font-size:11px; color:var(--text-muted);">${task.date || task.week || ''}</div>
+                ${deadlineBadgeHtml}
             </td>
             <td style="font-weight: 500;">${task.owner}</td>
             <td>${linksHtml}</td>
             <td>
                 <div class="actions-flex">
+                    ${toggleBtnHtml}
                     ${(getUserClientPermission(state.currentUserEmail, task.client || state.activeClient) === "ReadOnly") ? `
                         <button class="action-btn-mini edit-btn" data-id="${task.id}" title="View Details" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);"><i class="fa-solid fa-eye"></i></button>
                     ` : `
@@ -4467,6 +4972,115 @@ function renderTrackerTable() {
             </td>
         `;
         tbody.appendChild(tr);
+
+        if (isPR) {
+            const detailsTr = document.createElement("tr");
+            detailsTr.id = `pr-details-row-${task.id}`;
+            detailsTr.className = "pr-details-row";
+            detailsTr.style.display = "none";
+            
+            let pubsTableHtml = "";
+            const list = task.publicationsList || [];
+            if (list.length > 0) {
+                pubsTableHtml = `
+                    <div class="pr-publications-detail-table-wrapper">
+                        <table class="pr-publications-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>Clipping</th>
+                                    <th>Publication</th>
+                                    <th>Date</th>
+                                    <th>Headline</th>
+                                    <th>Type</th>
+                                    <th>Journalist</th>
+                                    <th>Tier</th>
+                                    <th>Sentiment</th>
+                                    <th>Syndication</th>
+                                    <th>Agency Gen</th>
+                                    <th>Key Messages</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                list.forEach(pub => {
+                    const sentimentDot = pub.sentiment 
+                        ? `<span class="sentiment-dot sentiment-${pub.sentiment.toLowerCase()}" title="${pub.sentiment}"></span>${pub.sentiment}` 
+                        : `<span style="color:var(--text-muted); font-style:italic;">N/A</span>`;
+                    
+                    pubsTableHtml += `
+                        <tr>
+                            <td>
+                                ${pub.image ? `
+                                <div style="width:24px; height:24px; border-radius:4px; overflow:hidden; border:1px solid var(--border-color); cursor:pointer;" onclick="viewImageInNewWindow('${pub.image}')">
+                                    <img src="${pub.image}" style="width:100%; height:100%; object-fit:cover;">
+                                </div>` : `<div style="width:24px; height:24px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color);"></div>`}
+                            </td>
+                            <td>
+                                <div style="font-weight:600; color:var(--text-primary);">${pub.name || 'N/A'}</div>
+                                ${pub.link ? `<a href="${pub.link}" target="_blank" style="color:var(--accent-blue); text-decoration:none; font-size:10px; display:inline-flex; align-items:center; gap:2px; margin-top:2px;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:8px;"></i> View Link</a>` : ''}
+                            </td>
+                            <td>${pub.date || 'N/A'}</td>
+                            <td style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pub.headline || ''}">${pub.headline || 'N/A'}</td>
+                            <td>${pub.coverageType || 'N/A'}</td>
+                            <td>${pub.journalist || 'N/A'}</td>
+                            <td>${pub.tier || 'N/A'}</td>
+                            <td>${sentimentDot}</td>
+                            <td>${pub.syndication || 'N/A'}</td>
+                            <td>${pub.agencyGenerated || 'N/A'}</td>
+                            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pub.keyMessages || ''}">${pub.keyMessages || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                pubsTableHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                pubsTableHtml = `<div style="text-align: center; color: var(--text-muted); font-size: 11px; padding: 12px; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: 8px;">No dynamic publication records added.</div>`;
+            }
+            
+            let campTypeTags = "";
+            const campTypes = Array.isArray(task.campaignType) ? task.campaignType : (task.campaignType ? [task.campaignType] : []);
+            if (campTypes.length > 0) {
+                campTypeTags = campTypes.map(ct => `<span class="badge" style="background: rgba(245, 158, 11, 0.12); color: var(--accent-orange); border: 1px solid rgba(245, 158, 11, 0.2); margin-right: 4px; margin-bottom: 4px;">${ct}</span>`).join('');
+            } else {
+                campTypeTags = `<span style="color:var(--text-muted); font-style:italic;">None</span>`;
+            }
+
+            detailsTr.innerHTML = `
+                <td colspan="7" style="padding: 0; background: var(--bg-primary);">
+                    <div class="pr-expanded-details-container" id="pr-expanded-container-${task.id}">
+                        <div class="pr-details-grid">
+                            <div class="pr-deadlines-summary-box">
+                                <h5>PR Deadlines & Attribution</h5>
+                                <div class="pr-summary-row">
+                                    <span class="pr-summary-label">Priority:</span>
+                                    <span class="pr-summary-val">${task.priority || 'Medium'}</span>
+                                </div>
+                                <div class="pr-summary-row">
+                                    <span class="pr-summary-label">Target Completion:</span>
+                                    <span class="pr-summary-val">${task.targetCompletionDate || 'N/A'}</span>
+                                </div>
+                                <div class="pr-summary-row">
+                                    <span class="pr-summary-label">Opportunity Deadline:</span>
+                                    <span class="pr-summary-val">${task.opportunityDeadline || 'N/A'}</span>
+                                </div>
+                                <div class="pr-summary-row" style="margin-top: 10px;">
+                                    <span class="pr-summary-label">Attribution:</span>
+                                    <span class="pr-summary-val" style="display:flex; flex-wrap:wrap;">${campTypeTags}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h5 style="margin-top: 0; margin-bottom: 10px; font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--text-primary);">Publication Coverage Details</h5>
+                                ${pubsTableHtml}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(detailsTr);
+        }
     });
 
     // Add inline event listeners to the action buttons
@@ -4486,6 +5100,24 @@ function renderTrackerTable() {
             const task = state.tasks.find(t => t.id === id);
             if (task && task.image) {
                 viewImageInNewWindow(task.image);
+            }
+        });
+    });
+
+    tbody.querySelectorAll(".btn-toggle-task-details").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const taskId = btn.getAttribute("data-id");
+            const row = document.getElementById(`pr-details-row-${taskId}`);
+            const container = document.getElementById(`pr-expanded-container-${taskId}`);
+            if (row && container) {
+                btn.classList.toggle("active");
+                if (row.style.display === "none") {
+                    row.style.display = "table-row";
+                    container.classList.add("active");
+                } else {
+                    container.classList.remove("active");
+                    row.style.display = "none";
+                }
             }
         });
     });
@@ -4513,7 +5145,11 @@ function renderTrackerKanban() {
 
     state.filteredTasks.forEach(task => {
         let colStatus = task.status;
-        if (!statuses.includes(colStatus)) {
+        if (colStatus === "On hold" || colStatus === "On Hold") {
+            colStatus = "Not used by client";
+        } else if (colStatus === "Sent to journalist") {
+            colStatus = "WIP";
+        } else if (!statuses.includes(colStatus)) {
             colStatus = "WIP";
         }
 
@@ -4762,6 +5398,10 @@ function generateReport() {
             reportTitle.textContent = "BT Group";
         } else if (state.activeClient === "Candour") {
             reportTitle.textContent = "Candour Communications";
+        } else if (state.activeClient === "Green Shine Solar") {
+            reportTitle.textContent = "Green Shine Solar";
+        } else if (state.activeClient === "Zoom") {
+            reportTitle.textContent = "Zoom Video Communications";
         }
     }
     
@@ -4770,6 +5410,8 @@ function generateReport() {
             reportSubtitle.textContent = "Social Media & Creative Marketing Report";
         } else if (state.activeClient === "iCode") {
             reportSubtitle.textContent = "Social Media & Campaigns Report";
+        } else if (state.activeClient === "Zoom") {
+            reportSubtitle.textContent = "PR Coverage & Media Tracking Report";
         } else {
             reportSubtitle.textContent = "PR, Social Media & Creative Marketing Report";
         }
@@ -4788,6 +5430,10 @@ function generateReport() {
             reportLogo.src = "inputs/BT_Logo_Purple_RGB.png";
         } else if (state.activeClient === "Candour") {
             reportLogo.src = "inputs/candour logo.png";
+        } else if (state.activeClient === "Green Shine Solar") {
+            reportLogo.src = "inputs/greenshine logo.png";
+        } else if (state.activeClient === "Zoom") {
+            reportLogo.src = "inputs/Zoom-Logo.png";
         }
     }
 
@@ -5796,11 +6442,17 @@ Write ONLY the final paragraph. Do not write any greetings or explanations.
                 ? "Rail Vikas Nigam Limited (RVNL)"
                 : state.activeClient === "Kompact AI"
                     ? "Kompact AI"
-                    : "Legrand Data Center Solutions (LDCS)";
+                    : state.activeClient === "Green Shine Solar"
+                        ? "Green Shine Solar"
+                        : state.activeClient === "Zoom"
+                            ? "Zoom Video Communications"
+                            : "Legrand Data Center Solutions (LDCS)";
 
             const summaryHighlights = state.activeClient === "Legrand"
                 ? "overall output, key social milestones, and press/PR coverages"
-                : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
+                : state.activeClient === "Zoom"
+                    ? "overall output, press/PR coverages, and media distribution metrics"
+                    : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
 
             let creativeMetricsPrompt = "";
             if (state.activeClient !== "Legrand") {
