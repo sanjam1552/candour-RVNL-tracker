@@ -8174,7 +8174,7 @@ function injectChatMarkup() {
     toggle.id = "dev-chat-toggle-btn";
     toggle.className = "no-print";
     toggle.style.cssText = "position: fixed; bottom: 25px; right: 25px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #3b82f6); color: #fff; border: none; cursor: pointer; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35); display: flex; align-items: center; justify-content: center; font-size: 22px; z-index: 999; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);";
-    toggle.innerHTML = `<i class="fa-solid fa-comments"></i><span class="chat-unread-badge" style="display: none; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid #fff;"></span>`;
+    toggle.innerHTML = `<i class="fa-solid fa-comments"></i><span class="chat-unread-badge" style="display: none; position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #10b981; border: 2px solid #fff; color: #fff; font-size: 9.5px; font-weight: 700; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); box-sizing: border-box; line-height: 1;"></span>`;
     
     // Add hover zoom effect
     toggle.addEventListener("mouseenter", () => {
@@ -8482,7 +8482,15 @@ function renderChatSidebarList(filterText) {
             const div = document.createElement("div");
             div.className = `chat-channel-item ${currentChatTarget === email ? 'active' : ''}`;
             div.setAttribute("data-target", email);
-            div.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 6px; color: #34d399;"></i> <span>${shortName}</span>`;
+            
+            // Get unread count for this user
+            const unread = (state.chatUnreadCounts && state.chatUnreadCounts[email]) || 0;
+            const badgeHtml = unread > 0 
+                ? `<span style="background:#10b981; color:#fff; font-size:9.5px; font-weight:700; border-radius:10px; padding:2px 6px; margin-left:auto; display:inline-block; line-height:1; min-width:10px; text-align:center;">${unread}</span>` 
+                : '';
+
+            div.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 6px; color: ${unread > 0 ? '#10b981' : '#cbd5e1'};"></i> 
+                             <span style="flex-grow:1; display:flex; align-items:center; justify-content:space-between;">${shortName} ${badgeHtml}</span>`;
             
             div.addEventListener("click", (e) => {
                 e.stopPropagation();
@@ -8662,26 +8670,59 @@ async function sendChatMessage(text) {
 }
 
 function monitorUnreadMessageBadge() {
-    // Monitor incoming messages for the floating toggle button badge when closed
+    if (!state.currentUserEmail) return;
+
     const drawer = document.getElementById("dev-chat-drawer");
     const toggleBtn = document.getElementById("dev-chat-toggle-btn");
     if (!drawer || !toggleBtn) return;
 
     db.collection('rvnl_tracker').doc('chats_store').collection('messages')
-      .orderBy('timestamp', 'desc')
-      .limit(1)
-      .onSnapshot(snapshot => {
-          if (!snapshot.empty) {
-              const doc = snapshot.docs[0];
-              const msg = doc.data();
-              
-              // Only trigger badge if message is not ours and drawer is closed
-              if (msg.senderEmail !== state.currentUserEmail && !drawer.classList.contains("active")) {
-                  const unreadBadge = toggleBtn.querySelector(".chat-unread-badge");
-                  if (unreadBadge) unreadBadge.style.display = "block";
-              }
-          }
-      });
+        .where('target', '==', state.currentUserEmail)
+        .where('read', '==', false)
+        .onSnapshot(snapshot => {
+            const counts = {};
+            let totalUnread = 0;
+            let rosterChanged = false;
+
+            snapshot.forEach(doc => {
+                const msg = doc.data();
+                const sender = msg.senderEmail;
+                if (sender) {
+                    counts[sender] = (counts[sender] || 0) + 1;
+                    totalUnread++;
+
+                    // Auto-pin DM: If sender is not in active DMs list, append dynamically
+                    if (!state.activeChatDMs.includes(sender)) {
+                        state.activeChatDMs.push(sender);
+                        rosterChanged = true;
+                    }
+                }
+            });
+
+            if (rosterChanged) {
+                localStorage.setItem("rvnl_active_chat_dms", JSON.stringify(state.activeChatDMs));
+            }
+
+            state.chatUnreadCounts = counts;
+
+            // Update floating toggle button badge
+            const unreadBadge = toggleBtn.querySelector(".chat-unread-badge");
+            if (unreadBadge) {
+                if (totalUnread > 0 && !drawer.classList.contains("active")) {
+                    unreadBadge.textContent = totalUnread;
+                    unreadBadge.style.display = "flex";
+                } else {
+                    unreadBadge.style.display = "none";
+                }
+            }
+
+            // Re-render sidebar to display unread indicator badges next to DMs
+            const searchInput = document.getElementById("chat-sidebar-search");
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+            renderChatSidebarList(query);
+        }, err => {
+            console.error("Unread message badge monitoring failed: ", err);
+        });
 }
 
 async function markMessagesAsRead(target) {
