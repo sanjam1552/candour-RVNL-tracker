@@ -856,17 +856,22 @@ function initUserSession() {
             firebase.auth().signInWithEmailLink(email, window.location.href)
                 .then(() => {
                     window.localStorage.removeItem('emailForSignIn');
-                    // Clean up address bar URL
+                    // Clean up address bar URL instantly
                     window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
                 })
                 .catch((error) => {
                     console.error("Error signing in with email link:", error);
+                    // Clean up address bar URL on error too to prevent loops
+                    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
                     if (infoMsgEl) infoMsgEl.style.display = "none";
                     if (errorMsgEl) {
                         errorMsgEl.textContent = `Sign-in link failed or expired: ${error.message}`;
                         errorMsgEl.style.display = "block";
                     }
                 });
+        } else {
+            // If they cancelled the prompt, clean up the address bar anyway
+            window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
         }
     }
 
