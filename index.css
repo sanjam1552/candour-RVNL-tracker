@@ -2218,7 +2218,7 @@ h1, h2, h3, h4, h5, h6 {
     transition: opacity 0.5s ease-out !important;
 }
 
-/* Modal Content Box - High Depth Light Theme */
+/* Modal Content Box - Forced Light Theme */
 .client-modal-content {
     background: #ffffff;
     border: 1px solid rgba(139, 92, 246, 0.15);
@@ -2261,7 +2261,7 @@ h1, h2, h3, h4, h5, h6 {
     filter: blur(4px) !important;
 }
 
-/* Close Button - Light Theme */
+/* Close Button - Responsive Theme */
 .client-modal-close {
     width: 38px;
     height: 38px;

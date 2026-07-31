@@ -2661,6 +2661,15 @@ function switchClient(client) {
     if (activeName) activeName.textContent = displayName;
     if (sidebarLogo) sidebarLogo.src = logoSrc;
     if (sidebarTitle) sidebarTitle.textContent = displayName;
+
+    const heroTitle = document.getElementById("hero-banner-title");
+    if (heroTitle) {
+        if (isPROnlyClient(targetClient)) {
+            heroTitle.textContent = `${displayName} PR Analytics & Outputs`;
+        } else {
+            heroTitle.textContent = `${displayName} Creative Portfolio & Analytics`;
+        }
+    }
     
     const switcherActiveLogo = document.getElementById("switcher-active-logo");
     if (switcherActiveLogo) switcherActiveLogo.src = logoSrc;

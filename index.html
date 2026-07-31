@@ -175,7 +175,7 @@
                     <canvas id="hero-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></canvas>
                     
                     <div class="hero-text" style="position: relative; z-index: 2;">
-                        <h2>RVNL Creative Portfolio & PR Analytics</h2>
+                        <h2 id="hero-banner-title">RVNL Creative Portfolio & PR Analytics</h2>
                         <p>Track ongoing work, social traction, and press coverage metrics in one unified space.</p>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; position: relative; z-index: 2;">
@@ -192,7 +192,7 @@
 
                 <!-- Stats Grid -->
                 <div class="stats-grid">
-                    <div class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="all" style="position: relative; cursor: pointer; padding-bottom: 34px;">
+                    <div id="stat-card-total" class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="all" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-blue"><i class="fa-solid fa-photo-film"></i></div>
                         <div class="stat-info">
                             <h3>Total Creatives</h3>
@@ -203,7 +203,7 @@
                             <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
                         </div>
                     </div>
-                    <div class="stat-card stat-card-clickable" data-filter-type="Social Media" data-filter-status="Published/Closed" style="position: relative; cursor: pointer; padding-bottom: 34px;">
+                    <div id="stat-card-linkedin" class="stat-card stat-card-clickable" data-filter-type="Social Media" data-filter-status="Published/Closed" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-green"><i class="fa-solid fa-share-nodes"></i></div>
                         <div class="stat-info">
                             <h3>Social Media Posts</h3>
@@ -225,7 +225,7 @@
                             <span>View Details</span> <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
                         </div>
                     </div>
-                    <div class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="In Progress" style="position: relative; cursor: pointer; padding-bottom: 34px;">
+                    <div id="stat-card-wip" class="stat-card stat-card-clickable" data-filter-type="all" data-filter-status="In Progress" style="position: relative; cursor: pointer; padding-bottom: 34px;">
                         <div class="stat-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div class="stat-info">
                             <h3>In Progress</h3>
@@ -1025,13 +1025,13 @@
                 </div>
 
                 <!-- Green Shine Campaign Type Checkboxes (Conditional) -->
-                <div id="greenshine-campaign-group" class="form-group hidden" style="margin: 10px 0 6px;">
-                    <label style="margin-bottom: 4px;">Campaign Type <span class="required">*</span></label>
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 2px;">
-                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary); font-size: 12.5px;">
+                <div id="greenshine-campaign-group" class="form-group hidden">
+                    <label>Campaign Type <span class="required">*</span></label>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 4px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary);">
                             <input type="checkbox" name="greenshine-campaign-type" value="Organic" style="width: 15px; height: 15px; cursor: pointer;"> Organic Campaign
                         </label>
-                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary); font-size: 12.5px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary);">
                             <input type="checkbox" name="greenshine-campaign-type" value="Paid" style="width: 15px; height: 15px; cursor: pointer;"> Paid Campaign
                         </label>
                     </div>
@@ -1087,7 +1087,7 @@
                 </div>
 
                 <!-- Spokespersons & Attribution Stack (PR Only) -->
-                <div id="pr-meta-row" class="hidden" style="border-top: 1px dashed var(--border-color); padding-top: 14px; margin-top: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 24px; width: 100%;">
+                <div id="pr-meta-row" class="hidden" style="border-top: 1px dashed var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 16px; width: 100%;">
                     <!-- Multi-Spokesperson Section -->
                     <div id="pr-spokespersons-section" class="form-section" style="width: 100%; margin-bottom: 0; padding-top: 0; border: none;">
                         <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--accent-purple); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: 600;">
@@ -1100,7 +1100,7 @@
                             <!-- Dynamic spokesperson rows will be rendered here -->
                         </div>
                     </div>
-
+ 
                     <!-- Organic/Paid Section -->
                     <div id="pr-campaign-type-section" class="form-section" style="width: 100%; margin-bottom: 0; padding-top: 0; border: none;">
                         <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--accent-orange, #f59e0b); font-family: var(--font-heading); font-weight: 600;">
@@ -1115,7 +1115,7 @@
                             </label>
                         </div>
                     </div>
-
+ 
                     <!-- Deadlines and Priority (PR Only) -->
                     <div id="pr-deadlines-section" class="form-section" style="width: 100%; margin-bottom: 0; padding-top: 0; border: none;">
                         <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--accent-blue); font-family: var(--font-heading); font-weight: 600;">
@@ -1141,9 +1141,9 @@
                         </div>
                     </div>
                 </div>
-
+ 
                 <!-- Multi-Publication Coverage Section (PR Only) -->
-                <div id="pr-publications-section" class="form-section hidden" style="border-top: 1px dashed var(--border-color); padding-top: 16px; margin-top: 16px; margin-bottom: 16px;">
+                <div id="pr-publications-section" class="form-section hidden" style="border-top: 1px dashed var(--border-color); padding-top: 16px; margin: 0;">
                     <h4 style="font-size: 13px; margin-bottom: 12px; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: 600;">
                         <span><i class="fa-solid fa-newspaper" style="margin-right: 6px;"></i> Publications & Coverage Links</span>
                         <button type="button" class="btn btn-primary btn-sm" id="btn-add-publication" style="padding: 4px 10px; font-size: 11px; height: 26px; border-radius: 8px; font-family: var(--font-body); font-weight: 600;">
@@ -1156,25 +1156,25 @@
                 </div>
 
                 <!-- Digital Campaigns specific fields (Toggleable) -->
-                <div id="digital-campaigns-only-fields" class="hidden" style="border-top: 1px dashed var(--border-color); padding: 18px 0 10px; margin: 16px 0; display: flex; flex-direction: column; gap: 18px; width: 100%;">
-                    <h4 style="font-size: 13.5px; margin-bottom: 2px; color: var(--accent-purple); font-family: var(--font-heading); font-weight: 600;">
+                <div id="digital-campaigns-only-fields" class="hidden" style="border-top: 1px dashed var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 16px; width: 100%;">
+                    <h4 style="font-size: 14px; margin-bottom: 4px; color: var(--accent-purple); font-family: var(--font-heading); font-weight: 700; letter-spacing: 0.25px;">
                         <i class="fa-solid fa-rectangle-ad" style="margin-right: 6px;"></i> Digital Campaign Details
                     </h4>
                     
                     <div class="form-row" style="display: flex; gap: 16px; width: 100%;">
                         <div class="form-group" style="flex: 1; min-width: 0;">
-                            <label for="task-ad-creative-link">Ad Creative Link (Canva/Drive)</label>
+                            <label for="task-ad-creative-link" style="margin-bottom: 6px; display: block;">Ad Creative Link (Canva/Drive)</label>
                             <input type="url" id="task-ad-creative-link" placeholder="e.g. Canva/Drive link" style="width: 100%;">
                         </div>
                         <div class="form-group" style="flex: 1; min-width: 0;">
-                            <label for="task-target-url">Target URL / Landing Page</label>
+                            <label for="task-target-url" style="margin-bottom: 6px; display: block;">Target URL / Landing Page</label>
                             <input type="url" id="task-target-url" placeholder="e.g. Live ad / landing page link" style="width: 100%;">
                         </div>
                     </div>
                     
                     <div class="form-group" style="margin-bottom: 4px;">
-                        <label style="margin-bottom: 4px;">Platforms <span class="required">*</span></label>
-                        <div style="display: flex; gap: 18px; row-gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                        <label style="margin-bottom: 8px; display: block;">Platforms <span class="required">*</span></label>
+                        <div style="display: flex; gap: 20px; row-gap: 12px; flex-wrap: wrap; margin-top: 2px;">
                             <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
                                 <input type="checkbox" name="campaign-platform" value="Google Ads" style="width: 15px; height: 15px; cursor: pointer;"> Google Ads
                             </label>
@@ -1195,20 +1195,20 @@
                             </label>
                         </div>
                     </div>
-
-                    <div class="form-row" style="display: flex; gap: 16px; width: 100%; margin-top: 4px;">
+ 
+                    <div class="form-row" style="display: flex; gap: 16px; width: 100%;">
                         <div class="form-group" style="flex: 1; min-width: 0;">
-                            <label for="task-budget">Budget / Spend</label>
+                            <label for="task-budget" style="margin-bottom: 6px; display: block;">Budget / Spend</label>
                             <input type="number" id="task-budget" min="0" step="any" placeholder="Numeric value" style="width: 100%;">
                         </div>
                         <div class="form-group" style="flex: 1; min-width: 0;">
-                            <label for="task-conversions">Leads/Conversions/Clicks</label>
+                            <label for="task-conversions" style="margin-bottom: 6px; display: block;">Leads/Conversions/Clicks</label>
                             <input type="number" id="task-conversions" min="0" step="1" placeholder="Numeric value" style="width: 100%;">
                         </div>
                     </div>
-
-                    <div class="form-group" style="margin-top: 4px; width: 100%;">
-                        <label for="task-cpl-cpc">CPL / CPC (Auto)</label>
+ 
+                    <div class="form-group" style="width: 100%;">
+                        <label for="task-cpl-cpc" style="margin-bottom: 6px; display: block;">CPL / CPC (Auto)</label>
                         <input type="text" id="task-cpl-cpc" placeholder="Calculated from Spend & Conversions" readonly style="width: 100%; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); color: var(--text-muted); cursor: not-allowed;">
                     </div>
                 </div>
@@ -1344,7 +1344,7 @@
         <div class="client-modal-content" id="client-switcher-modal-content">
             <button type="button" class="client-modal-close" id="close-client-switcher-btn" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
             <div class="posh-icon-container" style="width: 75px; height: 75px; border-radius: 50%; background: #ffffff; border: 1px solid rgba(139, 92, 246, 0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; overflow: hidden; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.12);"><img id="switcher-active-logo" src="inputs/RVNL (R)logo_vector.png" alt="Active Workspace Logo" style="width: 45px; height: 45px; object-fit: contain;"></div>
-            <h2 id="client-switcher-welcome" style="margin: 0 0 6px 0; font-family: var(--font-heading); font-size: 24px; font-weight: 700; text-align: center; color: var(--text-primary);">Select Workspace</h2>
+            <h2 id="client-switcher-welcome" style="margin: 0 0 6px 0; font-family: var(--font-heading); font-size: 24px; font-weight: 700; text-align: center; color: #0f172a;">Select Workspace</h2>
             <p style="margin: 0 0 32px 0; font-size: 13px; color: #475569; text-align: center; line-height: 1.4; max-width: 480px; margin-left: auto; margin-right: auto;">Select a client workspace to manage tasks, view dashboard metrics, and build reports.</p>
             <div class="client-grid-scroll">
                 <div class="client-grid">
