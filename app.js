@@ -316,6 +316,7 @@ const state = {
     excludedReportTaskIds: new Set(),
     currentReportSmItems: [],
     currentReportPrItems: [],
+    draggingPub: false,
     userPermissions: {} // email -> { client -> "Full"|"ReadOnly"|"None" }
 };
 
@@ -6372,60 +6373,33 @@ function renderReportView() {
                     
                     if (task.status === "Published/Closed") {
                         if (list.length > 0) {
-                            publicationsHtml = `<table style="width: 100%; border-collapse: separate; border-spacing: 14px; padding: 0; margin: 0; background: transparent; border: none; table-layout: fixed;">`;
-                            for (let i = 0; i < list.length; i += 2) {
-                                const pub1 = list[i];
-                                const pub2 = list[i + 1];
-                                
-                                publicationsHtml += `<tr>`;
-                                
-                                // Card 1
+                            publicationsHtml = `<div class="report-pub-grid" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 14px; box-sizing: border-box;">`;
+                            list.forEach((pub, pubIdx) => {
                                 publicationsHtml += `
-                                    <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
-                                        <div style="display: flex; gap: 14px; align-items: flex-start;">
-                                            ${pub1.image ? `
-                                            <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                                <a href="${pub1.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub1.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
-                                            </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
-                                            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
-                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub1.name || 'Unnamed Pub'}</div>
-                                                ${pub1.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub1.date}</div>` : ''}
-                                                ${pub1.link ? `
-                                                    <a href="${pub1.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
-                                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                    </a>` : ''}
+                                    <div class="report-pub-coverage-card draggable-pub-card" 
+                                         draggable="false" 
+                                         data-task-id="${task.id}" 
+                                         data-pub-idx="${pubIdx}" 
+                                         style="background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; box-sizing: border-box; display: flex; gap: 14px; align-items: flex-start; cursor: grab;">
+                                        ${pub.image ? `
+                                        <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                            <a href="${pub.link || '#'}" target="_blank" draggable="false" style="display:block; width:100%; height:100%;"><img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                        </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                        <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
+                                                <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px;"><i class="fa-solid fa-bars"></i></span>
+                                                ${pub.name || 'Unnamed Pub'}
                                             </div>
+                                            ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
+                                            ${pub.link ? `
+                                                <a href="${pub.link}" target="_blank" draggable="false" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                </a>` : ''}
                                         </div>
-                                    </td>
+                                    </div>
                                 `;
-                                
-                                // Card 2 (or empty space if odd number of items)
-                                if (pub2) {
-                                    publicationsHtml += `
-                                        <td style="width: 50%; background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; vertical-align: top; box-sizing: border-box;">
-                                            <div style="display: flex; gap: 14px; align-items: flex-start;">
-                                                ${pub2.image ? `
-                                                <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                                    <a href="${pub2.link || '#'}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${pub2.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
-                                                </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
-                                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
-                                                    <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pub2.name || 'Unnamed Pub'}</div>
-                                                    ${pub2.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub2.date}</div>` : ''}
-                                                    ${pub2.link ? `
-                                                        <a href="${pub2.link}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
-                                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                        </a>` : ''}
-                                                </div>
-                                            </div>
-                                        </td>
-                                    `;
-                                } else {
-                                    publicationsHtml += `<td style="width: 50%; border: none; background: transparent;"></td>`;
-                                }
-                                
-                                publicationsHtml += `</tr>`;
-                            }
-                            publicationsHtml += `</table>`;
+                            });
+                            publicationsHtml += `</div>`;
                         } else {
                             // Fallback for old tasks that might only have task.image and task.publication
                             publicationsHtml = `
@@ -6721,6 +6695,10 @@ function renderReportView() {
     if (prListContainer) {
         prListContainer.querySelectorAll(".draggable-pr-card").forEach(card => {
             card.addEventListener("dragstart", (e) => {
+                if (state.draggingPub) {
+                    e.preventDefault();
+                    return;
+                }
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", card.getAttribute("data-id"));
                 card.style.opacity = "0.5";
@@ -6732,16 +6710,19 @@ function renderReportView() {
             });
             
             card.addEventListener("dragover", (e) => {
+                if (state.draggingPub) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
                 card.style.borderTop = "3px solid var(--accent-blue)";
             });
             
             card.addEventListener("dragleave", () => {
+                if (state.draggingPub) return;
                 card.style.borderTop = "";
             });
             
             card.addEventListener("drop", (e) => {
+                if (state.draggingPub) return;
                 e.preventDefault();
                 card.style.borderTop = "";
                 const draggedId = e.dataTransfer.getData("text/plain");
@@ -6759,6 +6740,148 @@ function renderReportView() {
                 }
             });
         });
+    }
+
+    // Pointer-Event based Drag and Drop for individual Publications inside PR tasks
+    let activeCard = null;
+    let dragClone = null;
+    let startX = 0;
+    let startY = 0;
+    let cardStartX = 0;
+    let cardStartY = 0;
+    let lastTargetCard = null;
+    let taskId = null;
+    let pubIdx = -1;
+
+    document.querySelectorAll(".draggable-pub-card").forEach(card => {
+        // Pointer down starts the dragging operation
+        card.addEventListener("pointerdown", (e) => {
+            // Only handle primary left pointer click/touch
+            if (e.button !== 0) return;
+            
+            // Check if clicking inside input or interactive element
+            if (e.target.closest("a, button, input, select, textarea")) {
+                return;
+            }
+            
+            activeCard = card;
+            taskId = card.getAttribute("data-task-id");
+            pubIdx = parseInt(card.getAttribute("data-pub-idx"));
+            
+            const rect = card.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            cardStartX = rect.left;
+            cardStartY = rect.top;
+            
+            // Create a 100% solid clone of the card to follow the pointer
+            dragClone = card.cloneNode(true);
+            dragClone.classList.add("pointer-drag-clone");
+            Object.assign(dragClone.style, {
+                position: "fixed",
+                left: `${cardStartX}px`,
+                top: `${cardStartY}px`,
+                width: `${rect.width}px`,
+                height: `${rect.height}px`,
+                zIndex: "99999",
+                pointerEvents: "none",
+                opacity: "1",
+                transform: "scale(1.02)",
+                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
+                transition: "none",
+                cursor: "grabbing",
+                border: "1.5px solid var(--accent-blue)"
+            });
+            
+            document.body.appendChild(dragClone);
+            card.classList.add("pointer-dragging");
+            state.draggingPub = true; // Stop parent PR card reordering listeners from capturing events
+            
+            window.addEventListener("pointermove", onPointerMove);
+            window.addEventListener("pointerup", onPointerUp);
+            
+            // Prevent text selection
+            e.preventDefault();
+        });
+    });
+
+    function onPointerMove(e) {
+        if (!dragClone) return;
+        
+        // Move cloned card with cursor offset
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        dragClone.style.left = `${cardStartX + dx}px`;
+        dragClone.style.top = `${cardStartY + dy}px`;
+        
+        // Identify target card under the cursor
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const targetCard = element ? element.closest(".draggable-pub-card") : null;
+        
+        if (lastTargetCard && lastTargetCard !== targetCard) {
+            lastTargetCard.classList.remove("drag-over");
+            lastTargetCard = null;
+        }
+        
+        if (targetCard && targetCard !== activeCard) {
+            const targetTaskId = targetCard.getAttribute("data-task-id");
+            if (targetTaskId === taskId) {
+                targetCard.classList.add("drag-over");
+                lastTargetCard = targetCard;
+            }
+        }
+    }
+
+    function onPointerUp(e) {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        
+        if (dragClone) {
+            dragClone.remove();
+            dragClone = null;
+        }
+        
+        if (activeCard) {
+            activeCard.classList.remove("pointer-dragging");
+        }
+        
+        if (lastTargetCard) {
+            lastTargetCard.classList.remove("drag-over");
+            const targetPubIdx = parseInt(lastTargetCard.getAttribute("data-pub-idx"));
+            
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task && task.publicationsList) {
+                const [removed] = task.publicationsList.splice(pubIdx, 1);
+                task.publicationsList.splice(targetPubIdx, 0, removed);
+                
+                const reportTask = state.currentReportPrItems.find(t => t.id === taskId);
+                if (reportTask && reportTask !== task) {
+                    reportTask.publicationsList = [...task.publicationsList];
+                }
+                
+                // Update derived fields
+                task.publication = task.publicationsList.map(p => p.name).filter(Boolean).join(", ");
+                task.liveLink = task.publicationsList.length > 0 ? task.publicationsList[0].link : "";
+                task.image = task.publicationsList.length > 0 ? task.publicationsList[0].image : "";
+                task.date = task.publicationsList.length > 0 ? (task.publicationsList[0].date || "") : "";
+                task.week = task.date ? getWeekFromDateStr(task.date) : "Week 1";
+                
+                if (reportTask && reportTask !== task) {
+                    reportTask.publication = task.publication;
+                    reportTask.liveLink = task.liveLink;
+                    reportTask.image = task.image;
+                    reportTask.date = task.date;
+                    reportTask.week = task.week;
+                }
+                
+                saveData(task);
+                renderReportView();
+            }
+        }
+        
+        state.draggingPub = false;
+        activeCard = null;
+        lastTargetCard = null;
     }
 }
 

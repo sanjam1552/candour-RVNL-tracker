@@ -2953,3 +2953,35 @@ body.dark-theme .beta-pill {
         max-width: 760px !important;
     }
 }
+
+/* Drag and Drop Polish */
+.draggable-pub-card {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    touch-action: none; /* Prevent scrolling during pointer drag */
+}
+.draggable-pub-card.pointer-dragging {
+    opacity: 0.35 !important;
+}
+.draggable-pub-card.drag-over {
+    border-left: 5px solid var(--accent-blue) !important;
+    transform: translateX(6px);
+    background-color: rgba(59, 130, 246, 0.04) !important;
+}
+.drag-handle-pub {
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    cursor: grab;
+}
+.drag-handle-pub:active {
+    cursor: grabbing;
+}
+.drag-handle-pub:hover {
+    background-color: var(--bg-primary);
+    color: var(--accent-blue) !important;
+}
+
