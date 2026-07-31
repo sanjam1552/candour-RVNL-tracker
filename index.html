@@ -639,6 +639,31 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Digital Campaigns Section -->
+                    <div class="report-section page-break-before" id="report-sec-digital-campaigns">
+                        <h3 class="report-section-title" id="report-sec-digital-campaigns-title"><i class="fa-solid fa-rectangle-ad"></i> 5. Digital Campaigns</h3>
+                        <div class="table-responsive">
+                            <table class="report-print-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Sl.</th>
+                                        <th style="width: 120px;">Campaign Type</th>
+                                        <th>Campaign Name</th>
+                                        <th style="width: 140px;">Platforms</th>
+                                        <th style="width: 120px;">Budget</th>
+                                        <th style="width: 120px;">Leads / Clicks</th>
+                                        <th style="width: 100px;">CPL / CPC</th>
+                                        <th style="width: 140px;">Links</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-digital-campaigns-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Sign off -->
                     <div class="report-footer-print">
                         <div class="footer-divider"></div>
@@ -999,6 +1024,19 @@
                     </div>
                 </div>
 
+                <!-- Green Shine Campaign Type Checkboxes (Conditional) -->
+                <div id="greenshine-campaign-group" class="form-group hidden" style="margin: 10px 0 6px;">
+                    <label style="margin-bottom: 4px;">Campaign Type <span class="required">*</span></label>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 2px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary); font-size: 12.5px;">
+                            <input type="checkbox" name="greenshine-campaign-type" value="Organic" style="width: 15px; height: 15px; cursor: pointer;"> Organic Campaign
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; color: var(--text-primary); font-size: 12.5px;">
+                            <input type="checkbox" name="greenshine-campaign-type" value="Paid" style="width: 15px; height: 15px; cursor: pointer;"> Paid Campaign
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="task-sub-type" id="lbl-sub-type">Sub-Category</label>
                     <select id="task-sub-type">
@@ -1114,6 +1152,64 @@
                     </h4>
                     <div id="pr-publications-container" style="display: flex; flex-direction: column; gap: 12px;">
                         <!-- Dynamic publication rows will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Digital Campaigns specific fields (Toggleable) -->
+                <div id="digital-campaigns-only-fields" class="hidden" style="border-top: 1px dashed var(--border-color); padding: 18px 0 10px; margin: 16px 0; display: flex; flex-direction: column; gap: 18px; width: 100%;">
+                    <h4 style="font-size: 13.5px; margin-bottom: 2px; color: var(--accent-purple); font-family: var(--font-heading); font-weight: 600;">
+                        <i class="fa-solid fa-rectangle-ad" style="margin-right: 6px;"></i> Digital Campaign Details
+                    </h4>
+                    
+                    <div class="form-row" style="display: flex; gap: 16px; width: 100%;">
+                        <div class="form-group" style="flex: 1; min-width: 0;">
+                            <label for="task-ad-creative-link">Ad Creative Link (Canva/Drive)</label>
+                            <input type="url" id="task-ad-creative-link" placeholder="e.g. Canva/Drive link" style="width: 100%;">
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 0;">
+                            <label for="task-target-url">Target URL / Landing Page</label>
+                            <input type="url" id="task-target-url" placeholder="e.g. Live ad / landing page link" style="width: 100%;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 4px;">
+                        <label style="margin-bottom: 4px;">Platforms <span class="required">*</span></label>
+                        <div style="display: flex; gap: 18px; row-gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="Google Ads" style="width: 15px; height: 15px; cursor: pointer;"> Google Ads
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="Meta Ads" style="width: 15px; height: 15px; cursor: pointer;"> Meta Ads
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="LinkedIn Ads" style="width: 15px; height: 15px; cursor: pointer;"> LinkedIn Ads
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="YouTube Ads" style="width: 15px; height: 15px; cursor: pointer;"> YouTube Ads
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="Twitter/X Ads" style="width: 15px; height: 15px; cursor: pointer;"> Twitter/X Ads
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; color: var(--text-primary);">
+                                <input type="checkbox" name="campaign-platform" value="Other" style="width: 15px; height: 15px; cursor: pointer;"> Other
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display: flex; gap: 16px; width: 100%; margin-top: 4px;">
+                        <div class="form-group" style="flex: 1; min-width: 0;">
+                            <label for="task-budget">Budget / Spend</label>
+                            <input type="number" id="task-budget" min="0" step="any" placeholder="Numeric value" style="width: 100%;">
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 0;">
+                            <label for="task-conversions">Leads/Conversions/Clicks</label>
+                            <input type="number" id="task-conversions" min="0" step="1" placeholder="Numeric value" style="width: 100%;">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 4px; width: 100%;">
+                        <label for="task-cpl-cpc">CPL / CPC (Auto)</label>
+                        <input type="text" id="task-cpl-cpc" placeholder="Calculated from Spend & Conversions" readonly style="width: 100%; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); color: var(--text-muted); cursor: not-allowed;">
                     </div>
                 </div>
 

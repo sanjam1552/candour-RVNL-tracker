@@ -1210,6 +1210,10 @@ h1, h2, h3, h4, h5, h6 {
     width: 50%;
 }
 
+.col-4 {
+    width: 33.333%;
+}
+
 .form-group label {
     font-size: 12px;
     font-weight: 600;
@@ -2873,4 +2877,79 @@ body.dark-theme .beta-pill {
     background: rgba(167, 139, 250, 0.15);
     border-color: rgba(167, 139, 250, 0.3);
     color: #a78bfa;
+}
+
+/* ====================================================
+   RESPONSIVE DESIGN OPTIMIZATIONS FOR LAPTOP SCREENS
+   ==================================================== */
+@media (max-width: 1366px) {
+    .sidebar {
+        width: 220px !important;
+        padding: 16px !important;
+    }
+    .logo-area {
+        margin-bottom: 20px !important;
+        gap: 8px !important;
+    }
+    .logo-text h1 {
+        font-size: 17px !important;
+    }
+    .nav-links {
+        gap: 4px !important;
+    }
+    .nav-btn {
+        padding: 10px 12px !important;
+        font-size: 13.5px !important;
+        gap: 10px !important;
+    }
+    .app-header {
+        padding: 0 24px !important;
+        height: 60px !important;
+    }
+    .header-search {
+        width: 280px !important;
+    }
+    .tab-content {
+        padding: 24px !important;
+    }
+    .dashboard-hero {
+        padding: 20px 24px !important;
+        margin-bottom: 20px !important;
+    }
+    .hero-text h2 {
+        font-size: 20px !important;
+    }
+    .stats-grid {
+        gap: 16px !important;
+        margin-bottom: 24px !important;
+    }
+    .stat-card {
+        padding: 16px !important;
+    }
+    .stat-card h3 {
+        font-size: 22px !important;
+    }
+    
+    /* Make Kanban scrollable on smaller screens */
+    .kanban-board {
+        display: flex !important;
+        overflow-x: auto !important;
+        gap: 16px !important;
+        padding-bottom: 12px !important;
+    }
+    .kanban-column {
+        min-width: 250px !important;
+        flex: 0 0 250px !important;
+        max-height: 75vh !important;
+    }
+
+    /* Keep task drawer fully responsive */
+    .task-drawer {
+        width: 90vw !important;
+        max-width: 460px !important;
+    }
+    .task-drawer.expanded {
+        width: 90vw !important;
+        max-width: 760px !important;
+    }
 }

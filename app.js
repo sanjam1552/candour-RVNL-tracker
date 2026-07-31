@@ -1587,6 +1587,16 @@ function setupEventListeners() {
         togglePRFormFields(e.target.value);
     });
 
+    // Recalculate CPL/CPC on input
+    const taskBudgetInput = document.getElementById("task-budget");
+    const taskConversionsInput = document.getElementById("task-conversions");
+    if (taskBudgetInput) {
+        taskBudgetInput.addEventListener("input", updateCplCpcCalculation);
+    }
+    if (taskConversionsInput) {
+        taskConversionsInput.addEventListener("input", updateCplCpcCalculation);
+    }
+
     // Add publication coverage row
     const btnAddPub = document.getElementById("btn-add-publication");
     if (btnAddPub) {
@@ -2055,6 +2065,14 @@ function adjustClientSpecificOptions(client) {
                 <option value="Social Media">Social Media Post</option>
                 <option value="Creative / Collateral">Creative / Collateral</option>
             `;
+        } else if (client === "Green Shine Solar") {
+            filterType.innerHTML = `
+                <option value="all">All Types</option>
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update</option>
+                <option value="Creative / Collateral">Creative / Collateral</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
+            `;
         } else {
             filterType.innerHTML = `
                 <option value="all">All Types</option>
@@ -2069,15 +2087,30 @@ function adjustClientSpecificOptions(client) {
     const taskTypeSelect = document.getElementById("task-type");
     const taskTypeGroup = document.getElementById("task-type-group");
     const icodeCampaignGroup = document.getElementById("icode-campaign-group");
+    const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
     if (taskTypeSelect) {
         if (client === "iCode") {
             if (taskTypeGroup) taskTypeGroup.classList.add("hidden");
             taskTypeSelect.removeAttribute("required");
             if (icodeCampaignGroup) icodeCampaignGroup.classList.remove("hidden");
+            if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
+        } else if (client === "Green Shine Solar") {
+            if (taskTypeGroup) taskTypeGroup.classList.remove("hidden");
+            taskTypeSelect.setAttribute("required", "required");
+            if (icodeCampaignGroup) icodeCampaignGroup.classList.add("hidden");
+            if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
+
+            taskTypeSelect.innerHTML = `
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update (Press Release / Media)</option>
+                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
+            `;
         } else {
             if (taskTypeGroup) taskTypeGroup.classList.remove("hidden");
             taskTypeSelect.setAttribute("required", "required");
             if (icodeCampaignGroup) icodeCampaignGroup.classList.add("hidden");
+            if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
 
             taskTypeSelect.innerHTML = `
                 <option value="Social Media">Social Media Post</option>
@@ -2938,6 +2971,58 @@ function togglePRFormFields(type) {
     const subTypeGroupEl = subTypeSelect.closest('.form-group');
     if (subTypeGroupEl) subTypeGroupEl.classList.remove('hidden');
 
+    const dcFields = document.getElementById("digital-campaigns-only-fields");
+    if (dcFields) {
+        if (type === "Digital Campaigns") {
+            dcFields.classList.remove("hidden");
+        } else {
+            dcFields.classList.add("hidden");
+        }
+    }
+
+    const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
+    if (greenshineCampaignGroup) {
+        if (state.activeClient === "Green Shine Solar" && type === "Digital Campaigns") {
+            greenshineCampaignGroup.classList.remove("hidden");
+        } else {
+            greenshineCampaignGroup.classList.add("hidden");
+        }
+    }
+
+    if (type === "Digital Campaigns") {
+        if (taskStatusSelect) {
+            taskStatusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
+        prFields.classList.add("hidden");
+        prPubsSection.classList.add("hidden");
+        if (prMetaRow) prMetaRow.classList.add("hidden");
+        if (liveLinkGroup) liveLinkGroup.classList.add("hidden");
+        if (canvaLinkGroup) canvaLinkGroup.classList.add("hidden");
+        if (imageGroup) {
+            imageGroup.classList.remove("hidden");
+            const mainLabel = imageGroup.querySelector("label:not([id])");
+            if (mainLabel) mainLabel.innerHTML = `<i class="fa-solid fa-image"></i> Ad Creative Image / Screenshot`;
+            const uploadBtn = document.getElementById("upload-label");
+            if (uploadBtn) uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload Ad Creative`;
+        }
+        if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
+        if (taskDateGroup) taskDateGroup.classList.remove("hidden");
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
+        if (oldPubGroup) oldPubGroup.classList.add("hidden");
+        if (spokespersonGroup) spokespersonGroup.classList.add("hidden");
+
+        const subTypeGroup = subTypeSelect.closest('.form-group');
+        if (subTypeGroup) subTypeGroup.classList.add('hidden');
+        subTypeSelect.innerHTML = `<option value="Digital Campaign">Digital Campaign</option>`;
+        return;
+    }
+
     if (state.activeClient === "iCode") {
         if (taskStatusSelect) {
             taskStatusSelect.innerHTML = `
@@ -2953,7 +3038,13 @@ function togglePRFormFields(type) {
         if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
-        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (imageGroup) {
+            imageGroup.classList.remove("hidden");
+            const mainLabel = imageGroup.querySelector("label:not([id])");
+            if (mainLabel) mainLabel.innerHTML = `<i class="fa-solid fa-image"></i> Press Clipping / Image Attachment`;
+            const uploadBtn = document.getElementById("upload-label");
+            if (uploadBtn) uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload Clipping (Cloud Storage)`;
+        }
         if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
         if (taskDateGroup) taskDateGroup.classList.remove("hidden");
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
@@ -3023,7 +3114,13 @@ function togglePRFormFields(type) {
         if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
-        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (imageGroup) {
+            imageGroup.classList.remove("hidden");
+            const mainLabel = imageGroup.querySelector("label:not([id])");
+            if (mainLabel) mainLabel.innerHTML = `<i class="fa-solid fa-image"></i> Press Clipping / Image Attachment`;
+            const uploadBtn = document.getElementById("upload-label");
+            if (uploadBtn) uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload Clipping (Cloud Storage)`;
+        }
         if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
         if (taskDateGroup) taskDateGroup.classList.remove("hidden");
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
@@ -3055,7 +3152,13 @@ function togglePRFormFields(type) {
         if (prMetaRow) prMetaRow.classList.add("hidden");
         if (liveLinkGroup) liveLinkGroup.classList.remove("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.remove("hidden");
-        if (imageGroup) imageGroup.classList.remove("hidden");
+        if (imageGroup) {
+            imageGroup.classList.remove("hidden");
+            const mainLabel = imageGroup.querySelector("label:not([id])");
+            if (mainLabel) mainLabel.innerHTML = `<i class="fa-solid fa-image"></i> Press Clipping / Image Attachment`;
+            const uploadBtn = document.getElementById("upload-label");
+            if (uploadBtn) uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload Clipping (Cloud Storage)`;
+        }
         if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
         if (taskDateGroup) taskDateGroup.classList.remove("hidden");
         if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
@@ -3567,6 +3670,24 @@ function toggleWipCommentFields(status) {
     }
 }
 
+// Helper to calculate and update CPL/CPC dynamically
+function updateCplCpcCalculation() {
+    const budgetInput = document.getElementById("task-budget");
+    const conversionsInput = document.getElementById("task-conversions");
+    const cplCpcInput = document.getElementById("task-cpl-cpc");
+    
+    if (budgetInput && conversionsInput && cplCpcInput) {
+        const budgetVal = parseFloat(budgetInput.value) || 0;
+        const convVal = parseInt(conversionsInput.value, 10) || 0;
+        
+        if (convVal > 0) {
+            cplCpcInput.value = (budgetVal / convVal).toFixed(2);
+        } else {
+            cplCpcInput.value = "0.00";
+        }
+    }
+}
+
 // Open Drawer (Create or Edit state)
 function openDrawer(taskId = null, prefillData = null) {
     const form = document.getElementById("task-form");
@@ -3580,8 +3701,25 @@ function openDrawer(taskId = null, prefillData = null) {
         cb.checked = false;
     });
 
-    // Reset PR campaign type checkboxes
-    document.querySelectorAll('input[name="pr-campaign-type"]').forEach(cb => {
+
+
+    // Reset Green Shine campaign type checkboxes
+    document.querySelectorAll('input[name="greenshine-campaign-type"]').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Reset Digital Campaigns specific fields
+    const adCreativeLinkInput = document.getElementById("task-ad-creative-link");
+    const targetUrlInput = document.getElementById("task-target-url");
+    const campaignBudgetInput = document.getElementById("task-budget");
+    const conversionsInput = document.getElementById("task-conversions");
+    const cplCpcInput = document.getElementById("task-cpl-cpc");
+    if (adCreativeLinkInput) adCreativeLinkInput.value = "";
+    if (targetUrlInput) targetUrlInput.value = "";
+    if (campaignBudgetInput) campaignBudgetInput.value = "";
+    if (conversionsInput) conversionsInput.value = "";
+    if (cplCpcInput) cplCpcInput.value = "";
+    document.querySelectorAll('input[name="campaign-platform"]').forEach(cb => {
         cb.checked = false;
     });
 
@@ -3623,11 +3761,20 @@ function openDrawer(taskId = null, prefillData = null) {
             cb.checked = (cb.value === "Organic");
         });
     } else {
-        taskTypeSelect.innerHTML = `
-            <option value="Social Media">Social Media Post</option>
-            <option value="PR Update">PR Update (Press Release / Media)</option>
-            <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
-        `;
+        if (state.activeClient === "Green Shine Solar") {
+            taskTypeSelect.innerHTML = `
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update (Press Release / Media)</option>
+                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
+            `;
+        } else {
+            taskTypeSelect.innerHTML = `
+                <option value="Social Media">Social Media Post</option>
+                <option value="PR Update">PR Update (Press Release / Media)</option>
+                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+            `;
+        }
         taskTypeSelect.value = "Social Media";
         togglePRFormFields("Social Media");
     }
@@ -3664,6 +3811,38 @@ function openDrawer(taskId = null, prefillData = null) {
             } else {
                 document.getElementById("task-type").value = task.type;
                 togglePRFormFields(task.type);
+            }
+
+            // Prefill Green Shine campaign type checkboxes if client is Green Shine Solar
+            if (task.client === "Green Shine Solar") {
+                const campaignTypes = Array.isArray(task.campaignType) 
+                    ? task.campaignType 
+                    : (task.campaignType ? [task.campaignType] : []);
+                document.querySelectorAll('input[name="greenshine-campaign-type"]').forEach(cb => {
+                    cb.checked = campaignTypes.includes(cb.value);
+                });
+            }
+
+            // Prefill Digital Campaigns specific fields
+            if (task.type === "Digital Campaigns") {
+                const adCreativeLinkInput = document.getElementById("task-ad-creative-link");
+                const targetUrlInput = document.getElementById("task-target-url");
+                const campaignBudgetInput = document.getElementById("task-budget");
+                const conversionsInput = document.getElementById("task-conversions");
+                
+                if (adCreativeLinkInput) adCreativeLinkInput.value = task.adCreativeLink || "";
+                if (targetUrlInput) targetUrlInput.value = task.targetUrl || "";
+                if (campaignBudgetInput) campaignBudgetInput.value = task.campaignBudget || "";
+                if (conversionsInput) conversionsInput.value = task.leadsConversionsClicks || "";
+                
+                // Platforms
+                const platforms = task.platforms || [];
+                document.querySelectorAll('input[name="campaign-platform"]').forEach(cb => {
+                    cb.checked = platforms.includes(cb.value);
+                });
+                
+                // Recalculate CPL/CPC
+                updateCplCpcCalculation();
             }
             
             document.getElementById("task-sub-type").value = task.subType || "";
@@ -4121,6 +4300,31 @@ function handleFormSubmit(e) {
             alert("Please select at least one iCode center.");
             return;
         }
+    } else if (taskClient === "Green Shine Solar" && type === "Digital Campaigns") {
+        const selectedCampaignTypes = Array.from(document.querySelectorAll('input[name="greenshine-campaign-type"]:checked')).map(cb => cb.value);
+        if (selectedCampaignTypes.length === 0) {
+            alert("Please select at least one Campaign Type (Organic / Paid).");
+            return;
+        }
+        campaignType = selectedCampaignTypes; // Save as array
+    }
+
+    let platforms = [];
+    let adCreativeLink = "";
+    let targetUrl = "";
+    let campaignBudget = "";
+    let leadsConversionsClicks = "";
+
+    if (type === "Digital Campaigns") {
+        platforms = Array.from(document.querySelectorAll('input[name="campaign-platform"]:checked')).map(cb => cb.value);
+        if (platforms.length === 0) {
+            alert("Please select at least one platform.");
+            return;
+        }
+        adCreativeLink = document.getElementById("task-ad-creative-link") ? document.getElementById("task-ad-creative-link").value : "";
+        targetUrl = document.getElementById("task-target-url") ? document.getElementById("task-target-url").value : "";
+        campaignBudget = document.getElementById("task-budget") ? document.getElementById("task-budget").value : "";
+        leadsConversionsClicks = document.getElementById("task-conversions") ? document.getElementById("task-conversions").value : "";
     }
 
     const taskData = {
@@ -4135,8 +4339,13 @@ function handleFormSubmit(e) {
         month,
         week,
         date,
-        canvaLink,
-        liveLink,
+        canvaLink: type === "Digital Campaigns" ? adCreativeLink : canvaLink,
+        liveLink: type === "Digital Campaigns" ? targetUrl : liveLink,
+        adCreativeLink: type === "Digital Campaigns" ? adCreativeLink : "",
+        targetUrl: type === "Digital Campaigns" ? targetUrl : "",
+        platforms: type === "Digital Campaigns" ? platforms : [],
+        campaignBudget: type === "Digital Campaigns" ? campaignBudget : "",
+        leadsConversionsClicks: type === "Digital Campaigns" ? leadsConversionsClicks : "",
         remarks,
         impressions,
         engagement,
@@ -4412,12 +4621,14 @@ function renderTrendChart() {
     const smData = [];
     const prData = [];
     const creativeData = [];
+    const dcData = [];
 
     const clientTasks = state.tasks.filter(t => (t.client || "RVNL") === state.activeClient);
     months.forEach(m => {
         smData.push(clientTasks.filter(t => t.month === m && t.type === 'Social Media' && t.status === 'Published/Closed').length);
         prData.push(getPRPublicationsCount(clientTasks.filter(t => t.month === m)));
         creativeData.push(clientTasks.filter(t => t.month === m && t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length);
+        dcData.push(clientTasks.filter(t => t.month === m && t.type === 'Digital Campaigns' && t.status === 'Published/Closed').length);
     });
 
     // Destroy existing chart if any
@@ -4494,6 +4705,15 @@ function renderTrendChart() {
                 label: 'Creative Collateral',
                 data: creativeData,
                 backgroundColor: '#f59e0b',
+                borderRadius: 4
+            });
+        }
+
+        if (state.activeClient === "Green Shine Solar") {
+            datasets.push({
+                label: 'Digital Campaigns',
+                data: dcData,
+                backgroundColor: '#ec4899',
                 borderRadius: 4
             });
         }
@@ -4588,6 +4808,15 @@ function renderShareChart() {
                 clientTasks.filter(t => t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length
             ];
             bgColors = ['#10b981', '#f59e0b'];
+        } else if (state.activeClient === "Green Shine Solar") {
+            categories = ['Social Media', 'PR Update', 'Creative / Collateral', 'Digital Campaigns'];
+            dataVals = [
+                clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
+                getPRPublicationsCount(clientTasks),
+                clientTasks.filter(t => t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length,
+                clientTasks.filter(t => t.type === 'Digital Campaigns' && t.status === 'Published/Closed').length
+            ];
+            bgColors = ['#10b981', '#8b5cf6', '#f59e0b', '#ec4899'];
         } else {
             categories = ['Social Media', 'PR Update', 'Creative / Collateral'];
             dataVals = [
@@ -4892,7 +5121,32 @@ function renderTrackerTable() {
         
         // Type Badge
         let typeBadge = "";
-        if (state.activeClient === "iCode" || task.client === "iCode") {
+        if (state.activeClient === "Green Shine Solar" || task.client === "Green Shine Solar") {
+            const campaignTypes = Array.isArray(task.campaignType) 
+                ? task.campaignType 
+                : (task.campaignType ? [task.campaignType] : []);
+            
+            let campBadges = "";
+            if (campaignTypes.includes("Organic")) {
+                campBadges += `<span class="badge badge-social" style="margin: 0; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);"><i class="fa-solid fa-seedling" style="color:#3b82f6;"></i> Organic</span>`;
+            }
+            if (campaignTypes.includes("Paid")) {
+                campBadges += `<span class="badge badge-pr" style="background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); margin: 0;"><i class="fa-solid fa-coins" style="color: var(--accent-red);"></i> Paid</span>`;
+            }
+
+            let catBadge = "";
+            if (task.type === "Digital Campaigns") {
+                catBadge = `<span class="badge badge-creative" style="background: rgba(139, 92, 246, 0.12); color: var(--accent-purple); border: 1px solid rgba(139, 92, 246, 0.2);"><i class="fa-solid fa-rectangle-ad"></i> Digital Campaign</span>`;
+            } else if (task.type === "Social Media") {
+                catBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
+            } else if (task.type === "PR Update") {
+                catBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
+            } else {
+                catBadge = `<span class="badge badge-creative"><i class="fa-solid fa-palette"></i> Design</span>`;
+            }
+            
+            typeBadge = `<div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">${catBadge}${campBadges ? `<div style="display: flex; gap: 4px; flex-wrap: wrap;">${campBadges}</div>` : ''}</div>`;
+        } else if (state.activeClient === "iCode" || task.client === "iCode") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : ["Organic"]);
@@ -4960,6 +5214,14 @@ function renderTrackerTable() {
                     linksHtml += `<a href="${refLink.url}" target="_blank" class="link-circle" style="background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.25); color: #8b5cf6;" title="${label}"><i class="fa-solid fa-link"></i></a>`;
                 }
             });
+        }
+        if (task.type === "Digital Campaigns") {
+            if (task.adCreativeLink && task.adCreativeLink.startsWith("http") && !linksHtml.includes(task.adCreativeLink)) {
+                linksHtml += `<a href="${task.adCreativeLink}" target="_blank" class="link-circle canva-link" title="Ad Creative Link (Canva/Drive)"><i class="fa-solid fa-pen-nib"></i></a>`;
+            }
+            if (task.targetUrl && task.targetUrl.startsWith("http") && !linksHtml.includes(task.targetUrl)) {
+                linksHtml += `<a href="${task.targetUrl}" target="_blank" class="link-circle li-link" title="Target URL / Landing Page"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
+            }
         }
         linksHtml += '</div>';
 
@@ -5056,7 +5318,8 @@ function renderTrackerTable() {
         }
 
         const isPR = task.type === "PR Update";
-        const toggleBtnHtml = isPR ? `<button class="action-btn-mini btn-toggle-task-details" data-id="${task.id}" title="Toggle Detailed PR View"><i class="fa-solid fa-chevron-down"></i></button>` : '';
+        const isDC = task.type === "Digital Campaigns";
+        const toggleBtnHtml = (isPR || isDC) ? `<button class="action-btn-mini btn-toggle-task-details" data-id="${task.id}" title="Toggle Detailed View"><i class="fa-solid fa-chevron-down"></i></button>` : '';
 
         tr.innerHTML = `
             <td>${typeBadge}</td>
@@ -5083,6 +5346,57 @@ function renderTrackerTable() {
             </td>
         `;
         tbody.appendChild(tr);
+
+        if (isDC) {
+            const detailsTr = document.createElement("tr");
+            detailsTr.id = `pr-details-row-${task.id}`;
+            detailsTr.className = "pr-details-row";
+            detailsTr.style.display = "none";
+
+            const platformsHtml = task.platforms && task.platforms.length > 0 
+                ? task.platforms.map(p => `<span style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; display: inline-block;">${p}</span>`).join(' ') 
+                : `<span style="color: var(--text-muted); font-style: italic;">No Platforms</span>`;
+                
+            const budgetVal = task.campaignBudget ? Number(task.campaignBudget) : 0;
+            const convVal = task.leadsConversionsClicks ? Number(task.leadsConversionsClicks) : 0;
+            const cplVal = convVal > 0 ? (budgetVal / convVal).toFixed(2) : "0.00";
+
+            detailsTr.innerHTML = `
+                <td colspan="7">
+                    <div class="pr-details-expanded" id="pr-expanded-container-${task.id}" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="font-weight: 600; color: var(--accent-purple); font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rectangle-ad"></i> Digital Campaign Details
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 12px; line-height: 1.45;">
+                            <div>
+                                <strong style="color: var(--text-secondary);">Platforms:</strong>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">${platformsHtml}</div>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Campaign Stats & Spend:</strong>
+                                <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; color: var(--text-primary);">
+                                    <span>Budget / Spend: <strong>₹${budgetVal.toLocaleString('en-IN')}</strong></span>
+                                    <span>Leads / Conversions / Clicks: <strong>${convVal.toLocaleString()}</strong></span>
+                                    <span>CPL / CPC: <strong>₹${cplVal}</strong></span>
+                                </div>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Campaign Links & Media:</strong>
+                                <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+                                    ${task.adCreativeLink ? `<a href="${task.adCreativeLink}" target="_blank" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;"><i class="fa-solid fa-pen-nib"></i> Ad Creative Link (Canva/Drive)</a>` : '<span style="color: var(--text-muted); font-style: italic;">No Creative Link</span>'}
+                                    ${task.targetUrl ? `<a href="${task.targetUrl}" target="_blank" style="color: var(--accent-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Target URL / Landing Page</a>` : '<span style="color: var(--text-muted); font-style: italic;">No Target URL</span>'}
+                                </div>
+                                ${task.image ? `
+                                <div style="margin-top: 10px; position:relative; width:120px; height:75px; border-radius:6px; overflow:hidden; border:1px solid var(--border-color); cursor:pointer;" onclick="viewImageInNewWindow('${task.image}')" title="Click to view full size">
+                                    <img src="${task.image}" style="width:100%; height:100%; object-fit:cover;">
+                                </div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(detailsTr);
+        }
 
         if (isPR) {
             const detailsTr = document.createElement("tr");
@@ -5297,7 +5611,36 @@ function renderTrackerKanban() {
         // Tag label
         let tagColor = "var(--accent-blue)";
         let tagLabel = task.subType === "Other" ? "Document" : (task.subType || task.type);
-        if (state.activeClient === "iCode" || task.client === "iCode") {
+        if (state.activeClient === "Green Shine Solar" || task.client === "Green Shine Solar") {
+            const campaignTypes = Array.isArray(task.campaignType) 
+                ? task.campaignType 
+                : (task.campaignType ? [task.campaignType] : []);
+            
+            let prefix = "";
+            if (campaignTypes.includes("Organic") && campaignTypes.includes("Paid")) {
+                prefix = "Paid & Organic ";
+                tagColor = "var(--accent-purple)";
+            } else if (campaignTypes.includes("Paid")) {
+                prefix = "Paid ";
+                tagColor = "var(--accent-red)";
+            } else if (campaignTypes.includes("Organic")) {
+                prefix = "Organic ";
+                tagColor = "var(--accent-blue)";
+            }
+
+            if (task.type === "Digital Campaigns") {
+                tagLabel = prefix + "Digital Campaign";
+                if (!prefix) {
+                    tagColor = "var(--accent-purple)";
+                }
+            } else if (task.type === "Social Media") {
+                tagLabel = prefix + "Social Media";
+            } else if (task.type === "PR Update") {
+                tagLabel = prefix + "PR Update";
+            } else {
+                tagLabel = prefix + (task.subType || task.type);
+            }
+        } else if (state.activeClient === "iCode" || task.client === "iCode") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : ["Organic"]);
@@ -5349,6 +5692,26 @@ function renderTrackerKanban() {
             `;
         }
 
+        let kanbanDcDetailsHtml = "";
+        if (task.type === "Digital Campaigns") {
+            const platforms = task.platforms && task.platforms.length > 0 
+                ? task.platforms.join(", ") 
+                : "No platforms";
+            const budgetVal = task.campaignBudget ? Number(task.campaignBudget) : 0;
+            const convVal = task.leadsConversionsClicks ? Number(task.leadsConversionsClicks) : 0;
+            const cplVal = convVal > 0 ? (budgetVal / convVal).toFixed(2) : "0.00";
+            
+            kanbanDcDetailsHtml = `
+                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; margin-top: 10px; border-left: 3px solid var(--accent-purple); font-size: 11px; border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); line-height: 1.45;">
+                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;"><i class="fa-solid fa-rectangle-ad"></i> Digital Campaign Specs</div>
+                    <div>Platforms: <span style="color: var(--text-primary); font-weight: 500;">${platforms}</span></div>
+                    <div>Budget: <span style="color: var(--text-primary); font-weight: 500;">₹${budgetVal.toLocaleString('en-IN')}</span></div>
+                    <div>Conversions: <span style="color: var(--text-primary); font-weight: 500;">${convVal.toLocaleString()}</span></div>
+                    <div>CPL/CPC: <span style="color: var(--text-primary); font-weight: 500;">₹${cplVal}</span></div>
+                </div>
+            `;
+        }
+
         // iCode Centers tags for Kanban
         let kanbanCentersHtml = "";
         if ((state.activeClient === "iCode" || task.client === "iCode") && task.centers && task.centers.length > 0) {
@@ -5370,6 +5733,7 @@ function renderTrackerKanban() {
             ${kanbanRemarksHtml}
             ${kanbanCentersHtml}
             ${kanbanCommentHtml}
+            ${kanbanDcDetailsHtml}
             <div class="card-links-quick">${linksQuick}</div>
             <div class="card-meta">
                 <span class="card-owner"><i class="fa-solid fa-user"></i> ${task.owner}</span>
@@ -5641,6 +6005,7 @@ function generateReport() {
     state.currentReportSmItems = reportItems.filter(t => t.type === "Social Media");
     state.currentReportPrItems = reportItems.filter(t => t.type === "PR Update");
     state.currentReportCreativeItems = reportItems.filter(t => t.type === "Creative / Collateral");
+    state.currentReportDcItems = reportItems.filter(t => t.type === "Digital Campaigns");
 
     // Call actual renderer
     renderReportView();
@@ -5651,6 +6016,7 @@ function renderReportView() {
     const smItems = state.currentReportSmItems.filter(t => !state.excludedReportTaskIds.has(t.id));
     const prItems = state.currentReportPrItems.filter(t => !state.excludedReportTaskIds.has(t.id));
     const creativeItems = state.currentReportCreativeItems ? state.currentReportCreativeItems.filter(t => !state.excludedReportTaskIds.has(t.id)) : [];
+    const dcItems = state.currentReportDcItems ? state.currentReportDcItems.filter(t => !state.excludedReportTaskIds.has(t.id)) : [];
     
     // Update stats counters on report
     const defaultStats = document.getElementById("report-stats-summary-default");
@@ -6160,6 +6526,97 @@ function renderReportView() {
                         <td>${statusBadge}</td>
                     `;
                     creativeBody.appendChild(tr);
+                });
+            }
+        }
+    }
+
+    // RENDER DIGITAL CAMPAIGNS TABLE
+    const dcBody = document.getElementById("report-digital-campaigns-table-body");
+    const dcSec = document.getElementById("report-sec-digital-campaigns");
+    if (dcBody && dcSec) {
+        dcBody.innerHTML = "";
+        if (state.activeClient !== "Green Shine Solar") {
+            dcSec.style.display = "none";
+        } else {
+            dcSec.style.display = "";
+            if (dcItems.length === 0) {
+                dcSec.classList.add("no-print");
+                dcBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#6b7280;">No digital campaigns recorded.</td></tr>`;
+            } else {
+                dcSec.classList.remove("no-print");
+                dcItems.forEach((task, idx) => {
+                    const tr = document.createElement("tr");
+                    tr.setAttribute("draggable", "true");
+                    tr.setAttribute("data-id", task.id);
+                    tr.classList.add("draggable-row");
+
+                    const campaignTypes = Array.isArray(task.campaignType) 
+                        ? task.campaignType 
+                        : (task.campaignType ? [task.campaignType] : []);
+                    const campaignTypeLabel = campaignTypes.join(" & ") || "Campaign";
+
+                    const platformsHtml = task.platforms && task.platforms.length > 0 
+                        ? task.platforms.join(", ") 
+                        : "N/A";
+                    const budgetVal = task.campaignBudget ? Number(task.campaignBudget) : 0;
+                    const convVal = task.leadsConversionsClicks ? Number(task.leadsConversionsClicks) : 0;
+                    const cplVal = convVal > 0 ? (budgetVal / convVal).toFixed(2) : "0.00";
+
+                    let reportThumbnailHtml = "";
+                    if (task.image) {
+                        reportThumbnailHtml = `
+                            <div class="report-item-thumbnail">
+                                <img src="${task.image}" alt="thumbnail">
+                            </div>
+                        `;
+                    }
+
+                    const noPrintButtons = `
+                        <div class="no-print" style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
+                             <button class="btn btn-secondary btn-sm btn-add-report-clipping" data-id="${task.id}" style="font-size: 10px; padding: 2px 8px; height: 24px;">
+                                 <i class="fa-solid fa-plus"></i> Add Thumbnail
+                             </button>
+                        </div>
+                    `;
+
+                    const titleAndImageHtml = reportThumbnailHtml
+                        ? `<div class="report-item-flex">
+                             ${reportThumbnailHtml}
+                             <div class="report-item-details">
+                                 <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
+                                 <strong>${task.title}</strong>
+                             </div>
+                           </div>`
+                        : `<div class="report-item-details">
+                             <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
+                             <strong>${task.title}</strong>
+                             ${noPrintButtons}
+                           </div>`;
+
+                    let linksHtml = '<div class="links-flex" style="justify-content: center; gap: 8px;">';
+                    if (task.adCreativeLink && task.adCreativeLink.startsWith("http")) {
+                        linksHtml += `<a href="${task.adCreativeLink}" target="_blank" class="link-circle canva-link" title="Ad Creative Link" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-pen-nib"></i></a>`;
+                    }
+                    if (task.targetUrl && task.targetUrl.startsWith("http")) {
+                        linksHtml += `<a href="${task.targetUrl}" target="_blank" class="link-circle li-link" title="Target URL" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
+                    }
+                    if (task.image) {
+                        linksHtml += `<a href="#" class="link-circle img-link btn-view-image" data-id="${task.id}" title="View Media Clipping" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-image"></i></a>`;
+                    }
+                    linksHtml += '</div>';
+
+                    tr.innerHTML = `
+                        <td style="text-align:center;">${idx + 1}</td>
+                        <td style="font-weight:600; text-align:center;">${campaignTypeLabel}</td>
+                        <td>${titleAndImageHtml}</td>
+                        <td style="text-align:center;">${platformsHtml}</td>
+                        <td style="text-align:center;">₹${budgetVal.toLocaleString('en-IN')}</td>
+                        <td style="text-align:center;">${convVal.toLocaleString()}</td>
+                        <td style="text-align:center;">₹${cplVal}</td>
+                        <td>${linksHtml}</td>
+                    `;
+                    dcBody.appendChild(tr);
                 });
             }
         }
