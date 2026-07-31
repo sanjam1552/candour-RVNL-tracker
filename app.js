@@ -1694,6 +1694,53 @@ function setupEventListeners() {
     document.getElementById("generate-report-btn").addEventListener("click", generateReport);
     document.getElementById("report-clipping-upload").addEventListener("change", handleReportClippingUpload);
     document.getElementById("print-report-btn").addEventListener("click", () => {
+        const checkbox = document.getElementById("toggle-continuous-page");
+        let printStyle = document.getElementById("continuous-print-style");
+        
+        if (printStyle) {
+            printStyle.remove();
+        }
+        
+        if (checkbox && checkbox.checked) {
+            const canvas = document.querySelector(".print-report-canvas");
+            const heightPx = canvas ? canvas.offsetHeight : 2000;
+            // Convert px to mm (1px = 0.264583mm) and add top/bottom margins (approx 40mm)
+            const heightMm = Math.ceil(heightPx * 0.264583) + 40; 
+            
+            printStyle = document.createElement("style");
+            printStyle.id = "continuous-print-style";
+            printStyle.innerHTML = `
+                @media print {
+                    @page {
+                        size: 210mm ${heightMm}mm;
+                        margin: 10mm 15mm;
+                    }
+                    .page-break-before {
+                        page-break-before: auto !important;
+                        break-before: auto !important;
+                        margin-top: 20px !important;
+                    }
+                    .report-pr-group {
+                        page-break-inside: auto !important;
+                        break-inside: auto !important;
+                        page-break-before: auto !important;
+                        break-before: auto !important;
+                        page-break-after: auto !important;
+                        break-after: auto !important;
+                    }
+                    .report-pub-coverage-card {
+                        page-break-inside: auto !important;
+                        break-inside: auto !important;
+                    }
+                    tr {
+                        page-break-inside: auto !important;
+                        break-inside: auto !important;
+                    }
+                }
+            `;
+            document.head.appendChild(printStyle);
+        }
+        
         window.print();
     });
 
@@ -6382,9 +6429,9 @@ function renderReportView() {
                                          data-pub-idx="${pubIdx}" 
                                          style="background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; box-sizing: border-box; display: flex; gap: 14px; align-items: flex-start; cursor: grab;">
                                         ${pub.image ? `
-                                        <div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                        <div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
                                             <a href="${pub.link || '#'}" target="_blank" draggable="false" style="display:block; width:100%; height:100%;"><img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
-                                        </div>` : `<div style="width: 200px; height: 125px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                        </div>` : `<div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
                                         <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
                                             <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
                                                 <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px;"><i class="fa-solid fa-bars"></i></span>

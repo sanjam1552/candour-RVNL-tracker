@@ -433,7 +433,11 @@
                         <h2>Client Report Generator</h2>
                         <p>Generate highly polished, print-ready client reports for weekly or monthly review sessions.</p>
                     </div>
-                    <div class="report-export-actions">
+                    <div class="report-export-actions" style="display: flex; align-items: center; gap: 16px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary); margin: 0; user-select: none;">
+                            <input type="checkbox" id="toggle-continuous-page" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-blue);">
+                            Continuous Page PDF (No Page Breaks)
+                        </label>
                         <button id="print-report-btn" class="btn btn-primary">
                             <i class="fa-solid fa-print"></i> Print / Save as PDF
                         </button>

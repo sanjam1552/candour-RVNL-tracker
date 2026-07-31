@@ -1937,6 +1937,8 @@ h1, h2, h3, h4, h5, h6 {
     .report-pr-group {
         page-break-inside: auto !important;
         break-inside: auto !important;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
         margin-bottom: 20px !important;
     }
     
