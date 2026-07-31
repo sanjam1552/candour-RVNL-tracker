@@ -6433,9 +6433,9 @@ function renderReportView() {
                                             <a href="${pub.link || '#'}" target="_blank" draggable="false" style="display:block; width:100%; height:100%;"><img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
                                         </div>` : `<div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
                                         <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
-                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
-                                                <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px;"><i class="fa-solid fa-bars"></i></span>
-                                                ${pub.name || 'Unnamed Pub'}
+                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 6px; line-height: 1.3;">
+                                                <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px; margin-top: 1px;"><i class="fa-solid fa-bars"></i></span>
+                                                <span style="word-break: break-word;">${pub.name || 'Unnamed Pub'}</span>
                                             </div>
                                             ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
                                             ${pub.link ? `
