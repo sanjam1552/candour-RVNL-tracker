@@ -3052,6 +3052,7 @@ function togglePRFormFields(type) {
                 <option value="WIP">WIP</option>
                 <option value="Sent for internal approval">Sent for internal approval</option>
                 <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
             `;
@@ -3086,6 +3087,7 @@ function togglePRFormFields(type) {
                 <option value="WIP">WIP</option>
                 <option value="Sent for internal approval">Sent for internal approval</option>
                 <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
             `;
@@ -3122,6 +3124,7 @@ function togglePRFormFields(type) {
                 <option value="WIP">WIP</option>
                 <option value="Sent for internal approval">Sent for internal approval</option>
                 <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
                 <option value="Sent to journalist">Sent to journalist</option>
                 <option value="On hold">On hold</option>
                 <option value="Published/Closed">Published/Closed</option>
@@ -3162,6 +3165,7 @@ function togglePRFormFields(type) {
                 <option value="WIP">WIP</option>
                 <option value="Sent for internal approval">Sent for internal approval</option>
                 <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
             `;
@@ -3200,6 +3204,7 @@ function togglePRFormFields(type) {
                 <option value="WIP">WIP</option>
                 <option value="Sent for internal approval">Sent for internal approval</option>
                 <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
             `;
@@ -4603,7 +4608,7 @@ function updateDashboard() {
         const totalVal = clientTasks.length;
         const coveragesVal = getPRPublicationsCount(clientTasks);
         const overdueVal = clientTasks.filter(t => t.type === "PR Update" && getPRDeadlineStatus(t)?.status === "overdue").length;
-        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold'].includes(t.status)).length;
+        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold', 'Client Approval Pending'].includes(t.status)).length;
         
         document.getElementById("stat-total-creatives").textContent = totalVal;
         document.getElementById("stat-total-linkedin").textContent = coveragesVal;
@@ -4622,7 +4627,7 @@ function updateDashboard() {
         const totalVal = clientTasks.length;
         const linkedinVal = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
         const prVal = getPRPublicationsCount(clientTasks);
-        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold'].includes(t.status)).length;
+        const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold', 'Client Approval Pending'].includes(t.status)).length;
 
         document.getElementById("stat-total-creatives").textContent = totalVal;
         document.getElementById("stat-total-linkedin").textContent = linkedinVal;
@@ -4981,7 +4986,7 @@ function renderDashboardLists() {
 
     // 2. Hot Tasks (WIP / Awaiting Review)
     const hotTasks = clientTasks
-        .filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval' || t.status === 'Sent to client')
+        .filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval' || t.status === 'Sent to client' || t.status === 'Client Approval Pending')
         .slice(0, 5);
         
     const hotList = document.getElementById("recent-hot-tasks");
@@ -5000,7 +5005,7 @@ function renderDashboardLists() {
             
             let badgeStatus = "status-wip";
             if (item.status === "Sent for internal approval") badgeStatus = "status-review";
-            if (item.status === "Sent to client") badgeStatus = "status-approval";
+            if (item.status === "Sent to client" || item.status === "Client Approval Pending") badgeStatus = "status-approval";
 
             let iconOrImageHtml = `<div class="item-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>`;
             if (item.image) {
@@ -5075,7 +5080,7 @@ function renderTracker() {
         if (state.filters.status === 'all') {
             matchesStatus = true;
         } else if (state.filters.status === 'In Progress') {
-            matchesStatus = ['WIP', 'Sent for internal approval', 'Sent to client', 'On hold', 'Sent to journalist'].includes(task.status);
+            matchesStatus = ['WIP', 'Sent for internal approval', 'Sent to client', 'On hold', 'Sent to journalist', 'Client Approval Pending'].includes(task.status);
         } else {
             matchesStatus = task.status === state.filters.status;
         }
@@ -5096,6 +5101,7 @@ function renderTracker() {
     const statusPriority = {
         "WIP": 1,
         "Sent for internal approval": 2,
+        "Client Approval Pending": 2.5,
         "Sent to client": 3,
         "Sent to journalist": 4,
         "On hold": 5,
@@ -5249,7 +5255,7 @@ function renderTrackerTable() {
         let statusClass = "status-wip";
         if (task.status === "Published/Closed") statusClass = "status-published";
         if (task.status === "Sent for internal approval") statusClass = "status-review";
-        if (task.status === "Sent to client") statusClass = "status-approval";
+        if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
         if (task.status === "Not used by client") statusClass = "status-hold";
         const statusPill = `<span class="status-pill ${statusClass}">${task.status}</span>`;
 
@@ -5631,6 +5637,8 @@ function renderTrackerKanban() {
             colStatus = "Not used by client";
         } else if (colStatus === "Sent to journalist") {
             colStatus = "WIP";
+        } else if (colStatus === "Client Approval Pending") {
+            colStatus = "Sent to client";
         } else if (!statuses.includes(colStatus)) {
             colStatus = "WIP";
         }
@@ -5975,15 +5983,7 @@ function generateReport() {
         if (!isClient) return false;
         
         if (state.activeClient === "Legrand" && periodType === "monthly") {
-            const isActiveInSelected = selectedMonths.some(m => isTaskActiveInMonth(t, m));
-            if (isActiveInSelected) return true;
-
-            // Include next month's WIP (planned) items
-            const isWip = t.status === "WIP" || t.status === "Sent for internal approval" || t.status === "Sent to client";
-            if (isWip && t.month === nextMonthStr) {
-                return true;
-            }
-            return false;
+            return selectedMonths.some(m => isTaskActiveInMonth(t, m));
         } else {
             return isTaskActiveInMonth(t, selectedMonth);
         }
@@ -6005,7 +6005,8 @@ function generateReport() {
                 t.status === "Published/Closed" || 
                 t.status === "WIP" || 
                 t.status === "Sent for internal approval" || 
-                t.status === "Sent to client"
+                t.status === "Sent to client" ||
+                t.status === "Client Approval Pending"
             );
         } else {
             reportItems = reportItems.filter(t => t.status === "Published/Closed");
@@ -6246,10 +6247,15 @@ function renderReportView() {
                 let statusClass = "status-wip";
                 let statusText = task.status;
                 if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
-                    statusText = "WIP";
+                    if (task.status === "Client Approval Pending") {
+                        statusText = "Client Approval Pending";
+                        statusClass = "status-approval";
+                    } else {
+                        statusText = "WIP";
+                    }
                 } else {
                     if (task.status === "Sent for internal approval") statusClass = "status-review";
-                    if (task.status === "Sent to client") statusClass = "status-approval";
+                    if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
                     if (task.status === "Not used by client") statusClass = "status-missed";
                 }
                 
@@ -6503,7 +6509,7 @@ function renderReportView() {
                     let statusClass = "status-published";
                     if (task.status === "WIP") statusClass = "status-wip";
                     if (task.status === "Sent for internal approval") statusClass = "status-review";
-                    if (task.status === "Sent to client") statusClass = "status-approval";
+                    if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
                     if (task.status === "Not used by client") statusClass = "status-missed";
                     
                     let statusBadge = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status}</span>`;
