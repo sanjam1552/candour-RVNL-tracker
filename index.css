@@ -2207,6 +2207,9 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 50px 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
     opacity: 1;
     pointer-events: auto;
     transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -2264,9 +2267,13 @@ h1, h2, h3, h4, h5, h6 {
     top: 0;
     left: 0;
     right: 0;
-    height: 6px;
-    background: linear-gradient(90deg, var(--accent-amber, #f59e0b), var(--accent-blue, #3b82f6), var(--accent-purple, #8b5cf6));
+    height: 24px;
+    background: linear-gradient(90deg, var(--accent-amber, #f59e0b), var(--accent-blue, #3b82f6), var(--accent-purple, #8b5cf6)) no-repeat top left;
+    background-size: 100% 6px;
     z-index: 1;
+    border-top-left-radius: 23px;
+    border-top-right-radius: 23px;
+    pointer-events: none;
 }
 
 /* 3D perspectiva entrance drop */

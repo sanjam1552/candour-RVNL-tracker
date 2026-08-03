@@ -2311,12 +2311,14 @@ function renderClientSwitcher(searchQuery = "") {
     // 1. Determine which clients the user has access to
     const allowedClients = getClientList().filter(c => getUserClientPermission(state.currentUserEmail, c) !== "None");
 
-    // 2. Check if they have access to ANY PR-only client
+    // 2. Count PR and Social clients they have access to
     const hasPRAccess = allowedClients.some(c => PR_ONLY_CLIENTS.includes(c));
+    const hasSocialAccess = allowedClients.some(c => SOCIAL_CREATIVE_CLIENTS.includes(c));
+    const showLargeLayout = hasPRAccess && hasSocialAccess;
 
-    // Toggle wide layout class on modal content box based on PR access
+    // Toggle wide layout class on modal content box based on layout configuration
     if (modalContent) {
-        if (hasPRAccess) {
+        if (showLargeLayout) {
             modalContent.classList.add("large-modal");
         } else {
             modalContent.classList.remove("large-modal");
@@ -2329,7 +2331,7 @@ function renderClientSwitcher(searchQuery = "") {
 
     let html = "";
 
-    if (hasPRAccess) {
+    if (showLargeLayout) {
         // LARGE LAYOUT: Divided into 2 sections with group headings
         // Render PR Accounts
         if (filteredPR.length > 0) {
