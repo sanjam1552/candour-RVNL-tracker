@@ -1,6 +1,50 @@
 // RVNL Creative & PR Reporting Hub - Core Application Logic
 const APP_VERSION = "1.1.0";
 
+// Centralized Clients Configurations
+const PR_ONLY_CLIENTS = [
+    "Zoom", 
+    "Databricks", 
+    "DXC", 
+    "Delinea", 
+    "SUSE", 
+    "NIIT University", 
+    "NIIT MTS", 
+    "Atlassian", 
+    "OutSystems", 
+    "OVHcloud", 
+    "Neo4j", 
+    "Arup", 
+    "Tenarai"
+];
+const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar"];
+const ALL_CLIENTS = [...PR_ONLY_CLIENTS, ...SOCIAL_CREATIVE_CLIENTS];
+
+// Helper to get client logo path
+function getClientLogo(client) {
+    if (client === "RVNL") return "inputs/RVNL (R)logo_vector.png";
+    if (client === "Legrand") return "inputs/ldcs logo.png";
+    if (client === "iCode") return "inputs/icode black.png";
+    if (client === "Kompact AI") return "inputs/logo kompact-text-shapes-2x.png";
+    if (client === "BT Group") return "inputs/BT_Logo_Purple_RGB.png";
+    if (client === "Candour") return "inputs/candour logo.png";
+    if (client === "Green Shine Solar") return "inputs/greenshine logo.png";
+    if (client === "Zoom") return "inputs/Zoom-Logo.png";
+    if (client === "Databricks") return "inputs/data bricks.png";
+    if (client === "DXC") return "inputs/DXC_tech_logo (2).png";
+    if (client === "Delinea") return "inputs/Delinea_logo.png";
+    if (client === "SUSE") return "inputs/Suse_logo.png";
+    if (client === "NIIT University") return "inputs/NIIT_Uni_logo(1).png";
+    if (client === "NIIT MTS") return "inputs/NIIT_MTS_logo.png";
+    if (client === "Atlassian") return "inputs/Atlassian_logo.png";
+    if (client === "OutSystems") return "inputs/Outsystems_logo.png";
+    if (client === "OVHcloud") return "inputs/Ovh cloud.png";
+    if (client === "Neo4j") return "inputs/neo4j.png";
+    if (client === "Arup") return "inputs/Arup_logo.png";
+    if (client === "Tenarai") return "inputs/Tenarai(1).png";
+    return "inputs/candour logo.png";
+}
+
 // Format current date to Month Year (e.g. "June 2026")
 function getCurrentMonthStr() {
     const options = { month: 'long', year: 'numeric' };
@@ -81,7 +125,7 @@ function getPublishDateValue(task) {
 
 // Returns true if the client workspace is PR-only (no Social Media/Creative assets)
 function isPROnlyClient(client) {
-    return client === "Zoom";
+    return PR_ONLY_CLIENTS.includes(client);
 }
 
 // Check if a task is active in a given month (either its month matches, or it is carried forward from a previous month)
@@ -627,7 +671,7 @@ async function loadData() {
                     state.userPermissions[lowerEmail] = {
                         isAdmin: ADMIN_EMAILS.includes(lowerEmail)
                     };
-                    ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"].forEach(client => {
+                    ALL_CLIENTS.forEach(client => {
                         state.userPermissions[lowerEmail][client] = "Full";
                     });
                     needsSave = true;
@@ -640,7 +684,7 @@ async function loadData() {
                 state.userPermissions[state.currentUserEmail] = {
                     isAdmin: isSuper
                 };
-                ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"].forEach(client => {
+                ALL_CLIENTS.forEach(client => {
                     // Super admins get Full access automatically, others default to None (Access Pending)
                     state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
                 });
@@ -1851,6 +1895,66 @@ function setupEventListeners() {
         searchPermsInput.addEventListener("input", renderPermissionsMatrix);
     }
 
+    // Permissions Drawer Event Listeners
+    const permissionsBody = document.getElementById("permissions-matrix-body");
+    if (permissionsBody) {
+        permissionsBody.addEventListener("click", (e) => {
+            const btn = e.target.closest(".edit-permissions-btn");
+            if (btn) {
+                const user = btn.getAttribute("data-user");
+                openPermissionsDrawer(user);
+            }
+        });
+    }
+
+    document.getElementById("close-permissions-drawer-btn")?.addEventListener("click", closePermissionsDrawer);
+    document.getElementById("cancel-permissions-drawer-btn")?.addEventListener("click", closePermissionsDrawer);
+    document.getElementById("permissions-drawer-overlay")?.addEventListener("click", (e) => {
+        if (e.target === document.getElementById("permissions-drawer-overlay")) {
+            closePermissionsDrawer();
+        }
+    });
+
+    document.getElementById("permissions-drawer-search")?.addEventListener("input", (e) => {
+        renderPermissionsDrawerGrid(e.target.value);
+    });
+
+    document.getElementById("save-permissions-drawer-btn")?.addEventListener("click", async () => {
+        if (!state.editingPermissionUser) return;
+        
+        state.userPermissions[state.editingPermissionUser] = {
+            ...state.userPermissions[state.editingPermissionUser],
+            ...state.editingPermissionsTemp
+        };
+        
+        closePermissionsDrawer();
+        await handleSavePermissions();
+    });
+
+    document.getElementById("btn-grant-full-pr")?.addEventListener("click", () => {
+        if (!state.editingPermissionsTemp) return;
+        PR_ONLY_CLIENTS.forEach(client => {
+            state.editingPermissionsTemp[client] = "Full";
+        });
+        renderPermissionsDrawerGrid(document.getElementById("permissions-drawer-search")?.value || "");
+    });
+    
+    document.getElementById("btn-grant-full-social")?.addEventListener("click", () => {
+        if (!state.editingPermissionsTemp) return;
+        SOCIAL_CREATIVE_CLIENTS.forEach(client => {
+            state.editingPermissionsTemp[client] = "Full";
+        });
+        renderPermissionsDrawerGrid(document.getElementById("permissions-drawer-search")?.value || "");
+    });
+    
+    document.getElementById("btn-revoke-all-access")?.addEventListener("click", () => {
+        if (!state.editingPermissionsTemp) return;
+        ALL_CLIENTS.forEach(client => {
+            state.editingPermissionsTemp[client] = "None";
+        });
+        renderPermissionsDrawerGrid(document.getElementById("permissions-drawer-search")?.value || "");
+    });
+
     // 11. API Key & AI Narrative Handlers
     const saveApiKeyBtn = document.getElementById("save-api-key-btn");
     if (saveApiKeyBtn) {
@@ -1920,6 +2024,8 @@ function setupEventListeners() {
                 switcherWelcome.textContent = "Select Workspace";
             }
             clientDropdownList.classList.toggle("hidden");
+            // Render switcher dynamically when opened
+            renderClientSwitcher(document.getElementById("client-switcher-search")?.value || "");
         });
         
         // Close modal when clicking the close button
@@ -1937,20 +2043,20 @@ function setupEventListeners() {
                 clientDropdownList.classList.add("hidden");
             }
         });
+
+        // Search Input change listener
+        const switcherSearch = document.getElementById("client-switcher-search");
+        if (switcherSearch) {
+            switcherSearch.addEventListener("input", (e) => {
+                renderClientSwitcher(e.target.value);
+            });
+        }
         
-        const clientGrid = document.querySelector(".client-grid");
-        if (clientGrid) {
-            clientGrid.addEventListener("mouseleave", () => {
-                let activeLogoSrc = "inputs/RVNL (R)logo_vector.png";
-                const activeClient = state.activeClient;
-                if (activeClient === "Legrand") activeLogoSrc = "inputs/ldcs logo.png";
-                else if (activeClient === "iCode") activeLogoSrc = "inputs/icode black.png";
-                else if (activeClient === "Kompact AI") activeLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
-                else if (activeClient === "BT Group") activeLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
-                else if (activeClient === "Candour") activeLogoSrc = "inputs/candour logo.png";
-                else if (activeClient === "Green Shine Solar") activeLogoSrc = "inputs/greenshine logo.png";
-                else if (activeClient === "Zoom") activeLogoSrc = "inputs/Zoom-Logo.png";
-                
+        // Reset logo on mouseleave from switcher container area
+        const clientGridScroll = document.getElementById("client-switcher-scroll-area");
+        if (clientGridScroll) {
+            clientGridScroll.addEventListener("mouseleave", () => {
+                const activeLogoSrc = getClientLogo(state.activeClient);
                 const switcherActiveLogo = document.getElementById("switcher-active-logo");
                 if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(activeLogoSrc)) {
                     switcherActiveLogo.classList.add("changing");
@@ -1961,56 +2067,6 @@ function setupEventListeners() {
                 }
             });
         }
-
-        document.querySelectorAll(".client-option").forEach(opt => {
-            opt.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const selectedClient = opt.getAttribute("data-client");
-                
-                try {
-                    // 1. Instantly switch the active client workspace in the background
-                    switchClient(selectedClient);
-                } catch (err) {
-                    console.error("Error switching client workspace:", err);
-                }
-                
-                const contentBox = document.getElementById("client-switcher-modal-content");
-                if (contentBox) {
-                    // 2. Trigger the exit animation
-                    contentBox.classList.add("minimizing");
-                    clientDropdownList.classList.add("minimizing");
-                    
-                    setTimeout(() => {
-                        clientDropdownList.classList.add("hidden");
-                        contentBox.classList.remove("minimizing");
-                        clientDropdownList.classList.remove("minimizing");
-                    }, 500);
-                } else {
-                    clientDropdownList.classList.add("hidden");
-                }
-            });
-
-            opt.addEventListener("mouseenter", () => {
-                const hoveredClient = opt.getAttribute("data-client");
-                let hoveredLogoSrc = "inputs/RVNL (R)logo_vector.png";
-                if (hoveredClient === "Legrand") hoveredLogoSrc = "inputs/ldcs logo.png";
-                else if (hoveredClient === "iCode") hoveredLogoSrc = "inputs/icode black.png";
-                else if (hoveredClient === "Kompact AI") hoveredLogoSrc = "inputs/logo kompact-text-shapes-2x.png";
-                else if (hoveredClient === "BT Group") hoveredLogoSrc = "inputs/BT_Logo_Purple_RGB.png";
-                else if (hoveredClient === "Candour") hoveredLogoSrc = "inputs/candour logo.png";
-                else if (hoveredClient === "Green Shine Solar") hoveredLogoSrc = "inputs/greenshine logo.png";
-                else if (hoveredClient === "Zoom") hoveredLogoSrc = "inputs/Zoom-Logo.png";
-                
-                const switcherActiveLogo = document.getElementById("switcher-active-logo");
-                if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(hoveredLogoSrc)) {
-                    switcherActiveLogo.classList.add("changing");
-                    setTimeout(() => {
-                        switcherActiveLogo.src = hoveredLogoSrc;
-                        switcherActiveLogo.classList.remove("changing");
-                    }, 120);
-                }
-            });
-        });
     }
 
     // User login event listeners (Email Link passwordless sign-in)
@@ -2231,11 +2287,6 @@ function getUserClientPermission(email, client) {
         return state.userPermissions[lowerEmail][client] || "None";
     }
     
-    // 2. Fallback: If user is super admin / lead, default to Full Access
-    if (ADMIN_EMAILS.includes(lowerEmail)) {
-        return "Full";
-    }
-    
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
     if (lowerEmail.endsWith("@candour.co.in")) {
         return "None";
@@ -2246,16 +2297,156 @@ function getUserClientPermission(email, client) {
 }
 
 function getClientList() {
-    const options = document.querySelectorAll(".client-option");
-    const list = [];
-    options.forEach(opt => {
-        const clientName = opt.getAttribute("data-client");
-        if (clientName && !list.includes(clientName)) list.push(clientName);
-    });
-    if (list.length === 0) {
-        return ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar", "Zoom"];
+    return ALL_CLIENTS;
+}
+
+// Render Client Switcher dynamically with grouping and search filter
+function renderClientSwitcher(searchQuery = "") {
+    const scrollArea = document.getElementById("client-switcher-scroll-area");
+    if (!scrollArea) return;
+
+    const modalContent = document.getElementById("client-switcher-modal-content");
+    const lowerQuery = searchQuery.trim().toLowerCase();
+    
+    // 1. Determine which clients the user has access to
+    const allowedClients = getClientList().filter(c => getUserClientPermission(state.currentUserEmail, c) !== "None");
+
+    // 2. Check if they have access to ANY PR-only client
+    const hasPRAccess = allowedClients.some(c => PR_ONLY_CLIENTS.includes(c));
+
+    // Toggle wide layout class on modal content box based on PR access
+    if (modalContent) {
+        if (hasPRAccess) {
+            modalContent.classList.add("large-modal");
+        } else {
+            modalContent.classList.remove("large-modal");
+        }
     }
-    return list;
+
+    // Filter clients based on search query and permissions
+    const filteredPR = PR_ONLY_CLIENTS.filter(c => c.toLowerCase().includes(lowerQuery) && allowedClients.includes(c));
+    const filteredSocial = SOCIAL_CREATIVE_CLIENTS.filter(c => c.toLowerCase().includes(lowerQuery) && allowedClients.includes(c));
+
+    let html = "";
+
+    if (hasPRAccess) {
+        // LARGE LAYOUT: Divided into 2 sections with group headings
+        // Render PR Accounts
+        if (filteredPR.length > 0) {
+            html += `
+                <div class="client-switcher-group" style="margin-bottom: 24px; padding: 0 10px;">
+                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">PR Accounts</h4>
+                    <div class="client-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px;">
+            `;
+            filteredPR.forEach(client => {
+                const isActive = state.activeClient === client;
+                const logo = getClientLogo(client);
+                html += `
+                    <div class="client-option ${isActive ? 'active' : ''}" data-client="${client}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-primary); border: 1px solid ${isActive ? 'var(--accent-blue)' : 'var(--border-color)'}; padding: 14px; border-radius: 12px; cursor: pointer; transition: all var(--transition-fast); text-align: center; gap: 8px; box-shadow: ${isActive ? '0 0 12px rgba(59, 130, 246, 0.15)' : 'none'};">
+                        <img src="${logo}" alt="${client} Logo" style="width: 100px; height: 45px; object-fit: contain; border-radius: 4px;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${client}</span>
+                    </div>
+                `;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render Social & Creative Accounts
+        if (filteredSocial.length > 0) {
+            html += `
+                <div class="client-switcher-group" style="margin-bottom: 24px; padding: 0 10px;">
+                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Social & Creative Accounts</h4>
+                    <div class="client-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px;">
+            `;
+            filteredSocial.forEach(client => {
+                const isActive = state.activeClient === client;
+                const logo = getClientLogo(client);
+                html += `
+                    <div class="client-option ${isActive ? 'active' : ''}" data-client="${client}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-primary); border: 1px solid ${isActive ? 'var(--accent-blue)' : 'var(--border-color)'}; padding: 14px; border-radius: 12px; cursor: pointer; transition: all var(--transition-fast); text-align: center; gap: 8px; box-shadow: ${isActive ? '0 0 12px rgba(59, 130, 246, 0.15)' : 'none'};">
+                        <img src="${logo}" alt="${client} Logo" style="width: 100px; height: 45px; object-fit: contain; border-radius: 4px;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${client}</span>
+                    </div>
+                `;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        // NARROW LAYOUT: Flat grid, no sections, matching original styling exactly
+        const allFiltered = [...filteredPR, ...filteredSocial];
+        if (allFiltered.length > 0) {
+            html += `<div class="client-grid">`;
+            allFiltered.forEach(client => {
+                const isActive = state.activeClient === client;
+                const logo = getClientLogo(client);
+                html += `
+                    <div class="client-option ${isActive ? 'active' : ''}" data-client="${client}">
+                        <img src="${logo}" alt="${client} Logo" style="width: 110px; height: 50px; object-fit: contain;">
+                        <span>${client}</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+    }
+
+    if (filteredPR.length === 0 && filteredSocial.length === 0) {
+        html = `
+            <div style="text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 32px; margin-bottom: 12px; display: block; color: var(--border-color);"></i>
+                No matching workspace found.
+            </div>
+        `;
+    }
+
+    scrollArea.innerHTML = html;
+
+    // Attach click and hover listeners dynamically to client options
+    scrollArea.querySelectorAll(".client-option").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const selectedClient = opt.getAttribute("data-client");
+            
+            try {
+                switchClient(selectedClient);
+            } catch (err) {
+                console.error("Error switching client workspace:", err);
+            }
+            
+            const clientDropdownList = document.getElementById("client-dropdown-list");
+            const contentBox = document.getElementById("client-switcher-modal-content");
+            if (contentBox && clientDropdownList) {
+                contentBox.classList.add("minimizing");
+                clientDropdownList.classList.add("minimizing");
+                
+                setTimeout(() => {
+                    clientDropdownList.classList.add("hidden");
+                    contentBox.classList.remove("minimizing");
+                    clientDropdownList.classList.remove("minimizing");
+                }, 500);
+            } else if (clientDropdownList) {
+                clientDropdownList.classList.add("hidden");
+            }
+        });
+
+        opt.addEventListener("mouseenter", () => {
+            const hoveredClient = opt.getAttribute("data-client");
+            const hoveredLogoSrc = getClientLogo(hoveredClient);
+            const switcherActiveLogo = document.getElementById("switcher-active-logo");
+            if (switcherActiveLogo && !switcherActiveLogo.src.endsWith(hoveredLogoSrc)) {
+                switcherActiveLogo.classList.add("changing");
+                setTimeout(() => {
+                    switcherActiveLogo.src = hoveredLogoSrc;
+                    switcherActiveLogo.classList.remove("changing");
+                }, 120);
+            }
+        });
+    });
 }
 
 function checkUserIsAdmin(email) {
@@ -2319,15 +2510,11 @@ function renderPermissionsMatrix() {
     const body = document.getElementById("permissions-matrix-body");
     if (!header || !body) return;
     
-    const clients = getClientList();
-    
-    // 1. Build Header Row
-    let headerHtml = `<th style="padding: 10px; font-weight: 600; font-size: 13px;">Team Member Email</th>`;
-    headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">Is Admin?</th>`;
-    clients.forEach(client => {
-        headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">${client}</th>`;
-    });
-    headerHtml += `<th style="padding: 10px; font-weight: 600; font-size: 13px; text-align: center;">Actions</th>`;
+    // 1. Build Header Row (Simplified 4 columns)
+    let headerHtml = `<th style="padding: 12px 16px; font-weight: 600; font-size: 13px;">Team Member Email</th>`;
+    headerHtml += `<th style="padding: 12px 16px; font-weight: 600; font-size: 13px; text-align: center;">Is Admin?</th>`;
+    headerHtml += `<th style="padding: 12px 16px; font-weight: 600; font-size: 13px;">Client Access Summary</th>`;
+    headerHtml += `<th style="padding: 12px 16px; font-weight: 600; font-size: 13px; text-align: center;">Actions</th>`;
     header.innerHTML = headerHtml;
     
     // 2. Build Body Rows
@@ -2343,7 +2530,7 @@ function renderPermissionsMatrix() {
     if (users.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="${clients.length + 3}" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">
                     No team member permission mappings configured yet. Click "Add User" to begin.
                 </td>
             </tr>
@@ -2358,11 +2545,16 @@ function renderPermissionsMatrix() {
         const userIsAdmin = checkUserIsAdmin(userEmail);
         const isSuperAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
         
-        let rowHtml = `<td style="padding: 10px; font-weight: 500;">${userEmail}</td>`;
+        // Count active client assignments (ReadOnly or Full)
+        const userPerms = state.userPermissions[userEmail] || {};
+        const activeCount = Object.keys(userPerms).filter(k => k !== "isAdmin" && (userPerms[k] === "Full" || userPerms[k] === "ReadOnly")).length;
+        const summaryText = `Access to ${activeCount} Client${activeCount === 1 ? '' : 's'}`;
+
+        let rowHtml = `<td style="padding: 12px 16px; font-weight: 500;">${userEmail}</td>`;
         
-        // Admin column checkbox (super admins disabled from toggling to prevent lockouts)
+        // Admin column checkbox
         rowHtml += `
-            <td style="padding: 10px; text-align: center;">
+            <td style="padding: 12px 16px; text-align: center;">
                 <input type="checkbox" class="permissions-matrix-admin-checkbox" data-user="${userEmail}" 
                     ${userIsAdmin ? "checked" : ""} 
                     ${isSuperAdmin ? "disabled" : ""} 
@@ -2370,22 +2562,16 @@ function renderPermissionsMatrix() {
             </td>
         `;
         
-        clients.forEach(client => {
-            const currentPerm = (state.userPermissions[userEmail] && state.userPermissions[userEmail][client]) || "None";
-            rowHtml += `
-                <td style="padding: 10px; text-align: center;">
-                    <select class="permissions-matrix-select" data-user="${userEmail}" data-client="${client}">
-                        <option value="Full" ${currentPerm === "Full" ? "selected" : ""}>Full Access</option>
-                        <option value="ReadOnly" ${currentPerm === "ReadOnly" ? "selected" : ""}>Read-Only</option>
-                        <option value="None" ${currentPerm === "None" ? "selected" : ""}>No Access</option>
-                    </select>
-                </td>
-            `;
-        });
+        // Client Summary
+        rowHtml += `<td style="padding: 12px 16px; font-size: 13px; color: var(--text-secondary);">${summaryText}</td>`;
         
+        // Actions
         rowHtml += `
-            <td style="padding: 10px; text-align: center;">
-                <button type="button" class="btn btn-danger-sm remove-user-perm-btn" data-user="${userEmail}">
+            <td style="padding: 12px 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <button type="button" class="btn btn-secondary-sm edit-permissions-btn" data-user="${userEmail}" style="padding: 6px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-user-gear"></i> Edit Permissions
+                </button>
+                <button type="button" class="btn btn-danger-sm remove-user-perm-btn" data-user="${userEmail}" style="padding: 6px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-user-minus"></i> Remove
                 </button>
             </td>
@@ -2395,37 +2581,155 @@ function renderPermissionsMatrix() {
         body.appendChild(tr);
     });
     
-    // Wire up change listeners on selects
-    body.querySelectorAll(".permissions-matrix-select").forEach(select => {
-        select.addEventListener("change", (e) => {
-            const user = e.target.getAttribute("data-user");
-            const client = e.target.getAttribute("data-client");
-            const val = e.target.value;
-            
-            if (!state.userPermissions[user]) state.userPermissions[user] = {};
-            state.userPermissions[user][client] = val;
-        });
-    });
-    
     // Wire up change listeners on admin checkboxes
     body.querySelectorAll(".permissions-matrix-admin-checkbox").forEach(checkbox => {
-        checkbox.addEventListener("change", (e) => {
+        checkbox.addEventListener("change", async (e) => {
             const user = e.target.getAttribute("data-user");
             const val = e.target.checked;
             
             if (!state.userPermissions[user]) state.userPermissions[user] = {};
             state.userPermissions[user].isAdmin = val;
+            
+            // Auto-save changes on Admin checkbox toggle
+            await handleSavePermissions();
         });
     });
     
     // Wire up remove button click listeners
     body.querySelectorAll(".remove-user-perm-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("click", async (e) => {
             const user = btn.getAttribute("data-user");
             if (confirm(`Are you sure you want to remove all custom permissions for ${user}?`)) {
                 delete state.userPermissions[user];
-                renderPermissionsMatrix();
+                await handleSavePermissions();
             }
+        });
+    });
+}
+
+// Open User Permissions Edit Drawer
+function openPermissionsDrawer(userEmail) {
+    state.editingPermissionUser = userEmail;
+    
+    // Copy existing user permissions to a temp state or initialize defaults
+    const existingPerms = state.userPermissions[userEmail] || {};
+    state.editingPermissionsTemp = { isAdmin: existingPerms.isAdmin || false };
+    
+    getClientList().forEach(client => {
+        state.editingPermissionsTemp[client] = existingPerms[client] || "None";
+    });
+    
+    const emailEl = document.getElementById("permissions-drawer-user-email");
+    if (emailEl) emailEl.textContent = userEmail;
+    
+    const searchInput = document.getElementById("permissions-drawer-search");
+    if (searchInput) searchInput.value = "";
+    
+    renderPermissionsDrawerGrid();
+    
+    const overlay = document.getElementById("permissions-drawer-overlay");
+    if (overlay) overlay.classList.add("active");
+}
+
+// Close User Permissions Edit Drawer
+function closePermissionsDrawer() {
+    state.editingPermissionUser = null;
+    state.editingPermissionsTemp = null;
+    
+    const overlay = document.getElementById("permissions-drawer-overlay");
+    if (overlay) overlay.classList.remove("active");
+}
+
+// Render dynamic Client Access list inside the permissions drawer
+function renderPermissionsDrawerGrid(searchQuery = "") {
+    const container = document.getElementById("permissions-drawer-client-grid-container");
+    if (!container) return;
+    
+    const lowerQuery = searchQuery.trim().toLowerCase();
+    
+    // Filter client options based on search query
+    const filteredPR = PR_ONLY_CLIENTS.filter(c => c.toLowerCase().includes(lowerQuery));
+    const filteredSocial = SOCIAL_CREATIVE_CLIENTS.filter(c => c.toLowerCase().includes(lowerQuery));
+    
+    let html = "";
+    
+    const makeSelectHtml = (client) => {
+        const currentVal = state.editingPermissionsTemp[client] || "None";
+        return `
+            <select class="permissions-drawer-select" data-client="${client}" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; font-weight: 600; outline: none; cursor: pointer;">
+                <option value="None" ${currentVal === "None" ? "selected" : ""}>No Access</option>
+                <option value="ReadOnly" ${currentVal === "ReadOnly" ? "selected" : ""}>Read-Only</option>
+                <option value="Full" ${currentVal === "Full" ? "selected" : ""}>Full Access</option>
+            </select>
+        `;
+    };
+    
+    // 1. PR Accounts Group
+    if (filteredPR.length > 0) {
+        html += `
+            <div class="permissions-group-section" style="display: flex; flex-direction: column; gap: 8px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; margin: 0;">PR Accounts</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+        filteredPR.forEach(client => {
+            const logo = getClientLogo(client);
+            html += `
+                <div class="permissions-drawer-row" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                        <img src="${logo}" alt="${client} Logo" style="width: 24px; height: 24px; object-fit: contain;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${client}</span>
+                    </div>
+                    ${makeSelectHtml(client)}
+                </div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // 2. Social Accounts Group
+    if (filteredSocial.length > 0) {
+        html += `
+            <div class="permissions-group-section" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; margin: 0;">Social & Creative Accounts</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+        filteredSocial.forEach(client => {
+            const logo = getClientLogo(client);
+            html += `
+                <div class="permissions-drawer-row" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                        <img src="${logo}" alt="${client} Logo" style="width: 24px; height: 24px; object-fit: contain;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${client}</span>
+                    </div>
+                    ${makeSelectHtml(client)}
+                </div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    if (filteredPR.length === 0 && filteredSocial.length === 0) {
+        html = `
+            <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">
+                No workspaces match filter.
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Bind change listener on selects
+    container.querySelectorAll(".permissions-drawer-select").forEach(select => {
+        select.addEventListener("change", (e) => {
+            const client = e.target.getAttribute("data-client");
+            const val = e.target.value;
+            state.editingPermissionsTemp[client] = val;
         });
     });
 }
@@ -2655,19 +2959,14 @@ function switchClient(client) {
         if (accessPendingOverlay) accessPendingOverlay.style.display = "none";
     }
     
-    // 3. If user has no access to the requested client, redirect to first allowed client
+    // 3. If user has no access to the requested client and is not an admin, redirect to first allowed client
     let targetClient = client;
-    if (allowedClients.length > 0 && !allowedClients.includes(client)) {
+    if (!isUserAdmin && allowedClients.length > 0 && !allowedClients.includes(client)) {
         targetClient = allowedClients[0];
     }
     
-    // 3. Filter client options in dropdown switcher UI
-    document.querySelectorAll(".client-option").forEach(opt => {
-        const cName = opt.getAttribute("data-client");
-        const hasAccess = allowedClients.includes(cName);
-        opt.style.display = hasAccess ? "flex" : "none";
-        opt.classList.toggle("active", cName === targetClient);
-    });
+    // 3. Render client options in dropdown switcher UI dynamically
+    renderClientSwitcher(document.getElementById("client-switcher-search")?.value || "");
 
     state.activeClient = targetClient;
     localStorage.setItem("activeClient", targetClient);
@@ -2696,30 +2995,8 @@ function switchClient(client) {
     const sidebarLogo = document.getElementById("sidebar-logo");
     const sidebarTitle = document.getElementById("sidebar-title");
     
-    let logoSrc = "inputs/RVNL (R)logo_vector.png";
-    let displayName = "RVNL";
-    if (targetClient === "Legrand") {
-        logoSrc = "inputs/ldcs logo.png";
-        displayName = "Legrand";
-    } else if (targetClient === "iCode") {
-        logoSrc = "inputs/icode black.png";
-        displayName = "iCode";
-    } else if (targetClient === "Kompact AI") {
-        logoSrc = "inputs/logo kompact-text-shapes-2x.png";
-        displayName = "Kompact AI";
-    } else if (targetClient === "BT Group") {
-        logoSrc = "inputs/BT_Logo_Purple_RGB.png";
-        displayName = "BT Group";
-    } else if (targetClient === "Candour") {
-        logoSrc = "inputs/candour logo.png";
-        displayName = "Candour";
-    } else if (targetClient === "Green Shine Solar") {
-        logoSrc = "inputs/greenshine logo.png";
-        displayName = "Green Shine Solar";
-    } else if (targetClient === "Zoom") {
-        logoSrc = "inputs/Zoom-Logo.png";
-        displayName = "Zoom";
-    }
+    const logoSrc = getClientLogo(targetClient);
+    const displayName = targetClient;
     
     if (activeLogo) activeLogo.src = logoSrc;
     if (activeName) activeName.textContent = displayName;
@@ -5978,20 +6255,8 @@ function generateReport(keepExclusions = false) {
     if (reportLogo) {
         if (state.activeClient === "RVNL") {
             reportLogo.src = "inputs/RVNL logo.png";
-        } else if (state.activeClient === "Kompact AI") {
-            reportLogo.src = "inputs/logo kompact-text-shapes-2x.png";
-        } else if (state.activeClient === "Legrand") {
-            reportLogo.src = "inputs/ldcs logo.png";
-        } else if (state.activeClient === "iCode") {
-            reportLogo.src = "inputs/icode black.png";
-        } else if (state.activeClient === "BT Group") {
-            reportLogo.src = "inputs/BT_Logo_Purple_RGB.png";
-        } else if (state.activeClient === "Candour") {
-            reportLogo.src = "inputs/candour logo.png";
-        } else if (state.activeClient === "Green Shine Solar") {
-            reportLogo.src = "inputs/greenshine logo.png";
-        } else if (state.activeClient === "Zoom") {
-            reportLogo.src = "inputs/Zoom-Logo.png";
+        } else {
+            reportLogo.src = getClientLogo(state.activeClient);
         }
     }
 

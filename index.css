@@ -2234,11 +2234,19 @@ h1, h2, h3, h4, h5, h6 {
     padding: 45px 40px 40px 40px;
     width: 90%;
     max-width: 780px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     position: relative;
     transform: perspective(1200px) rotateX(0deg) translateY(0) scale(1);
     transform-origin: center center;
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, filter 0.4s ease;
-    overflow: hidden;
+    overflow: visible;
+}
+
+.client-modal-content.large-modal {
+    width: 95%;
+    max-width: 1400px;
 }
 
 /* 3D perspectiva exit drop */
@@ -2291,6 +2299,8 @@ h1, h2, h3, h4, h5, h6 {
 .client-grid-scroll {
     width: 100%;
     padding: 12px;
+    max-height: calc(90vh - 240px);
+    overflow-y: auto;
 }
 
 /* Custom scrollbar styling for the client switcher */
@@ -2990,5 +3000,10 @@ body.dark-theme .beta-pill {
 .drag-handle-pub:hover {
     background-color: var(--bg-primary);
     color: var(--accent-blue) !important;
+}
+
+/* Invert white Neo4j logo for high contrast visibility on light backgrounds */
+img[src*="neo4j.png"] {
+    filter: invert(1) brightness(0.25) !important;
 }
 

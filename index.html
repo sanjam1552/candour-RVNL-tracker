@@ -997,6 +997,49 @@
         </main>
     </div>
 
+    <!-- User Permissions Edit Drawer (Slide-out menu) -->
+    <div class="drawer-overlay no-print" id="permissions-drawer-overlay">
+        <div class="task-drawer" id="permissions-drawer">
+            <div class="drawer-header">
+                <h3>Edit Permissions</h3>
+                <button class="drawer-close-btn" id="close-permissions-drawer-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="drawer-body" style="padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; height: calc(100% - 130px);">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">User Email</label>
+                    <div id="permissions-drawer-user-email" style="font-size: 15px; font-weight: 700; color: var(--text-primary);">user@example.com</div>
+                </div>
+
+                <!-- Quick Assign Templates -->
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Quick-Assign Templates</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary-sm" id="btn-grant-full-pr" style="padding: 8px 12px; font-size: 11px; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all 0.2s;"><i class="fa-solid fa-shield-halved"></i> Grant Full PR Access</button>
+                        <button type="button" class="btn btn-secondary-sm" id="btn-grant-full-social" style="padding: 8px 12px; font-size: 11px; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all 0.2s;"><i class="fa-solid fa-square-share-nodes"></i> Grant Full Social Access</button>
+                        <button type="button" class="btn btn-danger-sm" id="btn-revoke-all-access" style="padding: 8px 12px; font-size: 11px; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-ban"></i> Revoke All Access</button>
+                    </div>
+                </div>
+
+                <!-- Search Box -->
+                <div>
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px;"></i>
+                        <input type="text" id="permissions-drawer-search" placeholder="Filter client list..." style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; outline: none;">
+                    </div>
+                </div>
+
+                <!-- Vertical client grid list -->
+                <div id="permissions-drawer-client-grid-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Dynamically populated grouped client dropdowns -->
+                </div>
+            </div>
+            <div class="drawer-footer" style="padding: 16px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-secondary);">
+                <button type="button" class="btn btn-secondary" id="cancel-permissions-drawer-btn" style="padding: 8px 16px; border-radius: 8px;">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-permissions-drawer-btn" style="padding: 8px 16px; border-radius: 8px;">Save Permissions</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Task Edit/Create Drawer (Slide-out menu) -->
     <div class="drawer-overlay no-print" id="task-drawer-overlay">
         <div class="task-drawer">
@@ -1352,41 +1395,13 @@
             <div class="posh-icon-container" style="width: 75px; height: 75px; border-radius: 50%; background: #ffffff; border: 1px solid rgba(139, 92, 246, 0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; overflow: hidden; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.12);"><img id="switcher-active-logo" src="inputs/RVNL (R)logo_vector.png" alt="Active Workspace Logo" style="width: 45px; height: 45px; object-fit: contain;"></div>
             <h2 id="client-switcher-welcome" style="margin: 0 0 6px 0; font-family: var(--font-heading); font-size: 24px; font-weight: 700; text-align: center; color: #0f172a;">Select Workspace</h2>
             <p style="margin: 0 0 32px 0; font-size: 13px; color: #475569; text-align: center; line-height: 1.4; max-width: 480px; margin-left: auto; margin-right: auto;">Select a client workspace to manage tasks, view dashboard metrics, and build reports.</p>
-            <div class="client-grid-scroll">
-                <div class="client-grid">
-                    <div class="client-option active" data-client="RVNL">
-                        <img src="inputs/RVNL (R)logo_vector.png" alt="RVNL Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>RVNL</span>
-                    </div>
-                    <div class="client-option" data-client="Legrand">
-                        <img src="inputs/ldcs logo.png" alt="Legrand Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>Legrand</span>
-                    </div>
-                    <div class="client-option" data-client="iCode">
-                        <img src="inputs/icode black.png" alt="iCode Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>iCode</span>
-                    </div>
-                    <div class="client-option" data-client="Kompact AI">
-                        <img src="inputs/logo kompact-text-shapes-2x.png" alt="Kompact AI Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>Kompact AI</span>
-                    </div>
-                    <div class="client-option" data-client="BT Group">
-                        <img src="inputs/BT_Logo_Purple_RGB.png" alt="BT Group Logo" style="width: 120px; height: 65px; object-fit: contain;">
-                        <span>BT Group</span>
-                    </div>
-                    <div class="client-option" data-client="Candour">
-                        <img src="inputs/candour logo.png" alt="Candour Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>Candour</span>
-                    </div>
-                    <div class="client-option" data-client="Green Shine Solar">
-                        <img src="inputs/greenshine logo.png" alt="Green Shine Solar Logo" style="width: 140px; height: 75px; object-fit: contain; margin-bottom: 0px;">
-                        <span>Green Shine Solar</span>
-                    </div>
-                    <div class="client-option" data-client="Zoom">
-                        <img src="inputs/Zoom-Logo.png" alt="Zoom Logo" style="width: 110px; height: 50px; object-fit: contain;">
-                        <span>Zoom</span>
-                    </div>
-                </div>
+            <!-- Search Bar -->
+            <div class="client-switcher-search-container" style="margin-bottom: 24px; padding: 0 20px; position: relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 34px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
+                <input type="text" id="client-switcher-search" placeholder="Type to search workspace..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; outline: none; transition: border-color var(--transition-fast);">
+            </div>
+            <div class="client-grid-scroll" id="client-switcher-scroll-area">
+                <!-- Dynamically populated grouped client grids -->
             </div>
         </div>
     </div>
