@@ -1693,6 +1693,22 @@ function setupEventListeners() {
     
     document.getElementById("generate-report-btn").addEventListener("click", generateReport);
     document.getElementById("report-clipping-upload").addEventListener("change", handleReportClippingUpload);
+    
+    // Real-time status update from Report Builder dropdowns
+    document.addEventListener("change", async (e) => {
+        if (e.target && e.target.classList.contains("report-status-select")) {
+            const taskId = e.target.getAttribute("data-id");
+            const newStatus = e.target.value;
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.status = newStatus;
+                await saveData(task);
+                // Re-render report keeping manual row exclusions intact
+                generateReport(true);
+            }
+        }
+    });
+
     document.getElementById("print-report-btn").addEventListener("click", () => {
         const checkbox = document.getElementById("toggle-continuous-page");
         let printStyle = document.getElementById("continuous-print-style");
@@ -5861,8 +5877,10 @@ function renderTrackerKanban() {
 // REPORT BUILDER VIEW ENGINE
 // ====================================================
 
-function generateReport() {
-    state.excludedReportTaskIds.clear();
+function generateReport(keepExclusions = false) {
+    if (keepExclusions !== true) {
+        state.excludedReportTaskIds.clear();
+    }
     const periodType = document.getElementById("report-period-type").value;
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
@@ -6243,24 +6261,43 @@ function renderReportView() {
             
             // Format status badge or date
             let timelineDisplay = task.date || task.week || 'Published';
+            
+            let statusClass = "status-published";
+            if (task.status === "WIP") statusClass = "status-wip";
+            if (task.status === "Sent for internal approval") statusClass = "status-review";
+            if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
+            if (task.status === "Not used by client") statusClass = "status-missed";
+
+            let statusOptionsHtml = "";
+            const availableStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Published/Closed", "Not used by client"];
+            availableStatuses.forEach(st => {
+                statusOptionsHtml += `<option value="${st}" ${task.status === st ? 'selected' : ''} style="background: #1e293b; color: #f8fafc;">${st}</option>`;
+            });
+
+            const screenStatusSelect = `
+                <div class="no-print">
+                    <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit;">
+                        ${statusOptionsHtml}
+                    </select>
+                </div>
+            `;
+
+            let printStatusHtml = "";
             if (task.status !== "Published/Closed") {
-                let statusClass = "status-wip";
                 let statusText = task.status;
                 if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                     if (task.status === "Client Approval Pending") {
                         statusText = "Client Approval Pending";
-                        statusClass = "status-approval";
                     } else {
                         statusText = "WIP";
                     }
-                } else {
-                    if (task.status === "Sent for internal approval") statusClass = "status-review";
-                    if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
-                    if (task.status === "Not used by client") statusClass = "status-missed";
                 }
-                
-                timelineDisplay = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${statusText}</span>`;
+                printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px;">${statusText}</span>`;
+            } else {
+                printStatusHtml = `<span class="only-print">${timelineDisplay}</span>`;
             }
+
+            timelineDisplay = `${screenStatusSelect}${printStatusHtml}`;
 
             // Inline Thumbnail block beside or below the title
             let reportThumbnailHtml = "";
@@ -6395,9 +6432,34 @@ function renderReportView() {
                     
                     // Group Header (Announcements / Topic Title)
                     const isWipTask = task.status !== "Published/Closed";
-                    const wipBadge = isWipTask 
-                        ? `<span class="status-pill status-wip" style="font-size: 10px; padding: 3px 8px; margin-left: 8px; border-radius: 12px; background-color: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; height: 18px;">WIP</span>` 
+                    
+                    let statusClass = "status-published";
+                    if (task.status === "WIP") statusClass = "status-wip";
+                    if (task.status === "Sent for internal approval") statusClass = "status-review";
+                    if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
+                    if (task.status === "Sent to journalist") statusClass = "status-review";
+                    if (task.status === "On hold") statusClass = "status-hold";
+                    if (task.status === "Not used by client") statusClass = "status-missed";
+
+                    let statusOptionsHtml = "";
+                    const prStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Sent to journalist", "On hold", "Published/Closed", "Not used by client"];
+                    prStatuses.forEach(st => {
+                        statusOptionsHtml += `<option value="${st}" ${task.status === st ? 'selected' : ''} style="background: #1e293b; color: #f8fafc;">${st}</option>`;
+                    });
+
+                    const screenStatusSelect = `
+                        <div class="no-print" style="margin-left: 8px; display: inline-block;">
+                            <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit;">
+                                ${statusOptionsHtml}
+                            </select>
+                        </div>
+                    `;
+
+                    const printStatusHtml = isWipTask 
+                        ? `<span class="status-pill ${statusClass} only-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${task.status}</span>`
                         : "";
+
+                    const wipBadge = `${screenStatusSelect}${printStatusHtml}`;
 
                     const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
                     const headerHtml = `
@@ -6505,14 +6567,29 @@ function renderReportView() {
                     const tr = document.createElement("tr");
                 
                     // Format status badge or remarks
-                    let statusDisplay = task.status || "Completed";
                     let statusClass = "status-published";
                     if (task.status === "WIP") statusClass = "status-wip";
                     if (task.status === "Sent for internal approval") statusClass = "status-review";
                     if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
                     if (task.status === "Not used by client") statusClass = "status-missed";
                     
-                    let statusBadge = `<span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status}</span>`;
+                    let statusOptionsHtml = "";
+                    const availableStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Published/Closed", "Not used by client"];
+                    availableStatuses.forEach(st => {
+                        statusOptionsHtml += `<option value="${st}" ${task.status === st ? 'selected' : ''} style="background: #1e293b; color: #f8fafc;">${st}</option>`;
+                    });
+                    
+                    const screenStatusSelect = `
+                        <div class="no-print">
+                            <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit;">
+                                ${statusOptionsHtml}
+                            </select>
+                        </div>
+                    `;
+                    
+                    const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status || 'Published/Closed'}</span>`;
+                    
+                    let statusBadge = `${screenStatusSelect}${printStatusHtml}`;
                     if (task.remarks) {
                         statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
                     }

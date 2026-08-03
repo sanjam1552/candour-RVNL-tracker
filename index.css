@@ -1809,9 +1809,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ==================================================== */
 /* BROWSER PRINT ENGINE OVERRIDES                       */
-/* ==================================================== */
+.only-print {
+    display: none !important;
+}
 
 @media print {
+    .only-print {
+        display: inline-block !important;
+    }
     :root {
         --bg-primary: #ffffff !important;
         --bg-secondary: #f9fafb !important;
