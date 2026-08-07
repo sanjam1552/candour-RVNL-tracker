@@ -155,6 +155,14 @@ function updateCarryForwardTaskMonth(task, activeMonthStr) {
     const activeMonthVal = getMonthValue(activeMonthStr);
     if (taskMonthVal < activeMonthVal) {
         if (task.status === "Published/Closed" || task.status === "Not used by client") {
+            if (task.client === "RVNL") {
+                const rollForward = confirm(
+                    `This is a carried-forward RVNL task (originally from ${task.month}).\n\nDo you want to roll it forward to the current month's report (${activeMonthStr})?\n\nClick OK to roll it forward.\nClick Cancel to keep it in ${task.month}.`
+                );
+                if (!rollForward) {
+                    return;
+                }
+            }
             task.month = activeMonthStr;
         }
     }
