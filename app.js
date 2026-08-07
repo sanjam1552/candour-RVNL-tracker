@@ -6488,7 +6488,7 @@ function renderReportView() {
                 firstRow.classList.add("row-2col");
                 if (prBox) firstRow.appendChild(prBox);
             }
-            if (secondaryRow && prReleaseBox) secondaryRow.insertBefore(prReleaseBox, collateralBox);
+            if (secondaryRow && prReleaseBox) secondaryRow.appendChild(prReleaseBox);
             if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
             
             // Show PR section & restore creative title to 4
@@ -6787,18 +6787,18 @@ function renderReportView() {
 
                     const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
                     const headerHtml = `
-                        <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); margin-right: 4px; display: inline-flex; align-items: center;"><i class="fa-solid fa-bars"></i></span>
-                                <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${task.subType || 'Press Release'}</span>
-                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
+                                <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); margin-top: 3px; display: inline-flex; align-items: center; flex-shrink: 0;"><i class="fa-solid fa-bars"></i></span>
+                                <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; margin-top: 1px;">${task.subType || 'Press Release'}</span>
+                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; word-break: break-word;">
                                     ${task.title}
-                                    ${wipBadge}
                                 </h4>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                                ${wipBadge}
                                 ${task.date ? `
-                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569;">
+                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569; white-space: nowrap;">
                                     <i class="fa-regular fa-calendar-days"></i> ${task.date}
                                 </div>` : ''}
                                 <button class="no-print report-exclude-btn-pr" data-id="${task.id}" style="background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
