@@ -148,24 +148,166 @@ function isTaskActiveInMonth(task, selectedMonthStr) {
     return false;
 }
 
+function showCarryForwardConfirm(task, activeMonthStr) {
+    return new Promise((resolve) => {
+        // Create modal overlay
+        const overlay = document.createElement("div");
+        overlay.style.position = "fixed";
+        overlay.style.top = "0";
+        overlay.style.left = "0";
+        overlay.style.width = "100vw";
+        overlay.style.height = "100vh";
+        overlay.style.background = "rgba(15, 23, 42, 0.75)";
+        overlay.style.backdropFilter = "blur(12px)";
+        overlay.style.webkitBackdropFilter = "blur(12px)";
+        overlay.style.zIndex = "100000";
+        overlay.style.display = "flex";
+        overlay.style.justifyContent = "center";
+        overlay.style.alignItems = "center";
+        overlay.style.padding = "20px";
+        overlay.style.boxSizing = "border-box";
+        overlay.style.opacity = "0";
+        overlay.style.transition = "opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+
+        // Create modal content container
+        const content = document.createElement("div");
+        content.style.background = "#1e293b"; // Dark theme
+        content.style.border = "1px solid rgba(139, 92, 246, 0.2)";
+        content.style.boxShadow = "0 25px 50px -12px rgba(0, 0, 0, 0.5)";
+        content.style.borderRadius = "16px";
+        content.style.padding = "30px";
+        content.style.width = "100%";
+        content.style.maxWidth = "480px";
+        content.style.display = "flex";
+        content.style.flexDirection = "column";
+        content.style.gap = "20px";
+        content.style.color = "#f8fafc";
+        content.style.fontFamily = "'Outfit', sans-serif";
+        content.style.transform = "scale(0.95)";
+        content.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+
+        content.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #a78bfa;">
+                    <i class="fa-solid fa-arrow-right-arrow-left" style="font-size: 18px;"></i>
+                </div>
+                <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #f8fafc;">RVNL Carry Forward Option</h3>
+            </div>
+            
+            <div style="font-size: 14px; line-height: 1.5; color: #cbd5e1; margin: 8px 0;">
+                This is a carried-forward task (originally from <strong>${task.month}</strong>). Since it is being closed, how would you like to assign it?
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button id="btn-roll-forward" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 14px 16px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; color: #c084fc; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s; border-style: solid;">
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;">Roll Forward</div>
+                        <div style="font-size: 11px; font-weight: 400; color: #94a3b8; margin-top: 2px;">Show in current month's report (${activeMonthStr})</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+                </button>
+                
+                <button id="btn-keep-original" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; color: #f8fafc; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s; border-style: solid;">
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;">Keep in Original Month</div>
+                        <div style="font-size: 11px; font-weight: 400; color: #94a3b8; margin-top: 2px;">Keep in original month's report (${task.month})</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+                </button>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-cancel-modal" style="padding: 8px 16px; background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; font-weight: 500; transition: color 0.2s;">
+                    Cancel Action
+                </button>
+            </div>
+        `;
+
+        overlay.appendChild(content);
+        document.body.appendChild(overlay);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            overlay.style.opacity = "1";
+            content.style.transform = "scale(1)";
+        });
+
+        // Hover effects helper
+        const btnRoll = content.querySelector("#btn-roll-forward");
+        const btnKeep = content.querySelector("#btn-keep-original");
+        const btnCancel = content.querySelector("#btn-cancel-modal");
+
+        btnRoll.onmouseover = () => {
+            btnRoll.style.background = "rgba(139, 92, 246, 0.18)";
+            btnRoll.style.borderColor = "rgba(139, 92, 246, 0.5)";
+        };
+        btnRoll.onmouseout = () => {
+            btnRoll.style.background = "rgba(139, 92, 246, 0.1)";
+            btnRoll.style.borderColor = "rgba(139, 92, 246, 0.3)";
+        };
+
+        btnKeep.onmouseover = () => {
+            btnKeep.style.background = "rgba(255,255,255,0.08)";
+            btnKeep.style.borderColor = "rgba(255,255,255,0.15)";
+        };
+        btnKeep.onmouseout = () => {
+            btnKeep.style.background = "rgba(255,255,255,0.03)";
+            btnKeep.style.borderColor = "rgba(255,255,255,0.08)";
+        };
+        
+        btnCancel.onmouseover = () => {
+            btnCancel.style.color = "#f8fafc";
+        };
+        btnCancel.onmouseout = () => {
+            btnCancel.style.color = "#94a3b8";
+        };
+
+        const cleanup = () => {
+            overlay.style.opacity = "0";
+            content.style.transform = "scale(0.95)";
+            setTimeout(() => {
+                overlay.remove();
+            }, 250);
+        };
+
+        btnRoll.onclick = () => {
+            cleanup();
+            resolve("roll");
+        };
+
+        btnKeep.onclick = () => {
+            cleanup();
+            resolve("keep");
+        };
+
+        btnCancel.onclick = () => {
+            cleanup();
+            resolve("cancel");
+        };
+    });
+}
+
 // Update the month field of a carry-forwarded task if its status transitions to a terminal state
-function updateCarryForwardTaskMonth(task, activeMonthStr) {
-    if (!task || !activeMonthStr || activeMonthStr === 'all') return;
+async function updateCarryForwardTaskMonth(task, activeMonthStr) {
+    if (!task || !activeMonthStr || activeMonthStr === 'all') return "no-change";
     const taskMonthVal = getMonthValue(task.month);
     const activeMonthVal = getMonthValue(activeMonthStr);
     if (taskMonthVal < activeMonthVal) {
         if (task.status === "Published/Closed" || task.status === "Not used by client") {
             if (task.client === "RVNL") {
-                const rollForward = confirm(
-                    `This is a carried-forward RVNL task (originally from ${task.month}).\n\nDo you want to roll it forward to the current month's report (${activeMonthStr})?\n\nClick OK to roll it forward.\nClick Cancel to keep it in ${task.month}.`
-                );
-                if (!rollForward) {
-                    return;
+                const choice = await showCarryForwardConfirm(task, activeMonthStr);
+                if (choice === "cancel") {
+                    return "cancel";
+                }
+                if (choice === "keep") {
+                    return "keep";
                 }
             }
             task.month = activeMonthStr;
+            return "roll";
         }
     }
+    return "no-change";
 }
 
 
@@ -4618,7 +4760,7 @@ function removeImagePreview() {
 }
 
 // Handle Add / Edit form submit
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
     
     const id = document.getElementById("task-id").value;
@@ -4795,7 +4937,10 @@ function handleFormSubmit(e) {
             if (oldImage && oldImage !== taskData.image) {
                 deleteImageFromStorage(oldImage);
             }
-            updateCarryForwardTaskMonth(taskData, state.filters.month);
+            const carryResult = await updateCarryForwardTaskMonth(taskData, state.filters.month);
+            if (carryResult === "cancel") {
+                return;
+            }
             state.tasks[index] = { ...state.tasks[index], ...taskData };
             logActivity("edited", `Task: "${taskData.title}" (${taskData.client})`, taskData.client);
         }
@@ -6146,7 +6291,7 @@ function renderTrackerKanban() {
         container.addEventListener("dragleave", () => {
             container.style.backgroundColor = "";
         });
-        container.addEventListener("drop", (e) => {
+        container.addEventListener("drop", async (e) => {
             e.preventDefault();
             container.style.backgroundColor = "";
             const taskId = e.dataTransfer.getData("text/plain");
@@ -6157,8 +6302,14 @@ function renderTrackerKanban() {
                     return;
                 }
                 if (task.status !== status) {
+                    const originalStatus = task.status;
                     task.status = status;
-                    updateCarryForwardTaskMonth(task, state.filters.month);
+                    const carryResult = await updateCarryForwardTaskMonth(task, state.filters.month);
+                    if (carryResult === "cancel") {
+                        task.status = originalStatus;
+                        renderTracker();
+                        return;
+                    }
                     saveData(task);
                     renderTracker(); // Refresh kanban cards
                 }
