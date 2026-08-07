@@ -6578,6 +6578,15 @@ function renderReportView() {
         if (defaultStats) defaultStats.classList.remove("hidden");
         if (icodeStats) icodeStats.classList.add("hidden");
 
+        const prReleaseLabel = document.getElementById("rep-stat-pr-releases")?.nextElementSibling;
+        if (prReleaseLabel) {
+            if (state.activeClient === "RVNL") {
+                prReleaseLabel.textContent = "PR Activities";
+            } else {
+                prReleaseLabel.textContent = "Press Releases Issued";
+            }
+        }
+
         const prBox = document.getElementById("rep-stat-pr")?.closest('.summary-stat-box');
         const prReleaseBox = document.getElementById("rep-stat-pr-releases")?.closest('.summary-stat-box');
         const collateralBox = document.getElementById("rep-stat-collateral-box");
