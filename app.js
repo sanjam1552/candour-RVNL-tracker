@@ -1733,7 +1733,23 @@ function setupEventListeners() {
                 if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "none";
             }
         }
+        generateReport();
     });
+
+    document.getElementById("report-month").addEventListener("change", () => {
+        generateReport();
+    });
+
+    document.getElementById("report-week").addEventListener("change", () => {
+        generateReport();
+    });
+
+    const monthCheckboxes = document.getElementById("report-month-checkboxes");
+    if (monthCheckboxes) {
+        monthCheckboxes.addEventListener("change", () => {
+            generateReport();
+        });
+    }
     
     document.getElementById("generate-report-btn").addEventListener("click", generateReport);
     document.getElementById("report-clipping-upload").addEventListener("change", handleReportClippingUpload);
@@ -5348,16 +5364,20 @@ function renderDashboardLists() {
 function renderTracker() {
     // Apply filters
     state.filteredTasks = state.tasks.filter(task => {
-        // Client filter
+        // Client filter must always match
         const matchesClient = (task.client || "RVNL") === state.activeClient;
+        if (!matchesClient) return false;
 
-        // Search filter
-        const matchesSearch = !state.filters.search || 
-            task.title.toLowerCase().includes(state.filters.search) || 
-            (task.remarks && task.remarks.toLowerCase().includes(state.filters.search)) || 
-            (task.owner && task.owner.toLowerCase().includes(state.filters.search)) ||
-            (task.publication && task.publication.toLowerCase().includes(state.filters.search));
+        // If there is a search query, perform a universal search across all fields and bypass other filters
+        if (state.filters.search) {
+            const query = state.filters.search.trim().toLowerCase();
+            return task.title.toLowerCase().includes(query) || 
+                (task.remarks && task.remarks.toLowerCase().includes(query)) || 
+                (task.owner && task.owner.toLowerCase().includes(query)) ||
+                (task.publication && task.publication.toLowerCase().includes(query));
+        }
 
+        // Otherwise apply normal dropdown filters
         // Type filter
         let matchesType = false;
         if (state.activeClient === "iCode") {
@@ -5389,7 +5409,7 @@ function renderTracker() {
             matchesCenter = task.centers && task.centers.includes(state.filters.center);
         }
 
-        return matchesSearch && matchesType && matchesMonth && matchesStatus && matchesOwner && matchesClient && matchesCenter;
+        return matchesType && matchesMonth && matchesStatus && matchesOwner && matchesCenter;
     });
 
     // Sort tracker items by status priority
@@ -6355,6 +6375,7 @@ function generateReport(keepExclusions = false) {
 }
 
 function renderReportView() {
+    const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
     // Filter active items (excluding removed ones)
     const smItems = state.currentReportSmItems.filter(t => !state.excludedReportTaskIds.has(t.id));
     const prItems = state.currentReportPrItems.filter(t => !state.excludedReportTaskIds.has(t.id));
@@ -6402,7 +6423,7 @@ function renderReportView() {
         const prReleaseBox = document.getElementById("rep-stat-pr-releases")?.closest('.summary-stat-box');
         const collateralBox = document.getElementById("rep-stat-collateral-box");
         const secondaryRow = document.getElementById("report-stats-row-secondary");
-        const firstRow = document.querySelector("#report-stats-summary-default .row-2col:first-child");
+        const firstRow = document.querySelector("#report-stats-summary-default .report-stats-row:first-child");
         
         const reportSecPr = document.getElementById("report-sec-pr");
         const creativeTitleEl = document.getElementById("report-sec-creative-title");
@@ -6414,7 +6435,10 @@ function renderReportView() {
             if (prReleaseBox) prReleaseBox.style.display = "none";
             
             // 2. Move Collaterals next to Social Media
-            if (firstRow && collateralBox) firstRow.appendChild(collateralBox);
+            if (firstRow) {
+                firstRow.classList.add("row-2col");
+                if (collateralBox) firstRow.appendChild(collateralBox);
+            }
             if (collateralBox) collateralBox.style.display = "";
             
             // 3. Hide secondary row
@@ -6427,10 +6451,43 @@ function renderReportView() {
             // 5. Populate statistics
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+        } else if (state.activeClient === "RVNL" && periodType === "weekly") {
+            // 1. Hide Press Coverage Items box (prBox)
+            if (prBox) prBox.style.display = "none";
+            
+            // 2. Move Press Releases Issued & Collaterals next to Social Media
+            if (firstRow) {
+                firstRow.classList.remove("row-2col");
+                if (prReleaseBox) firstRow.appendChild(prReleaseBox);
+                if (collateralBox) firstRow.appendChild(collateralBox);
+            }
+            if (prReleaseBox) prReleaseBox.style.display = "";
+            if (collateralBox) collateralBox.style.display = "";
+            
+            // 3. Hide secondary row
+            if (secondaryRow) secondaryRow.style.display = "none";
+            
+            // 4. PR section stays since it is a WIP report
+            if (reportSecPr) reportSecPr.style.display = "";
+            if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
+            
+            // 5. Populate statistics
+            if (document.getElementById("rep-stat-pr")) document.getElementById("rep-stat-pr").textContent = 0;
+            if (document.getElementById("rep-stat-pr-releases")) document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
+            document.getElementById("rep-stat-sm").textContent = smItems.length;
+            document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+            
+            if (prTitleEl) {
+                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
+            }
         } else {
             // Restore default displays
             if (prBox) prBox.style.display = "";
             if (prReleaseBox) prReleaseBox.style.display = "";
+            if (firstRow) {
+                firstRow.classList.add("row-2col");
+                if (prBox) firstRow.appendChild(prBox);
+            }
             if (secondaryRow && prReleaseBox) secondaryRow.insertBefore(prReleaseBox, collateralBox);
             if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
             
@@ -6754,29 +6811,46 @@ function renderReportView() {
                     let publicationsHtml = "";
                     
                     if (task.status === "Published/Closed") {
+                        const isRvnlWeekly = state.activeClient === "RVNL" && periodType === "weekly";
                         if (list.length > 0) {
                             publicationsHtml = `<div class="report-pub-grid" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 14px; box-sizing: border-box;">`;
                             list.forEach((pub, pubIdx) => {
+                                let imageHtml = "";
+                                if (pub.image) {
+                                    if (isRvnlWeekly) {
+                                        imageHtml = `
+                                        <div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa;">
+                                            <img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;">
+                                        </div>`;
+                                    } else {
+                                        imageHtml = `
+                                        <div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                            <a href="${pub.link || '#'}" target="_blank" draggable="false" style="display:block; width:100%; height:100%;"><img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
+                                        </div>`;
+                                    }
+                                } else {
+                                    imageHtml = `<div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`;
+                                }
+
+                                const linkButtonHtml = (pub.link && !isRvnlWeekly) ? `
+                                                <a href="${pub.link}" target="_blank" draggable="false" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                </a>` : '';
+
                                 publicationsHtml += `
                                     <div class="report-pub-coverage-card draggable-pub-card" 
                                          draggable="false" 
                                          data-task-id="${task.id}" 
                                          data-pub-idx="${pubIdx}" 
                                          style="background: var(--bg-secondary); border: 1px solid #475569; border-radius: 8px; padding: 12px; box-sizing: border-box; display: flex; gap: 14px; align-items: flex-start; cursor: grab;">
-                                        ${pub.image ? `
-                                        <div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                            <a href="${pub.link || '#'}" target="_blank" draggable="false" style="display:block; width:100%; height:100%;"><img src="${pub.image}" draggable="false" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>
-                                        </div>` : `<div style="width: 150px; height: 95px; border-radius: 6px; border: 1px solid #475569; background: rgba(255,255,255,0.03); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><i class="fa-solid fa-image" style="font-size: 24px;"></i></div>`}
+                                        ${imageHtml}
                                         <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; flex-grow: 1; min-width: 0;">
                                             <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 6px; line-height: 1.3;">
                                                 <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px; margin-top: 1px;"><i class="fa-solid fa-bars"></i></span>
                                                 <span style="word-break: break-word;">${pub.name || 'Unnamed Pub'}</span>
                                             </div>
                                             ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
-                                            ${pub.link ? `
-                                                <a href="${pub.link}" target="_blank" draggable="false" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 4px; width: fit-content;">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                </a>` : ''}
+                                            ${linkButtonHtml}
                                         </div>
                                     </div>
                                 `;
@@ -6784,21 +6858,35 @@ function renderReportView() {
                             publicationsHtml += `</div>`;
                         } else {
                             // Fallback for old tasks that might only have task.image and task.publication
+                            let imageBlock = "";
+                            if (task.image) {
+                                if (isRvnlWeekly) {
+                                    imageBlock = `
+                                    <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa;">
+                                        <img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;">
+                                    </div>`;
+                                } else {
+                                    imageBlock = `
+                                    <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
+                                        ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>` : `<img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;" onclick="viewImageInNewWindow('${task.image}')">`}
+                                    </div>`;
+                                }
+                            }
+                            
+                            const linkButtonHtml = (task.liveLink && !isRvnlWeekly) ? `
+                                                        <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 6px; width: fit-content;">
+                                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
+                                                        </a>` : '';
+
                             publicationsHtml = `
                                 <table style="width: 100%; border-collapse: collapse; background: transparent; border: none;">
                                     <tr>
                                         <td style="padding: 16px; vertical-align: top; box-sizing: border-box;">
                                             <div style="display: flex; gap: 16px; align-items: flex-start;">
-                                                ${task.image ? `
-                                                <div style="width: 220px; height: 140px; border-radius: 6px; border: 1px solid #475569; overflow: hidden; flex-shrink: 0; background: #fafafa; cursor: pointer;">
-                                                    ${task.liveLink ? `<a href="${task.liveLink}" target="_blank" style="display:block; width:100%; height:100%;"><img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain; border:none;"></a>` : `<img src="${task.image}" style="width: 100%; height: 100%; object-fit: contain;" onclick="viewImageInNewWindow('${task.image}')">`}
-                                                </div>` : ''}
+                                                ${imageBlock}
                                                 <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-top: 4px; min-width: 0;">
                                                     <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${task.publication || 'Mainlines & Financials'}</div>
-                                                    ${task.liveLink ? `
-                                                        <a href="${task.liveLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; margin-top: 6px; width: fit-content;">
-                                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> View Article
-                                                        </a>` : ''}
+                                                    ${linkButtonHtml}
                                                 </div>
                                             </div>
                                         </td>
