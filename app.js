@@ -6564,7 +6564,10 @@ function renderReportView() {
             tr.classList.add("draggable-row");
             
             let verificationLink = task.status || "Published";
-            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI") && task.status !== "Published/Closed") {
+            if (verificationLink === "Sent for internal approval") {
+                verificationLink = "WIP";
+            }
+            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL") && task.status !== "Published/Closed") {
                 verificationLink = "WIP";
             }
             if (task.liveLink && task.liveLink.startsWith("http")) {
@@ -6607,8 +6610,12 @@ function renderReportView() {
             `;
 
             let printStatusHtml = "";
+            let displayStatus = task.status;
+            if (displayStatus === "Sent for internal approval") {
+                displayStatus = "WIP";
+            }
             if (task.status !== "Published/Closed") {
-                let statusText = task.status;
+                let statusText = displayStatus;
                 if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                     if (task.status === "Client Approval Pending") {
                         statusText = "Client Approval Pending";
@@ -6621,7 +6628,19 @@ function renderReportView() {
                 printStatusHtml = `<span class="only-print">${timelineDisplay}</span>`;
             }
 
-            timelineDisplay = `${screenStatusSelect}${printStatusHtml}`;
+            let screenStatusHtml = "";
+            if (state.activeClient === "RVNL") {
+                const screenText = task.status === "Published/Closed" ? timelineDisplay : displayStatus;
+                screenStatusHtml = `
+                    <div class="no-print">
+                        <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${screenText}</span>
+                    </div>
+                `;
+            } else {
+                screenStatusHtml = screenStatusSelect;
+            }
+
+            timelineDisplay = `${screenStatusHtml}${printStatusHtml}`;
 
             // Inline Thumbnail block beside or below the title
             let reportThumbnailHtml = "";
@@ -6779,11 +6798,25 @@ function renderReportView() {
                         </div>
                     `;
 
+                    let displayStatus = task.status;
+                    if (displayStatus === "Sent for internal approval") {
+                        displayStatus = "WIP";
+                    }
+
                     const printStatusHtml = isWipTask 
-                        ? `<span class="status-pill ${statusClass} only-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${task.status}</span>`
+                        ? `<span class="status-pill ${statusClass} only-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                         : "";
 
-                    const wipBadge = `${screenStatusSelect}${printStatusHtml}`;
+                    let screenStatusHtml = "";
+                    if (state.activeClient === "RVNL") {
+                        screenStatusHtml = isWipTask 
+                            ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
+                            : "";
+                    } else {
+                        screenStatusHtml = screenStatusSelect;
+                    }
+
+                    const wipBadge = `${screenStatusHtml}${printStatusHtml}`;
 
                     const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
                     const headerHtml = `
@@ -6942,9 +6975,24 @@ function renderReportView() {
                         </div>
                     `;
                     
-                    const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${task.status || 'Published/Closed'}</span>`;
+                    let displayStatus = task.status || 'Published/Closed';
+                    if (displayStatus === "Sent for internal approval") {
+                        displayStatus = "WIP";
+                    }
+                    const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
-                    let statusBadge = `${screenStatusSelect}${printStatusHtml}`;
+                    let screenStatusHtml = "";
+                    if (state.activeClient === "RVNL") {
+                        screenStatusHtml = `
+                            <div class="no-print">
+                                <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
+                            </div>
+                        `;
+                    } else {
+                        screenStatusHtml = screenStatusSelect;
+                    }
+
+                    let statusBadge = `${screenStatusHtml}${printStatusHtml}`;
                     if (task.remarks) {
                         statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
                     }
