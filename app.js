@@ -6788,9 +6788,9 @@ function renderReportView() {
                     const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
                     const headerHtml = `
                         <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
-                                <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); margin-top: 3px; display: inline-flex; align-items: center; flex-shrink: 0;"><i class="fa-solid fa-bars"></i></span>
-                                <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; margin-top: 1px;">${task.subType || 'Press Release'}</span>
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; flex-shrink: 0;"><i class="fa-solid fa-bars"></i></span>
+                                <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;">${task.subType || 'Press Release'}</span>
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; word-break: break-word;">
                                     ${task.title}
                                 </h4>
