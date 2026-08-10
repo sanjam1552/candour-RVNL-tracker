@@ -8,13 +8,17 @@ const PR_ONLY_CLIENTS = [
     "DXC", 
     "Delinea", 
     "SUSE", 
+    "DEP", 
+    "IIIT Hyd", 
     "NIIT University", 
     "NIIT MTS", 
     "Atlassian", 
     "OutSystems", 
     "OVHcloud", 
+    "TalentSprint", 
     "Neo4j", 
     "Arup", 
+    "WSA", 
     "Tenarai"
 ];
 const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar"];
@@ -34,11 +38,16 @@ function getClientLogo(client) {
     if (client === "DXC") return "inputs/DXC_tech_logo (2).png";
     if (client === "Delinea") return "inputs/Delinea_logo.png";
     if (client === "SUSE") return "inputs/Suse_logo.png";
+    if (client === "DEP") return "inputs/DEP LOGO.png";
+    if (client === "IIIT Hyd") return "inputs/IIIT Hyderabad.png";
+    if (client === "LDCS") return "inputs/ldcs logo.png";
     if (client === "NIIT University") return "inputs/NIIT_Uni_logo(1).png";
     if (client === "NIIT MTS") return "inputs/NIIT_MTS_logo.png";
     if (client === "Atlassian") return "inputs/Atlassian_logo.png";
     if (client === "OutSystems") return "inputs/Outsystems_logo.png";
+    if (client === "Ziroh Labs") return "inputs/Zirohlabs_logo.png";
     if (client === "OVHcloud") return "inputs/Ovh cloud.png";
+    if (client === "TalentSprint") return "inputs/talent sprint.jpg";
     if (client === "Neo4j") return "inputs/neo4j.png";
     if (client === "Arup") return "inputs/Arup_logo.png";
     if (client === "Tenarai") return "inputs/Tenarai(1).png";
