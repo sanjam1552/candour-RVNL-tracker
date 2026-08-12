@@ -8199,6 +8199,12 @@ async function initPrMonitorTab() {
     
     // Load and clean rolling 7-day seen links memory
     try {
+        // One-time migration/fix: clear old seen links to allow fresh test fetch
+        if (localStorage.getItem(`pr_seen_links_migration_v2`) !== 'done') {
+            localStorage.removeItem(`pr_seen_links_${state.activeClient}`);
+            localStorage.setItem(`pr_seen_links_migration_v2`, 'done');
+        }
+        
         const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
         let seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -8213,8 +8219,12 @@ async function initPrMonitorTab() {
         const approvedRaw = localStorage.getItem(`pr_approved_${state.activeClient}_${todayDate}`);
         state.prCoverage = approvedRaw ? JSON.parse(approvedRaw) : [];
         
-        // Strictly keep only today's news in the daily log
-        state.prCoverage = state.prCoverage.filter(item => item.date === todayDate);
+        // Keep articles from today or yesterday to prevent morning scan gaps
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayDateStr = yesterday.toISOString().split('T')[0];
+        
+        state.prCoverage = state.prCoverage.filter(item => item.date === todayDate || item.date === yesterdayDateStr);
         localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
         
         const dismissedRaw = localStorage.getItem(`pr_dismissed_${state.activeClient}_${todayDate}`);
@@ -8558,8 +8568,21 @@ function getPrCategoryColor(cat) {
 window.deletePrMention = function(id) {
     if (!confirm("Are you sure you want to delete this daily coverage entry?")) return;
     const todayDate = getPrTodayDateStr();
+    
+    const itemToDelete = state.prCoverage.find(x => x.id === id);
     state.prCoverage = state.prCoverage.filter(x => x.id !== id);
     localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+    
+    if (itemToDelete) {
+        try {
+            const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+            let seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
+            const urlToRemove = itemToDelete.link || itemToDelete.title;
+            seenLinks = seenLinks.filter(x => x.url !== urlToRemove);
+            localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+        } catch(e){}
+    }
+    
     renderPrCoverageLog();
     updatePrStats();
 };
