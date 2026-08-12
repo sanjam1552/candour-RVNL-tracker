@@ -8133,11 +8133,26 @@ const CURATED_NEWS = [
 // ==========================================================================
 
 const TALENTSPRINT_QUERIES = [
-    { category: "Own News", q: "TalentSprint OR LearnVantage" },
-    { category: "Accenture News", q: "Accenture" },
-    { category: "Competitor News", q: "Emeritus OR Simplilearn OR \"Great Learning\" OR Upgrad" },
-    { category: "Industry News", q: "\"AI-led skilling\" OR \"AI in schools\" OR \"AI education\" OR \"workforce upskilling\" OR \"L&D\" OR \"executive education\"" },
-    { category: "Partnering Institutions", q: "\"IIM Calcutta\" OR \"IIM Jammu\" OR \"IIT Hyderabad\" OR \"IIT Kanpur\" OR \"IIT Madras\" OR \"IISc Bangalore\" OR \"IIIT Hyderabad\" OR XLRI" }
+    { category: "Own News", q: "(TalentSprint OR LearnVantage OR \"Learn Vantage\") when:7d" },
+    { category: "Accenture News", q: "Accenture when:7d" },
+    
+    // Context-bound query for Emeritus to block 'Professor Emeritus' false positives
+    { category: "Competitor News", q: "((\"Emeritus\" AND (\"skilling\" OR \"course\" OR \"program\" OR \"education\" OR \"academy\" OR \"learning\" OR \"IIT\" OR \"IIM\" OR \"certif\")) OR Simplilearn OR \"Great Learning\" OR Upgrad) when:7d" },
+    
+    // Split Industry News to bypass rss2json's 10-item limit per query
+    { category: "Industry News", q: "(\"AI-led skilling\" OR \"AI skilling\" OR \"AI skills\") when:7d" },
+    { category: "Industry News", q: "(\"AI in schools\" OR \"AI education\" OR \"AI learning\" OR \"Agentic AI\") when:7d" },
+    { category: "Industry News", q: "(\"workforce upskilling\" OR \"upskilling\" OR \"reskilling\" OR \"skilling\") when:7d" },
+    { category: "Industry News", q: "(\"L&D\" OR \"executive education\" OR \"AI readiness\" OR \"AI ready\") when:7d" },
+    
+    // Split Partnering Institutions to bypass rss2json's 10-item limit per query & added acronyms
+    { category: "Partnering Institutions", q: "(\"IIM Calcutta\" OR \"IIMC\" OR \"IIM Jammu\") when:7d" },
+    { category: "Partnering Institutions", q: "(\"IIT Hyderabad\" OR \"IITH\" OR \"IIT Kanpur\" OR \"IITK\" OR \"IIT Madras\" OR \"IITM\") when:7d" },
+    { category: "Partnering Institutions", q: "(\"IISc\" OR \"IISc Bangalore\" OR \"Indian Institute of Science\") when:7d" },
+    { category: "Partnering Institutions", q: "(\"IIIT Hyderabad\" OR \"IIITH\" OR XLRI) when:7d" },
+    
+    // Direct domain-specific query to scrape niche press release and edtech portals
+    { category: "Industry News", q: "(TalentSprint OR LearnVantage OR \"Learn Vantage\" OR \"Agentic AI\" OR skilling) AND (site:orissadiary.com OR site:indiaeducationdiary.in OR site:cxotoday.com OR site:indiascr.com OR site:smeplay.com) when:7d" }
 ];
 
 function getPrTodayDateStr() {
@@ -8200,9 +8215,9 @@ async function initPrMonitorTab() {
     // Load and clean rolling 7-day seen links memory
     try {
         // One-time migration/fix: clear old seen links to allow fresh test fetch
-        if (localStorage.getItem(`pr_seen_links_migration_v2`) !== 'done') {
+        if (localStorage.getItem(`pr_seen_links_migration_v4`) !== 'done') {
             localStorage.removeItem(`pr_seen_links_${state.activeClient}`);
-            localStorage.setItem(`pr_seen_links_migration_v2`, 'done');
+            localStorage.setItem(`pr_seen_links_migration_v4`, 'done');
         }
         
         const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
@@ -8348,19 +8363,27 @@ async function fetchOnlineMentions() {
         if (progBar) progBar.style.width = "100%";
     }, 50);
     
-    // Run fetch in background
+    // Run fetch in background in parallel with timeouts
     const fetchPromise = (async () => {
-        let allArticles = [];
-        for (const queryObj of TALENTSPRINT_QUERIES) {
+        const promises = TALENTSPRINT_QUERIES.map(async (queryObj) => {
             try {
                 const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryObj.q)}&hl=en-IN&gl=IN&ceid=IN:en`;
-                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
-                if (!res.ok) continue;
+                
+                // 5-second timeout for each request to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (!res.ok) return [];
                 
                 const data = await res.json();
-                if (data.status !== 'ok' || !Array.isArray(data.items)) continue;
+                if (data.status !== 'ok' || !Array.isArray(data.items)) return [];
                 
-                data.items.forEach(item => {
+                return data.items.map(item => {
                     const titleStr = item.title || "";
                     const link = item.link || "";
                     const pubDate = item.pubDate || "";
@@ -8384,20 +8407,23 @@ async function fetchOnlineMentions() {
                         displayDate = d.toISOString().split('T')[0];
                     } catch(e){}
                     
-                    allArticles.push({
+                    return {
                         title: cleanTitle,
                         outlet: parsedSource,
                         date: displayDate,
                         link,
                         snippet,
                         category: queryObj.category
-                    });
+                    };
                 });
             } catch (err) {
                 console.error("rss2json fetch failed for query:", queryObj.q, err);
+                return [];
             }
-        }
-        return allArticles;
+        });
+        
+        const results = await Promise.all(promises);
+        return results.flat();
     })();
     
     // Wait for the 6-second timer AND the fetch request to finish
