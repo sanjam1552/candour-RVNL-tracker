@@ -3202,4 +3202,37 @@ img[src*="neo4j.png"] {
     background: rgba(255, 255, 255, 0.01);
 }
 
+/* Lock layout height and prevent global body scrolling on PR monitor tab */
+#pr-monitor.active {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 70px);
+    overflow: hidden;
+    padding: 30px 40px;
+    box-sizing: border-box;
+}
+
+#pr-monitor .pr-monitor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 20px;
+}
+
+#pr-monitor .pr-monitor-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#pr-monitor .pr-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: none;
+}
+
 
