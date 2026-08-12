@@ -103,6 +103,9 @@
                 <button class="nav-btn" data-tab="briefing">
                     <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Daily Briefing</span>
                 </button>
+                <button class="nav-btn" data-tab="pr-monitor" id="nav-btn-pr-monitor" style="display: none;">
+                    <i class="fa-solid fa-square-rss"></i> <span>PR Monitor</span>
+                </button>
             </nav>
             <!-- Lab Features Section (Hidden by default, visible only to Developer) -->
             <div id="dev-lab-section" class="hidden" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
@@ -806,6 +809,98 @@
                                 <div class="sources-list" id="briefing-sources" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
                                     <p class="text-muted" style="font-size: 13px;">No sources found.</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PR Monitor Tab -->
+            <section id="pr-monitor" class="tab-content">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>PR Monitor & Media Tracking</h2>
+                        <p>Track automated online mentions, log print/offline clipping articles, and build daily HTML summaries for TalentSprint.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="pr-fetch-mentions-btn" class="btn btn-primary">
+                            <i class="fa-solid fa-arrows-rotate"></i> Fetch Online Mentions
+                        </button>
+                        <button type="button" id="pr-email-digest-btn" class="btn btn-secondary" style="background: rgba(139,92,246,0.1); color: var(--accent-purple); border-color: rgba(139,92,246,0.2);">
+                            <i class="fa-solid fa-envelope"></i> Send Email Digest
+                        </button>
+                        <button type="button" id="pr-pdf-btn" class="btn btn-secondary" style="background: rgba(59,130,246,0.1); color: var(--accent-blue); border-color: rgba(59,130,246,0.2);">
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pr-monitor-container">
+                    <!-- Metrics Row -->
+                    <div class="pr-monitor-stats">
+                        <div class="pr-stat-card">
+                            <div class="pr-stat-icon" style="background: rgba(59,130,246,0.1); color: var(--accent-blue);"><i class="fa-solid fa-newspaper"></i></div>
+                            <div class="pr-stat-info">
+                                <h3>Own News</h3>
+                                <div class="value" id="pr-stat-own">0</div>
+                            </div>
+                        </div>
+                        <div class="pr-stat-card">
+                            <div class="pr-stat-icon" style="background: rgba(139,92,246,0.1); color: var(--accent-purple);"><i class="fa-solid fa-users"></i></div>
+                            <div class="pr-stat-info">
+                                <h3>Accenture News</h3>
+                                <div class="value" id="pr-stat-accenture">0</div>
+                            </div>
+                        </div>
+                        <div class="pr-stat-card">
+                            <div class="pr-stat-icon" style="background: rgba(245,158,11,0.1); color: var(--accent-amber);"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div class="pr-stat-info">
+                                <h3>Competitors</h3>
+                                <div class="value" id="pr-stat-competitors">0</div>
+                            </div>
+                        </div>
+                        <div class="pr-stat-card">
+                            <div class="pr-stat-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-green);"><i class="fa-solid fa-building-columns"></i></div>
+                            <div class="pr-stat-info">
+                                <h3>Partners & Industry</h3>
+                                <div class="value" id="pr-stat-industry">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Single Panel Layout -->
+                    <div class="pr-monitor-layout" style="grid-template-columns: 1fr;">
+                        <!-- Media Coverage Log & Manual Entry -->
+                        <div class="pr-pane">
+                            <div class="pr-pane-header">
+                                <h3><i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i> Media Coverage Log <span id="pr-inbox-status" style="font-size: 11px; color: var(--text-muted); font-weight: normal; margin-left: 8px;"></span></h3>
+                                <button type="button" id="pr-toggle-manual-form" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i> Add Manual Entry</button>
+                            </div>
+                            
+                            <!-- Expandable Form for Manual Logs -->
+                            <div id="pr-manual-entry-form" class="pr-manual-form hidden">
+                                <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Log Offline / Print Mention</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <input type="text" id="manual-pr-title" placeholder="Article Headline/Title *" required style="grid-column: span 2; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                    <input type="text" id="manual-pr-outlet" placeholder="Publication/Channel *" required style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                    <input type="date" id="manual-pr-date" required style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                    <select id="manual-pr-category" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                        <option value="Own News">Own News</option>
+                                        <option value="Accenture News">Accenture News</option>
+                                        <option value="Competitor News">Competitor News</option>
+                                        <option value="Industry News">Industry / Sector News</option>
+                                        <option value="Partnering Institutions">Partnering Institutions</option>
+                                    </select>
+                                    <input type="url" id="manual-pr-link" placeholder="Source URL (Optional)" style="grid-column: span 2; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                                    <button type="button" id="pr-cancel-manual-btn" class="btn btn-secondary btn-sm">Cancel</button>
+                                    <button type="button" id="pr-save-manual-btn" class="btn btn-primary btn-sm">Log Article</button>
+                                </div>
+                            </div>
+
+                            <div class="pr-pane-body" id="pr-coverage-log">
+                                <p style="text-align: center; color: var(--text-muted); padding: 40px 0;">No approved articles logged for this month yet.</p>
                             </div>
                         </div>
                     </div>

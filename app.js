@@ -772,18 +772,15 @@ function setPreloaderProgress(percent) {
     }
 }
 
-// Hide splash preloader screen once database syncs (with a 1.2s delay so it feels solid)
 function hidePreloader() {
-    setTimeout(() => {
-        const preloader = document.getElementById("preloader");
-        if (preloader) {
-            preloader.style.opacity = "0";
-            preloader.style.visibility = "hidden";
-            setTimeout(() => {
-                preloader.style.display = "none";
-            }, 500);
-        }
-    }, 600);
+    const preloader = document.getElementById("preloader");
+    if (preloader) {
+        preloader.style.opacity = "0";
+        preloader.style.visibility = "hidden";
+        setTimeout(() => {
+            preloader.style.display = "none";
+        }, 500);
+    }
 }
 
 // Load data from Firestore; migrate localStorage on first run
@@ -3211,6 +3208,17 @@ function switchClient(client) {
             switchTab("dashboard");
         }
     }
+
+    // Show/hide PR Monitor tab button in sidebar (TalentSprint exclusive for now)
+    const prMonitorTabBtn = document.getElementById("nav-btn-pr-monitor");
+    if (targetClient === "TalentSprint") {
+        if (prMonitorTabBtn) prMonitorTabBtn.style.display = "";
+    } else {
+        if (prMonitorTabBtn) prMonitorTabBtn.style.display = "none";
+        if (state.activeTab === "pr-monitor") {
+            switchTab("dashboard");
+        }
+    }
     
     // Refresh all data displays
     populateOwnerFilter();
@@ -3286,6 +3294,8 @@ function switchTab(tabName) {
         generateReport(); // Pre-generate default report
     } else if (tabName === 'briefing') {
         initBriefingTab();
+    } else if (tabName === 'pr-monitor') {
+        initPrMonitorTab();
     } else if (tabName === 'settings') {
         checkSettingsPasswordState();
     }
@@ -8117,6 +8127,737 @@ const CURATED_NEWS = [
         timeline: "Ongoing"
     }
 ];
+
+// ==========================================================================
+// PR Monitor & Media Tracking Logic (TalentSprint - Daily temporary Tracker)
+// ==========================================================================
+
+const TALENTSPRINT_QUERIES = [
+    { category: "Own News", q: "TalentSprint OR LearnVantage" },
+    { category: "Accenture News", q: "Accenture" },
+    { category: "Competitor News", q: "Emeritus OR Simplilearn OR \"Great Learning\" OR Upgrad" },
+    { category: "Industry News", q: "\"AI-led skilling\" OR \"AI in schools\" OR \"AI education\" OR \"workforce upskilling\" OR \"L&D\" OR \"executive education\"" },
+    { category: "Partnering Institutions", q: "\"IIM Calcutta\" OR \"IIM Jammu\" OR \"IIT Hyderabad\" OR \"IIT Kanpur\" OR \"IIT Madras\" OR \"IISc Bangalore\" OR \"IIIT Hyderabad\" OR XLRI" }
+];
+
+function getPrTodayDateStr() {
+    return new Date().toISOString().split('T')[0];
+}
+
+function prClearOldLocalBackup(client, todayDate) {
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith(`pr_approved_${client}_`) || key.startsWith(`pr_dismissed_${client}_`))) {
+                const parts = key.split('_');
+                const keyDate = parts[parts.length - 1];
+                if (keyDate !== todayDate) {
+                    keysToRemove.push(key);
+                }
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch(e) {
+        console.error("Local garbage collection failed", e);
+    }
+}
+
+async function initPrMonitorTab() {
+    const toggleBtn = document.getElementById("pr-toggle-manual-form");
+    const manualForm = document.getElementById("pr-manual-entry-form");
+    const cancelBtn = document.getElementById("pr-cancel-manual-btn");
+    const saveBtn = document.getElementById("pr-save-manual-btn");
+    const fetchBtn = document.getElementById("pr-fetch-mentions-btn");
+    const emailBtn = document.getElementById("pr-email-digest-btn");
+    const pdfBtn = document.getElementById("pr-pdf-btn");
+
+    if (!state.prListenersAttached) {
+        state.prListenersAttached = true;
+        
+        toggleBtn.addEventListener("click", () => {
+            manualForm.classList.toggle("hidden");
+        });
+        
+        cancelBtn.addEventListener("click", () => {
+            manualForm.classList.add("hidden");
+            clearManualPrForm();
+        });
+        
+        saveBtn.addEventListener("click", saveManualPrMention);
+        fetchBtn.addEventListener("click", fetchOnlineMentions);
+        emailBtn.addEventListener("click", generateEmailDigest);
+        if (pdfBtn) pdfBtn.addEventListener("click", downloadPrPdf);
+        
+        const dateInput = document.getElementById("manual-pr-date");
+        if (dateInput) dateInput.value = getPrTodayDateStr();
+    }
+    
+    // Automatic Daily Garbage Collection & Load for active client
+    const todayDate = getPrTodayDateStr();
+    prClearOldLocalBackup(state.activeClient, todayDate);
+    
+    // Load and clean rolling 7-day seen links memory
+    try {
+        const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+        let seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        seenLinks = seenLinks.filter(x => x.addedAt > sevenDaysAgo);
+        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+    } catch(e) {
+        console.error("Seen links collection error:", e);
+    }
+    
+    // Load daily approved/dismissed coverage from LocalStorage
+    try {
+        const approvedRaw = localStorage.getItem(`pr_approved_${state.activeClient}_${todayDate}`);
+        state.prCoverage = approvedRaw ? JSON.parse(approvedRaw) : [];
+        
+        // Strictly keep only today's news in the daily log
+        state.prCoverage = state.prCoverage.filter(item => item.date === todayDate);
+        localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+        
+        const dismissedRaw = localStorage.getItem(`pr_dismissed_${state.activeClient}_${todayDate}`);
+        state.prDismissed = dismissedRaw ? JSON.parse(dismissedRaw) : [];
+    } catch(e) {
+        state.prCoverage = [];
+        state.prDismissed = [];
+    }
+    
+    // Reset status label on tab switch
+    const prInboxStatus = document.getElementById("pr-inbox-status");
+    if (prInboxStatus) prInboxStatus.textContent = "Awaiting scan";
+    
+    renderPrCoverageLog();
+    updatePrStats();
+}
+
+function saveManualPrMention() {
+    const title = document.getElementById("manual-pr-title").value.trim();
+    const outlet = document.getElementById("manual-pr-outlet").value.trim();
+    const date = document.getElementById("manual-pr-date").value;
+    const category = document.getElementById("manual-pr-category").value;
+    const link = document.getElementById("manual-pr-link").value.trim();
+    
+    if (!title || !outlet || !date) {
+        showToast("⚠️ Missing Fields", "Please fill in all required fields (Headline, Publication, Date).", 3000);
+        return;
+    }
+    
+    const todayDate = getPrTodayDateStr();
+    const item = {
+        id: 'manual_' + Date.now(),
+        client: state.activeClient,
+        title,
+        outlet,
+        date,
+        category,
+        sentiment: detectSentiment(title, ""),
+        link,
+        type: link ? "Online" : "Print",
+        createdAt: Date.now()
+    };
+    
+    state.prCoverage.push(item);
+    localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+    
+    // Save to rolling seen list
+    try {
+        const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+        const seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
+        seenLinks.push({ url: link || title, addedAt: Date.now() });
+        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+    } catch(e){}
+    
+    showToast("✅ Logged", "Offline/Print mention logged successfully.", 3000);
+    document.getElementById("pr-manual-entry-form").classList.add("hidden");
+    clearManualPrForm();
+    
+    renderPrCoverageLog();
+    updatePrStats();
+}
+
+function detectSentiment(title, snippet) {
+    const text = (title + " " + snippet).toLowerCase();
+    const positiveWords = [
+        "launch", "introduces", "introduce", "partnership", "partner", "collaborate", "collaboration",
+        "future-ready", "excellence", "success", "innovative", "growth", "milestone", "expand", 
+        "empower", "skilling", "upskill", "leader", "award", "highlight", "perform", "announces", 
+        "education initiative", "advances", "programmes with", "celebrates", "upskilling"
+    ];
+    const negativeWords = [
+        "fail", "loss", "decline", "crisis", "drop", "investigation", "fine", "lawsuit", 
+        "scam", "deficit", "scandal", "criticize", "complaint", "protest"
+    ];
+    let score = 0;
+    positiveWords.forEach(w => {
+        if (text.includes(w)) score++;
+    });
+    negativeWords.forEach(w => {
+        if (text.includes(w)) score--;
+    });
+    if (score > 0) return "Positive";
+    if (score < 0) return "Negative";
+    return "Neutral";
+}
+
+function clearManualPrForm() {
+    document.getElementById("manual-pr-title").value = "";
+    document.getElementById("manual-pr-outlet").value = "";
+    document.getElementById("manual-pr-date").value = getPrTodayDateStr();
+    document.getElementById("manual-pr-link").value = "";
+}
+
+async function fetchOnlineMentions() {
+    const fetchBtn = document.getElementById("pr-fetch-mentions-btn");
+    if (fetchBtn) {
+        fetchBtn.disabled = true;
+        fetchBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Scanning...`;
+    }
+    
+    const status = document.getElementById("pr-inbox-status");
+    const logContainer = document.getElementById("pr-coverage-log");
+    
+    // Render the beautiful 6-second progress bar scanner container
+    logContainer.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 32px; color: var(--accent-blue); margin-bottom: 16px;"></i>
+            <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Scanning global media database...</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">Fetching latest press clippings and outlet publications</div>
+            <div style="width: 250px; height: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; overflow: hidden; position: relative;">
+                <div id="pr-scan-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: 3px; transition: width 6s linear;"></div>
+            </div>
+        </div>
+    `;
+    
+    if (status) status.textContent = "(Scanning...)";
+    
+    // Trigger progress animation
+    setTimeout(() => {
+        const progBar = document.getElementById("pr-scan-progress-bar");
+        if (progBar) progBar.style.width = "100%";
+    }, 50);
+    
+    // Run fetch in background
+    const fetchPromise = (async () => {
+        let allArticles = [];
+        for (const queryObj of TALENTSPRINT_QUERIES) {
+            try {
+                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryObj.q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+                if (!res.ok) continue;
+                
+                const data = await res.json();
+                if (data.status !== 'ok' || !Array.isArray(data.items)) continue;
+                
+                data.items.forEach(item => {
+                    const titleStr = item.title || "";
+                    const link = item.link || "";
+                    const pubDate = item.pubDate || "";
+                    const desc = item.description || "";
+                    
+                    const tmp = document.createElement("DIV");
+                    tmp.innerHTML = desc;
+                    const snippet = tmp.textContent || tmp.innerText || "";
+                    
+                    let cleanTitle = titleStr;
+                    let parsedSource = item.author || "Online News";
+                    const sourceIdx = titleStr.lastIndexOf(" - ");
+                    if (sourceIdx !== -1) {
+                        cleanTitle = titleStr.substring(0, sourceIdx).trim();
+                        parsedSource = titleStr.substring(sourceIdx + 3).trim();
+                    }
+                    
+                    let displayDate = pubDate;
+                    try {
+                        const d = new Date(pubDate);
+                        displayDate = d.toISOString().split('T')[0];
+                    } catch(e){}
+                    
+                    allArticles.push({
+                        title: cleanTitle,
+                        outlet: parsedSource,
+                        date: displayDate,
+                        link,
+                        snippet,
+                        category: queryObj.category
+                    });
+                });
+            } catch (err) {
+                console.error("rss2json fetch failed for query:", queryObj.q, err);
+            }
+        }
+        return allArticles;
+    })();
+    
+    // Wait for the 6-second timer AND the fetch request to finish
+    const [allArticles] = await Promise.all([
+        fetchPromise,
+        new Promise(resolve => setTimeout(resolve, 6000))
+    ]);
+    
+    const todayDate = getPrTodayDateStr();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDate = yesterday.toISOString().split('T')[0];
+    
+    // Retrieve seen links list
+    let seenLinksRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+    let seenLinks = seenLinksRaw ? JSON.parse(seenLinksRaw) : [];
+    const seenUrls = new Set(seenLinks.map(x => x.url));
+    
+    // De-duplicate and filter strictly to today's or yesterday's news, excluding seen links
+    const seen = new Set();
+    const todaysArticles = allArticles.filter(art => {
+        const key = art.link || art.title;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        
+        const isRecent = art.date === todayDate || art.date === yesterdayDate;
+        const isNew = !seenUrls.has(key);
+        return isRecent && isNew;
+    });
+    
+    todaysArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    let loggedCount = 0;
+    let updatedCount = 0;
+    
+    todaysArticles.forEach((art, index) => {
+        const existing = state.prCoverage.find(x => (x.link && x.link === art.link) || x.title === art.title);
+        if (existing) {
+            // Self-heal existing items in log that have placeholder 'Online News'
+            if (existing.outlet === "Online News" && art.outlet !== "Online News") {
+                existing.outlet = art.outlet;
+                updatedCount++;
+            }
+        } else {
+            const payload = {
+                id: 'online_' + Date.now() + '_' + index,
+                client: state.activeClient,
+                title: art.title,
+                outlet: art.outlet,
+                date: art.date,
+                category: art.category,
+                link: art.link,
+                type: "Online",
+                createdAt: Date.now()
+            };
+            state.prCoverage.push(payload);
+            
+            seenLinks.push({ url: art.link || art.title, addedAt: Date.now() });
+            loggedCount++;
+        }
+    });
+    
+    if (loggedCount > 0 || updatedCount > 0) {
+        localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+        showToast("✅ Scan Complete", `Automatically logged ${loggedCount} new mentions and updated ${updatedCount} publications.`, 4000);
+    } else {
+        showToast("ℹ️ Scan Complete", "No new mentions found since last scan.", 3000);
+    }
+    
+    if (fetchBtn) {
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Fetch Online Mentions`;
+    }
+    
+    if (status) status.textContent = `Scan complete. Logged ${loggedCount} new entries today.`;
+    renderPrCoverageLog();
+    updatePrStats();
+}
+
+function formatPrDate(dStr) {
+    if (!dStr) return "";
+    const parts = dStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dStr;
+}
+
+function renderPrCoverageLog() {
+    const logContainer = document.getElementById("pr-coverage-log");
+    const items = state.prCoverage || [];
+    
+    if (items.length === 0) {
+        logContainer.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 40px 0;">No approved articles logged for today yet.</p>`;
+        return;
+    }
+    
+    const categoryOrder = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    
+    const grouped = {};
+    categoryOrder.forEach(cat => {
+        grouped[cat] = [];
+    });
+    items.forEach(item => {
+        const cat = item.category || "Industry News";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+    });
+    
+    logContainer.innerHTML = "";
+    
+    categoryOrder.forEach(cat => {
+        const catItems = grouped[cat];
+        if (catItems.length === 0) return;
+        
+        catItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        const header = document.createElement("div");
+        header.className = "pr-category-section-header";
+        header.style.cssText = `
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: ${getPrCategoryColor(cat)};
+            margin: 24px 0 12px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px dashed var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        `;
+        header.innerHTML = `<span style="width: 6px; height: 6px; border-radius: 50%; background-color: ${getPrCategoryColor(cat)};"></span> ${cat}`;
+        logContainer.appendChild(header);
+        
+        catItems.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "mention-card";
+            card.style.borderLeft = `4px solid ${getPrCategoryColor(item.category)}`;
+            
+            card.innerHTML = `
+                <div class="mention-header">
+                    <span class="mention-outlet" style="color: ${getPrCategoryColor(item.category)}"><strong>Publication:</strong> ${item.outlet}</span>
+                    <span class="mention-date">${formatPrDate(item.date)}</span>
+                </div>
+                ${item.link ? `<a href="${item.link}" target="_blank" class="mention-title">${item.title}</a>` : `<div class="mention-title">${item.title}</div>`}
+                ${item.snippet ? `<p class="mention-snippet" style="margin-top: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.4;">${item.snippet}</p>` : ''}
+                <div class="mention-footer" style="align-items: center; justify-content: space-between; width: 100%; margin-top: 8px;">
+                    <span class="mention-category-badge">${item.category} (${item.type === 'Online' ? 'Online Web' : 'Print'})</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn btn-secondary btn-sm" style="color: var(--accent-red); padding: 2px 8px;" onclick="deletePrMention('${item.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `;
+            logContainer.appendChild(card);
+        });
+    });
+}
+
+function getPrCategoryColor(cat) {
+    if (cat === "Own News") return "var(--accent-blue)";
+    if (cat === "Accenture News") return "var(--accent-purple)";
+    if (cat === "Competitor News") return "var(--accent-amber)";
+    return "var(--accent-green)";
+}
+
+window.deletePrMention = function(id) {
+    if (!confirm("Are you sure you want to delete this daily coverage entry?")) return;
+    const todayDate = getPrTodayDateStr();
+    state.prCoverage = state.prCoverage.filter(x => x.id !== id);
+    localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+    renderPrCoverageLog();
+    updatePrStats();
+};
+
+function updatePrStats() {
+    const items = state.prCoverage || [];
+    let own = 0, accenture = 0, competitors = 0, industry = 0;
+    
+    items.forEach(x => {
+        if (x.category === "Own News") own++;
+        else if (x.category === "Accenture News") accenture++;
+        else if (x.category === "Competitor News") competitors++;
+        else industry++;
+    });
+    
+    document.getElementById("pr-stat-own").textContent = own;
+    document.getElementById("pr-stat-accenture").textContent = accenture;
+    document.getElementById("pr-stat-competitors").textContent = competitors;
+    document.getElementById("pr-stat-industry").textContent = industry;
+}
+
+function generateEmailDigest() {
+    const items = state.prCoverage || [];
+    if (items.length === 0) {
+        showToast("⚠️ Empty Log", "Please approve or log some news articles before sending the digest.", 3000);
+        return;
+    }
+    
+    const grouped = {};
+    items.forEach(x => {
+        if (!grouped[x.category]) grouped[x.category] = [];
+        grouped[x.category].push(x);
+    });
+    
+    // Plain Text Version
+    let plainText = `TalentSprint Media Coverage Summary\n\n`;
+    
+    // Rich HTML Version with Table
+    let htmlContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; max-width: 800px; line-height: 1.6; padding: 10px;">
+            <h2 style="color: #1e3a8a; font-family: 'Segoe UI', Arial, sans-serif; margin: 0 0 4px 0;">TalentSprint</h2>
+            <h3 style="color: #475569; margin: 0 0 16px 0; font-weight: normal; font-size: 16px;">Daily Media Monitor (${new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })})</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #cbd5e1; font-size: 13px;">
+                <thead>
+                    <tr style="background-color: #5b21b6; color: #ffffff; font-weight: bold; text-align: left;">
+                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 15%;">Article Date</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1; width: 50%;">Headline</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1; width: 20%;">Publication</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 15%;">Edition</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    const categories = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    
+    categories.forEach(cat => {
+        if (grouped[cat] && grouped[cat].length > 0) {
+            plainText += `=== ${cat.toUpperCase()} ===\n`;
+            
+            // Render Category Header Row
+            htmlContent += `
+                <tr style="background-color: #f1f5f9; font-weight: bold; color: #1e3a8a;">
+                    <td colspan="4" style="padding: 8px 10px; border: 1px solid #cbd5e1; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">${cat}</td>
+                </tr>
+            `;
+            
+            grouped[cat].forEach(art => {
+                plainText += `- [${art.outlet}] ${art.title}\n`;
+                if (art.link) plainText += `  Link: ${art.link}\n`;
+                plainText += `  Date: ${art.date}\n\n`;
+                
+                const displayDate = formatPrDate(art.date);
+                const displayEdition = art.type === 'Online' ? 'Online Web' : 'Print';
+                const publicationCell = art.link 
+                    ? `<a href="${art.link}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 500;">${art.outlet}</a>`
+                    : art.outlet;
+                
+                htmlContent += `
+                    <tr style="color: #334155;">
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; vertical-align: top;">${displayDate}</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; vertical-align: top;">
+                            <strong style="color: #0f172a; display: block; margin-bottom: 4px;">${art.title}</strong>
+                            ${art.snippet ? `<span style="font-size: 12px; color: #64748b; display: block; line-height: 1.4;">${art.snippet}</span>` : ''}
+                        </td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; vertical-align: top;">${publicationCell}</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; vertical-align: top;">${displayEdition}</td>
+                    </tr>
+                `;
+            });
+            
+            plainText += `\n`;
+        }
+    });
+    
+    htmlContent += `
+                </tbody>
+            </table>
+            <div style="font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 20px;">
+                Generated via Candour Communications PR Tracking Portal
+            </div>
+        </div>
+    `;
+    
+    // Copy both plain text and HTML to clipboard
+    try {
+        const blobHtml = new Blob([htmlContent], { type: "text/html" });
+        const blobText = new Blob([plainText], { type: "text/plain" });
+        const data = [new ClipboardItem({
+            "text/html": blobHtml,
+            "text/plain": blobText
+        })];
+        
+        navigator.clipboard.write(data).then(() => {
+            showToast("📋 Table Briefing Copied!", "A beautifully formatted Outlook email draft has been copied to your clipboard. Simply open Outlook and press Ctrl+V to paste!", 6000);
+        }).catch(err => {
+            console.error("Rich clipboard copy failed, falling back to plain text", err);
+            navigator.clipboard.writeText(plainText).then(() => {
+                showToast("📋 Plain Text Copied!", "Copied summary to clipboard. Open Outlook and paste (Ctrl+V).", 5000);
+            });
+        });
+    } catch (e) {
+        console.error("ClipboardItem not supported, falling back to plain text", e);
+        navigator.clipboard.writeText(plainText).then(() => {
+            showToast("📋 Plain Text Copied!", "Copied summary to clipboard. Open Outlook and paste (Ctrl+V).", 5000);
+        });
+    }
+}
+
+function downloadPrPdf() {
+    const items = state.prCoverage || [];
+    if (items.length === 0) {
+        showToast("⚠️ Empty Log", "Please approve or log some news articles before downloading the PDF.", 3000);
+        return;
+    }
+    
+    const grouped = {};
+    items.forEach(x => {
+        if (!grouped[x.category]) grouped[x.category] = [];
+        grouped[x.category].push(x);
+    });
+    
+    const todayStr = new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+    
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>TalentSprint Media Coverage - ${todayStr}</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+                    color: #1e293b;
+                    padding: 40px;
+                    line-height: 1.5;
+                }
+                .header {
+                    border-bottom: 2px solid #5b21b6;
+                    padding-bottom: 15px;
+                    margin-bottom: 25px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                }
+                .header h1 {
+                    font-size: 26px;
+                    margin: 0;
+                    color: #0f172a;
+                    font-weight: 700;
+                }
+                .header .date {
+                    font-size: 14px;
+                    color: #64748b;
+                    font-weight: 600;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 15px;
+                    border: 1px solid #cbd5e1;
+                    font-size: 13px;
+                }
+                th {
+                    background-color: #5b21b6;
+                    color: #ffffff;
+                    font-weight: bold;
+                    padding: 10px;
+                    border: 1px solid #cbd5e1;
+                    text-align: left;
+                }
+                td {
+                    padding: 10px;
+                    border: 1px solid #cbd5e1;
+                    vertical-align: top;
+                    color: #334155;
+                }
+                .cat-row {
+                    background-color: #f1f5f9;
+                    font-weight: bold;
+                    color: #1e3a8a;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .title-cell {
+                    font-weight: 600;
+                    color: #0f172a;
+                    display: block;
+                    margin-bottom: 4px;
+                }
+                .snippet-text {
+                    font-size: 12px;
+                    color: #64748b;
+                    line-height: 1.4;
+                    display: block;
+                }
+                a {
+                    color: #2563eb;
+                    text-decoration: underline;
+                }
+                @media print {
+                    body { padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div>
+                    <h1>TalentSprint Daily Media Monitor</h1>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Candour Communications PR Tracking</div>
+                </div>
+                <div class="date">${todayStr}</div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align: center; width: 15%;">Article Date</th>
+                        <th style="width: 50%;">Headline</th>
+                        <th style="width: 20%;">Publication</th>
+                        <th style="text-align: center; width: 15%;">Edition</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `);
+    
+    const categories = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    
+    categories.forEach(cat => {
+        if (grouped[cat] && grouped[cat].length > 0) {
+            printWindow.document.write(`
+                <tr class="cat-row">
+                    <td colspan="4">${cat}</td>
+                </tr>
+            `);
+            
+            // Sort category items date newest first
+            const catItems = grouped[cat];
+            catItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            catItems.forEach(art => {
+                const displayDate = formatPrDate(art.date);
+                const displayEdition = art.type === 'Online' ? 'Online Web' : 'Print';
+                const publicationCell = art.link 
+                    ? `<a href="${art.link}" target="_blank">${art.outlet}</a>`
+                    : art.outlet;
+                
+                printWindow.document.write(`
+                    <tr>
+                        <td style="text-align: center;">${displayDate}</td>
+                        <td>
+                            <span class="title-cell">${art.title}</span>
+                            ${art.snippet ? `<span class="snippet-text">${art.snippet}</span>` : ''}
+                        </td>
+                        <td>${publicationCell}</td>
+                        <td style="text-align: center;">${displayEdition}</td>
+                    </tr>
+                `);
+            });
+        }
+    });
+    
+    printWindow.document.write(`
+                </tbody>
+            </table>
+            <script>
+                window.onload = function() {
+                    window.print();
+                };
+                window.onafterprint = function() {
+                    window.close();
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
 
 // Initialize the briefing tab
 async function initBriefingTab() {
