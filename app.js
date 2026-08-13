@@ -8191,6 +8191,7 @@ const TALENTSPRINT_QUERIES = [
 const RVNL_QUERIES = [
     { category: "Own News", q: "(\"Rail Vikas Nigam Limited\" OR \"Rail Vikas Nigam\" OR RVNL OR \"Pradeep Gaur\" OR \"MP Singh\") when:7d" },
     { category: "Key Projects", q: "(\"Rishikesh-Karnaprayag\" OR \"New Pamban Bridge\" OR \"Vande Bharat manufacturing\" OR \"UTF Harbour\" OR \"TBM tunneling\" OR \"Navratna PSU\" OR \"Barddhaman Cable Stayed Bridge\") when:7d" },
+    { category: "Key Projects", q: "(\"Kolkata Metro\" OR \"Purple Line\" OR \"Pink Line\" OR \"Orange Line\" OR \"Indore Metro\" OR \"Delhi Metro Phase IV\" OR \"Nagpur Metro\" OR \"Bengaluru Suburban\") when:7d" },
     { category: "Industry News", q: "(\"Railway infrastructure\" OR \"Metro rail projects\" OR \"Indian Railways\" OR \"Tunnel Boring Machines\" OR \"Railway electrification\" OR \"Urban mass transit\") when:7d" },
     { category: "Industry News", q: "(\"Infrastructure development\" OR \"High-speed rail India\" OR \"Multimodal logistics\" OR \"Rail signalling systems\" OR \"Rail cum Road Bridge\" OR \"Metro Projects\") when:7d" }
 ];
@@ -8438,7 +8439,8 @@ function isArticleRelevant(art) {
                 "navratna", "barddhaman", "railway infrastructure", "metro rail", "mass transit", 
                 "high-speed rail", "multimodal logistics", "railway electrification", "solar energy", 
                 "carbon emission", "power transmission", "rail signalling", "train yard", 
-                "bridge construction", "rail bridge", "metro project"
+                "bridge construction", "rail bridge", "metro project", "kolkata metro", "purple line", 
+                "pink line", "orange line", "indore metro", "delhi metro", "nagpur metro", "bengaluru suburban"
             ];
             const hasProjectKeyword = rvnlKeywords.some(word => combined.includes(word));
             return mentionsBrand && hasProjectKeyword;
