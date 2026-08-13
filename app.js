@@ -8356,7 +8356,7 @@ async function fetchGoogleNewsRss(query) {
         const proxyUrl = getProxyUrl(rssUrl);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         
         const res = await fetch(proxyUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
