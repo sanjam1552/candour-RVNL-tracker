@@ -8341,10 +8341,19 @@ function clearManualPrForm() {
     document.getElementById("manual-pr-link").value = "";
 }
 
+function getProxyUrl(targetUrl) {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+        return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    } else {
+        return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+}
+
 async function fetchGoogleNewsRss(query) {
     try {
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+        const proxyUrl = getProxyUrl(rssUrl);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -8457,9 +8466,9 @@ async function fetchOnlineMentions() {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
                 
-                const feedUrlWithBuster = feedObj.url + (feedObj.url.includes('?') ? '&' : '?') + 't=' + Date.now();
-                // Fetch the raw XML via corsproxy.io (Cloudflare CDN-backed CORS proxy)
-                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(feedUrlWithBuster)}`, {
+                 const feedUrlWithBuster = feedObj.url + (feedObj.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                // Fetch the raw XML via CORS proxy (relative redirect in production to bypass adblockers)
+                const res = await fetch(getProxyUrl(feedUrlWithBuster), {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
