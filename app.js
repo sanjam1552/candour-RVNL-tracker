@@ -8426,17 +8426,25 @@ function isArticleRelevant(art) {
     }
     
     if (state.activeClient === "RVNL") {
+        const mentionsBrand = combined.includes("rvnl") || combined.includes("rail vikas") || combined.includes("pradeep gaur") || combined.includes("mp singh");
+        
+        if (art.category === "Own News") {
+            return mentionsBrand;
+        }
+        
         if (art.category === "Industry News" || art.category === "Key Projects") {
             const rvnlKeywords = [
-                "rail vikas", "rvnl", "pradeep gaur", "mp singh", "rishikesh", "karnaprayag", "pamban", 
-                "vande bharat", "utf harbour", "tunnel boring", "navratna", "barddhaman", 
-                "railway infrastructure", "metro rail", "mass transit", "high-speed rail", 
-                "multimodal logistics", "railway electrification", "solar energy", "carbon emission", "power transmission",
-                "rail signalling", "train yard", "bridge construction", "rail bridge", "metro project"
+                "rishikesh", "karnaprayag", "pamban", "vande bharat", "utf harbour", "tunnel boring", 
+                "navratna", "barddhaman", "railway infrastructure", "metro rail", "mass transit", 
+                "high-speed rail", "multimodal logistics", "railway electrification", "solar energy", 
+                "carbon emission", "power transmission", "rail signalling", "train yard", 
+                "bridge construction", "rail bridge", "metro project"
             ];
-            return rvnlKeywords.some(word => combined.includes(word));
+            const hasProjectKeyword = rvnlKeywords.some(word => combined.includes(word));
+            return mentionsBrand && hasProjectKeyword;
         }
-        return true;
+        
+        return mentionsBrand;
     }
 
     // Strict skilling/edtech relevance filter for non-brand categories
