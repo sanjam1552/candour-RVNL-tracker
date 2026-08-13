@@ -8547,7 +8547,7 @@ async function fetchOnlineMentions() {
                                         category = "Own News";
                                     } else if (combinedText.includes("accenture")) {
                                         category = "Accenture News";
-                                    } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || combinedText.includes("upgrad") || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
+                                    } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || (combinedText.includes("upgrad") && !combinedText.includes("upgrade")) || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
                                         category = "Competitor News";
                                     } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
                                         category = "Industry News";
