@@ -8429,10 +8429,10 @@ function isArticleRelevant(art) {
         if (art.category === "Industry News" || art.category === "Key Projects") {
             const rvnlKeywords = [
                 "rail vikas", "rvnl", "pradeep gaur", "mp singh", "rishikesh", "karnaprayag", "pamban", 
-                "vande bharat", "utf harbour", "tunneling", "navratna", "barddhaman", 
-                "railway", "metro rail", "tunnel boring", "mass transit", "infrastructure", "high-speed rail", 
-                "logistics", "electrification", "solar energy", "carbon emission", "power transmission",
-                "signalling", "train yard", "bridge construction", "rail bridge", "metro project"
+                "vande bharat", "utf harbour", "tunnel boring", "navratna", "barddhaman", 
+                "railway infrastructure", "metro rail", "mass transit", "high-speed rail", 
+                "multimodal logistics", "railway electrification", "solar energy", "carbon emission", "power transmission",
+                "rail signalling", "train yard", "bridge construction", "rail bridge", "metro project"
             ];
             return rvnlKeywords.some(word => combined.includes(word));
         }
