@@ -9895,12 +9895,6 @@ function renderBriefingResults(data) {
                     </button>
                 </div>
             `;
-            reportContainer.appendChild(card);Add PR to Tracker
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
             reportContainer.appendChild(card);
         });
     } else {
