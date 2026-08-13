@@ -3224,7 +3224,9 @@ function switchClient(client) {
     populateOwnerFilter();
     updateDashboard();
     renderTracker();
-    generateReport();
+    // Only regenerate report if the user is currently viewing the Report Builder tab
+    // (it regenerates automatically when the user navigates to that tab via switchTab)
+    if (state.activeTab === 'reports') generateReport();
     updateStorageIndicator();
 
     // Check if code has changed on the server
