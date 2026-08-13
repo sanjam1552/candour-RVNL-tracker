@@ -1,6 +1,12 @@
 import http.server
 import urllib.request
 import urllib.parse
+import traceback
+from socketserver import ThreadingMixIn
+
+# Multi-threaded HTTP Server to handle parallel API requests without blocking
+class ThreadingHTTPServer(ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -23,7 +29,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'Accept': 'application/xml, text/xml, */*'
                     }
                 )
-                with urllib.request.urlopen(req, timeout=10) as response:
+                # Fetch directly from target URL on the local Python backend
+                with urllib.request.urlopen(req, timeout=8) as response:
                     content = response.read()
                     self.send_response(200)
                     content_type = response.getheader('Content-Type', 'text/xml; charset=utf-8')
@@ -40,6 +47,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     server_address = ('', 8080)
-    httpd = http.server.HTTPServer(server_address, ProxyHTTPRequestHandler)
-    print("Serving on port 8080 with local /api/proxy backend...")
+    httpd = ThreadingHTTPServer(server_address, ProxyHTTPRequestHandler)
+    print("Serving on port 8080 with multi-threaded local /api/proxy backend...")
     httpd.serve_forever()
