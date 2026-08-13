@@ -4532,7 +4532,9 @@ function openDrawer(taskId = null, prefillData = null) {
         }
     }
 
-    overlay.classList.add("active");
+    // Defer the animation trigger so the browser finishes JS setup before starting
+    // the CSS slide-in — this eliminates the stutter on open
+    requestAnimationFrame(() => overlay.classList.add("active"));
 }
 
 // Close Drawer
