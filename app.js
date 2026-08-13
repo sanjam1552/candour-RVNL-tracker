@@ -3767,6 +3767,19 @@ async function handleClipboardPasteForPublication(file, idx, rowEl) {
     }
 }
 
+window.togglePubDetails = function(idx) {
+    const pub = state.currentTaskPublications[idx];
+    if (pub) {
+        pub._isExpanded = !(pub._isExpanded || false);
+        renderDrawerPublications();
+    }
+};
+
+window.removePubRow = function(idx) {
+    state.currentTaskPublications.splice(idx, 1);
+    renderDrawerPublications();
+};
+
 // Render publications list inside the task drawer
 function renderDrawerPublications() {
     const container = document.getElementById("pr-publications-container");
@@ -3798,7 +3811,7 @@ function renderDrawerPublications() {
         const isExpanded = pub._isExpanded || false;
         
         row.innerHTML = `
-            <button type="button" class="btn-remove-pub" data-index="${idx}" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 13px;" title="Remove Publication">
+            <button type="button" onclick="removePubRow(${idx})" class="btn-remove-pub" data-index="${idx}" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 13px;" title="Remove Publication">
                 <i class="fa-solid fa-trash"></i>
             </button>
             
@@ -3820,7 +3833,7 @@ function renderDrawerPublications() {
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Pub Date</label>
                     <input type="text" class="pub-date-input" data-index="${idx}" value="${pub.date || ''}" placeholder="e.g. 5th June" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                 </div>
-                <button type="button" class="btn-toggle-pub-details btn btn-secondary btn-sm" data-index="${idx}" style="height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; gap: 4px; font-weight: 600; white-space: nowrap; margin-bottom: 0;" title="${isExpanded ? 'Hide Details' : 'Show Details'}">
+                <button type="button" onclick="togglePubDetails(${idx})" class="btn-toggle-pub-details btn btn-secondary btn-sm" data-index="${idx}" style="height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; gap: 4px; font-weight: 600; white-space: nowrap; margin-bottom: 0;" title="${isExpanded ? 'Hide Details' : 'Show Details'}">
                     <i class="fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
                     <span>${isExpanded ? 'Less' : 'More'}</span>
                 </button>
@@ -4015,14 +4028,6 @@ function renderDrawerPublications() {
         });
     });
 
-    container.querySelectorAll(".btn-toggle-pub-details").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const idx = parseInt(btn.getAttribute("data-index"));
-            const pub = state.currentTaskPublications[idx];
-            pub._isExpanded = !(pub._isExpanded || false);
-            renderDrawerPublications();
-        });
-    });
 
     container.querySelectorAll(".pub-image-url-input").forEach(input => {
         input.addEventListener("input", (e) => {
@@ -4085,13 +4090,7 @@ function renderDrawerPublications() {
         });
     });
 
-    container.querySelectorAll(".btn-remove-pub").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const idx = parseInt(btn.getAttribute("data-index"));
-            state.currentTaskPublications.splice(idx, 1);
-            renderDrawerPublications();
-        });
-    });
+
 }
 
 function renderDrawerSpokespersons() {
