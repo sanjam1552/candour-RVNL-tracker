@@ -8155,6 +8155,14 @@ const TALENTSPRINT_QUERIES = [
     { category: "Industry News", q: "(TalentSprint OR LearnVantage OR \"Learn Vantage\" OR \"Agentic AI\" OR skilling) AND (site:orissadiary.com OR site:indiaeducationdiary.in OR site:cxotoday.com OR site:indiascr.com OR site:smeplay.com) when:7d" }
 ];
 
+const DIRECT_BUSINESS_FEEDS = [
+    { name: "Economic Times", url: "https://economictimes.indiatimes.com/rssfeedsdefault.cms" },
+    { name: "Financial Express", url: "https://www.financialexpress.com/feed/" },
+    { name: "Livemint", url: "https://www.livemint.com/rss/news" },
+    { name: "HRKatha", url: "https://www.hrkatha.com/feed/" },
+    { name: "YourStory", url: "https://yourstory.com/feed" }
+];
+
 function getPrTodayDateStr() {
     return new Date().toISOString().split('T')[0];
 }
@@ -8367,7 +8375,7 @@ async function fetchOnlineMentions() {
     const fetchPromise = (async () => {
         const promises = TALENTSPRINT_QUERIES.map(async (queryObj) => {
             try {
-                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryObj.q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryObj.q)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
                 
                 // 5-second timeout for each request to prevent hanging
                 const controller = new AbortController();
@@ -8423,14 +8431,112 @@ async function fetchOnlineMentions() {
         });
         
         const results = await Promise.all(promises);
-        return results.flat();
+        
+        const directResults = [];
+        const directDebug = [];
+        for (const feedObj of DIRECT_BUSINESS_FEEDS) {
+            const statusLog = { name: feedObj.name, success: false, url: feedObj.url };
+            try {
+                // 8-second timeout for direct feeds to be safe
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                
+                const feedUrlWithBuster = feedObj.url + (feedObj.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                // Fetch the raw XML via corsproxy.io (Cloudflare CDN-backed CORS proxy)
+                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(feedUrlWithBuster)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                statusLog.httpStatus = res.status;
+                if (res.ok) {
+                    const xmlText = await res.text();
+                    statusLog.xmlLength = xmlText.length;
+                    
+                    // Parse the XML natively in the browser
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                    
+                    // Check for parser errors
+                    const parserError = xmlDoc.getElementsByTagName("parsererror");
+                    if (parserError.length > 0) {
+                        statusLog.apiError = "XML parsing error: " + parserError[0].textContent;
+                    } else {
+                        const items = Array.from(xmlDoc.getElementsByTagName("item"));
+                        statusLog.itemCount = items.length;
+                        statusLog.success = true;
+                        let matchedCount = 0;
+                        
+                        items.forEach(item => {
+                            const title = item.getElementsByTagName("title")[0]?.textContent || "";
+                            const link = item.getElementsByTagName("link")[0]?.textContent || "";
+                            const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || "";
+                            const desc = item.getElementsByTagName("description")[0]?.textContent || "";
+                            
+                            const tmp = document.createElement("DIV");
+                            tmp.innerHTML = desc;
+                            const snippet = tmp.textContent || tmp.innerText || "";
+                            
+                            const combinedText = (title + " " + snippet).toLowerCase();
+                            let category = null;
+                            
+                            // Categorize direct matches based on target terms
+                            if (combinedText.includes("talentsprint") || combinedText.includes("learnvantage") || combinedText.includes("learn vantage")) {
+                                category = "Own News";
+                            } else if (combinedText.includes("accenture")) {
+                                category = "Accenture News";
+                            } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || combinedText.includes("upgrad") || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
+                                category = "Competitor News";
+                            } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
+                                category = "Industry News";
+                            }
+                            
+                            if (category) {
+                                matchedCount++;
+                                let displayDate = pubDate;
+                                try {
+                                    const d = new Date(pubDate);
+                                    displayDate = d.toISOString().split('T')[0];
+                                } catch(e){}
+                                
+                                directResults.push({
+                                    title,
+                                    outlet: feedObj.name,
+                                    date: displayDate,
+                                    link,
+                                    snippet,
+                                    category
+                                });
+                            }
+                        });
+                        statusLog.matchedCount = matchedCount;
+                    }
+                } else {
+                    statusLog.apiError = "HTTP response not ok";
+                }
+            } catch (err) {
+                statusLog.error = err.message || err.toString();
+                console.warn(`Direct feed fetch failed for ${feedObj.name}:`, err);
+            }
+            directDebug.push(statusLog);
+            // Small 150ms sleep to be a good citizen
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+        
+        return {
+            allArticles: results.flat().concat(directResults),
+            directDebug
+        };
     })();
     
     // Wait for the 6-second timer AND the fetch request to finish
-    const [allArticles] = await Promise.all([
+    const [fetchResult] = await Promise.all([
         fetchPromise,
         new Promise(resolve => setTimeout(resolve, 6000))
     ]);
+    
+    const allArticles = fetchResult ? fetchResult.allArticles : [];
+    const directFeedsDebug = fetchResult ? fetchResult.directDebug : [];
     
     const todayDate = getPrTodayDateStr();
     const yesterday = new Date();
@@ -8455,6 +8561,25 @@ async function fetchOnlineMentions() {
     });
     
     todaysArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Inject diagnostic logging
+    try {
+        const debugInfo = {
+            scanTime: new Date().toISOString(),
+            todayDate,
+            yesterdayDate,
+            directFeedsDiagnostics: directFeedsDebug,
+            totalFetched: allArticles.length,
+            itemsFetched: allArticles.map(a => ({ title: a.title, outlet: a.outlet, date: a.date, category: a.category, link: a.link })),
+            todaysArticlesCount: todaysArticles.length,
+            todaysArticlesList: todaysArticles.map(a => ({ title: a.title, date: a.date, link: a.link })),
+            seenUrlsCount: seenUrls.size,
+            seenUrlsList: Array.from(seenUrls)
+        };
+        localStorage.setItem('pr_scan_debug', JSON.stringify(debugInfo, null, 2));
+    } catch(e) {
+        console.error("Failed to write pr_scan_debug", e);
+    }
     
     let loggedCount = 0;
     let updatedCount = 0;
