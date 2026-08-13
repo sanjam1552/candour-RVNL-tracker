@@ -3788,10 +3788,11 @@ function renderDrawerPublications() {
 
     const list = state.currentTaskPublications || [];
 
-    // Toggle drawer expansion class based on whether any publication exists
+    // Toggle drawer expansion class based on whether any publication detail row is expanded
     const drawer = document.querySelector(".task-drawer");
     if (drawer) {
-        if (list.length > 0) {
+        const hasExpandedPub = list.some(pub => pub._isExpanded);
+        if (hasExpandedPub) {
             drawer.classList.add("expanded");
         } else {
             drawer.classList.remove("expanded");

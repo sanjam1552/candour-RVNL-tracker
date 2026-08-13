@@ -1153,7 +1153,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .task-drawer.expanded {
-    width: 800px;
+    width: 960px;
 }
 
 .drawer-overlay.active .task-drawer {
@@ -2979,7 +2979,7 @@ body.dark-theme .beta-pill {
     }
     .task-drawer.expanded {
         width: 90vw !important;
-        max-width: 760px !important;
+        max-width: 960px !important;
     }
 }
 
