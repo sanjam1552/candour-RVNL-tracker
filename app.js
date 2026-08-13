@@ -8408,10 +8408,11 @@ async function fetchOnlineMentions() {
     
     // Run fetch in background in parallel with timeouts
     const fetchPromise = (async () => {
-        const promises = TALENTSPRINT_QUERIES.map(async (queryObj) => {
+        const results = [];
+        for (const queryObj of TALENTSPRINT_QUERIES) {
             try {
                 const items = await fetchGoogleNewsRss(queryObj.q);
-                return items.map(item => {
+                const mapped = items.map(item => {
                     const titleStr = item.title;
                     const link = item.link;
                     const pubDate = item.pubDate;
@@ -8444,13 +8445,13 @@ async function fetchOnlineMentions() {
                         category: queryObj.category
                     };
                 });
+                results.push(...mapped);
             } catch (err) {
                 console.error("AllOrigins RSS fetch failed for query:", queryObj.q, err);
-                return [];
             }
-        });
-        
-        const results = await Promise.all(promises);
+            // 350ms sleep to avoid AllOrigins proxy rate limits
+            await new Promise(resolve => setTimeout(resolve, 350));
+        }
         
         const directResults = [];
         const directDebug = [];
