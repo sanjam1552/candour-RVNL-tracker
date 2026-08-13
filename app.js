@@ -3771,7 +3771,6 @@ window.togglePubDetails = function(idx) {
     const pub = state.currentTaskPublications[idx];
     if (pub) {
         pub._isExpanded = !(pub._isExpanded || false);
-        alert("Toggled publication detail: idx=" + idx + ", _isExpanded=" + pub._isExpanded + ", listLength=" + state.currentTaskPublications.length);
         renderDrawerPublications();
     }
 };
@@ -3790,7 +3789,7 @@ function renderDrawerPublications() {
     const list = state.currentTaskPublications || [];
 
     // Toggle drawer expansion class based on whether any publication detail row is expanded
-    const drawer = document.querySelector(".task-drawer");
+    const drawer = document.querySelector("#task-drawer-overlay .task-drawer");
     if (drawer) {
         const hasExpandedPub = list.some(pub => pub._isExpanded);
         if (hasExpandedPub) {
@@ -4510,7 +4509,7 @@ function openDrawer(taskId = null, prefillData = null) {
 // Close Drawer
 function closeDrawer() {
     document.getElementById("task-drawer-overlay").classList.remove("active");
-    const drawer = document.querySelector(".task-drawer");
+    const drawer = document.querySelector("#task-drawer-overlay .task-drawer");
     if (drawer) drawer.classList.remove("expanded");
 }
 
