@@ -3771,6 +3771,7 @@ window.togglePubDetails = function(idx) {
     const pub = state.currentTaskPublications[idx];
     if (pub) {
         pub._isExpanded = !(pub._isExpanded || false);
+        alert("Toggled publication detail: idx=" + idx + ", _isExpanded=" + pub._isExpanded + ", listLength=" + state.currentTaskPublications.length);
         renderDrawerPublications();
     }
 };
