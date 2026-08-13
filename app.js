@@ -8362,14 +8362,15 @@ function isArticleRelevant(art) {
         return false;
     }
     
-    // Strict skilling relevance filter for Partnering Institutions (IIT/IIM/IISc)
-    if (art.category === "Partnering Institutions") {
-        const partnersKeywords = [
-            "skilling", "upskill", "reskill", "course", "program", "certif", "degree", 
+    // Strict skilling/edtech relevance filter for non-brand categories
+    if (art.category === "Partnering Institutions" || art.category === "Industry News" || art.category === "Competitor News") {
+        const skillingKeywords = [
+            "skilling", "upskill", "reskill", "skills", "skill ", " l&d ", "learning", 
+            "training", "education", "course", "program", "certif", "degree", "academy",
             "partnership", "collaborat", "launch", "co-create", "mou", "agreement", "fintech",
-            "placement", "hiring", "job", "career", "exec", "learning", "academy", "training"
+            "placement", "hiring", "job", "career", "exec", "agentic ai", "ai skills", "ai readiness"
         ];
-        return partnersKeywords.some(word => combined.includes(word));
+        return skillingKeywords.some(word => combined.includes(word));
     }
     
     return true;
