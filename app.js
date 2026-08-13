@@ -8225,6 +8225,9 @@ function prClearOldLocalBackup(client, todayDate) {
 }
 
 async function initPrMonitorTab() {
+    const clientSpan = document.getElementById("pr-monitor-client-name");
+    if (clientSpan) clientSpan.textContent = state.activeClient;
+
     const toggleBtn = document.getElementById("pr-toggle-manual-form");
     const manualForm = document.getElementById("pr-manual-entry-form");
     const cancelBtn = document.getElementById("pr-cancel-manual-btn");
