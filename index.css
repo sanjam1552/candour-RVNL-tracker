@@ -3239,4 +3239,12 @@ img[src*="neo4j.png"] {
     max-height: none;
 }
 
+/* RVNL Mode Selector Styling */
+.rvnl-mode-btn.active {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15)) !important;
+    color: var(--accent-blue) !important;
+    border: 1px solid rgba(59, 130, 246, 0.25) !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
 

@@ -520,7 +520,8 @@ const state = {
     currentReportSmItems: [],
     currentReportPrItems: [],
     draggingPub: false,
-    userPermissions: {} // email -> { client -> "Full"|"ReadOnly"|"None" }
+    userPermissions: {}, // email -> { client -> "Full"|"ReadOnly"|"None" }
+    trackerMode: 'unified'
 };
 
 // Target Date helper for weekly mapping
@@ -1557,6 +1558,22 @@ function setupEventListeners() {
     });
     document.getElementById("view-kanban-btn").addEventListener("click", () => {
         switchView("kanban");
+    });
+
+    // RVNL Tracker View Mode click handlers
+    document.querySelectorAll(".rvnl-mode-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".rvnl-mode-btn").forEach(b => {
+                b.classList.toggle("active", b === btn);
+                if (b === btn) {
+                    b.style.color = "var(--accent-blue)";
+                } else {
+                    b.style.color = "var(--text-secondary)";
+                }
+            });
+            state.trackerMode = btn.getAttribute("data-mode");
+            renderTracker();
+        });
     });
 
     // 3. Theme toggle click
@@ -5576,11 +5593,27 @@ function renderDashboardLists() {
 // ====================================================
 
 function renderTracker() {
+    // Show or hide the RVNL tracker mode selector container
+    const rvnlSelector = document.getElementById("rvnl-mode-selector-container");
+    if (rvnlSelector) {
+        if (state.activeClient === "RVNL") {
+            rvnlSelector.classList.remove("hidden");
+        } else {
+            rvnlSelector.classList.add("hidden");
+        }
+    }
+
     // Apply filters
     state.filteredTasks = state.tasks.filter(task => {
         // Client filter must always match
         const matchesClient = (task.client || "RVNL") === state.activeClient;
         if (!matchesClient) return false;
+
+        // Apply RVNL Mode Filter (Unified, PR Mode, Creative Mode)
+        if (state.activeClient === "RVNL") {
+            if (state.trackerMode === 'pr' && task.type !== "PR Update") return false;
+            if (state.trackerMode === 'creative' && task.type === "PR Update") return false;
+        }
 
         // If there is a search query, perform a universal search across all fields and bypass other filters
         if (state.filters.search) {
@@ -5638,6 +5671,21 @@ function renderTracker() {
         "Not used by client": 7
     };
     state.filteredTasks.sort((a, b) => {
+        if (state.activeClient === "RVNL" && a.type === "PR Update" && b.type === "PR Update") {
+            const getPRColorPriority = (status) => {
+                const greenStatuses = ["Published/Closed", "Published directly by client"];
+                const redStatuses = ["On hold", "Missed opportunity", "Not used by client"];
+                if (redStatuses.includes(status)) return 1;
+                if (greenStatuses.includes(status)) return 3;
+                return 2;
+            };
+            const colorPriorityA = getPRColorPriority(a.status);
+            const colorPriorityB = getPRColorPriority(b.status);
+            if (colorPriorityA !== colorPriorityB) {
+                return colorPriorityA - colorPriorityB;
+            }
+        }
+
         const priorityA = statusPriority[a.status] || 8;
         const priorityB = statusPriority[b.status] || 8;
         if (priorityA !== priorityB) {
@@ -5782,10 +5830,23 @@ function renderTrackerTable() {
 
         // Status Pill
         let statusClass = "status-wip";
-        if (task.status === "Published/Closed") statusClass = "status-published";
-        if (task.status === "Sent for internal approval") statusClass = "status-review";
-        if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
-        if (task.status === "Not used by client") statusClass = "status-hold";
+        if (state.activeClient === "RVNL" && task.type === "PR Update") {
+            const greenStatuses = ["Published/Closed", "Published directly by client"];
+            const redStatuses = ["On hold", "Missed opportunity", "Not used by client"];
+            if (greenStatuses.includes(task.status)) {
+                statusClass = "status-published";
+            } else if (redStatuses.includes(task.status)) {
+                statusClass = "status-missed";
+            } else {
+                statusClass = "status-wip";
+            }
+        } else {
+            if (task.status === "Published/Closed") statusClass = "status-published";
+            if (task.status === "Sent for internal approval") statusClass = "status-review";
+            if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
+            if (task.status === "Not used by client") statusClass = "status-hold";
+            if (task.status === "Missed opportunity") statusClass = "status-missed";
+        }
         const statusPill = `<span class="status-pill ${statusClass}">${task.status}</span>`;
 
         // Links list
