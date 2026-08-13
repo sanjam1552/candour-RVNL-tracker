@@ -8341,6 +8341,37 @@ function clearManualPrForm() {
     document.getElementById("manual-pr-link").value = "";
 }
 
+async function fetchGoogleNewsRss(query) {
+    try {
+        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        
+        const res = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) return [];
+        const xmlText = await res.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+        const parserError = xmlDoc.getElementsByTagName("parsererror");
+        if (parserError.length > 0) return [];
+        const items = Array.from(xmlDoc.getElementsByTagName("item"));
+        return items.map(item => {
+            const title = item.getElementsByTagName("title")[0]?.textContent || "";
+            const link = item.getElementsByTagName("link")[0]?.textContent || "";
+            const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || "";
+            const description = item.getElementsByTagName("description")[0]?.textContent || "";
+            return { title, link, pubDate, description };
+        });
+    } catch (e) {
+        console.warn("fetchGoogleNewsRss failed:", e);
+        return [];
+    }
+}
+
 async function fetchOnlineMentions() {
     const fetchBtn = document.getElementById("pr-fetch-mentions-btn");
     if (fetchBtn) {
@@ -8375,34 +8406,19 @@ async function fetchOnlineMentions() {
     const fetchPromise = (async () => {
         const promises = TALENTSPRINT_QUERIES.map(async (queryObj) => {
             try {
-                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryObj.q)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
-                
-                // 5-second timeout for each request to prevent hanging
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
-                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`, {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                if (!res.ok) return [];
-                
-                const data = await res.json();
-                if (data.status !== 'ok' || !Array.isArray(data.items)) return [];
-                
-                return data.items.map(item => {
-                    const titleStr = item.title || "";
-                    const link = item.link || "";
-                    const pubDate = item.pubDate || "";
-                    const desc = item.description || "";
+                const items = await fetchGoogleNewsRss(queryObj.q);
+                return items.map(item => {
+                    const titleStr = item.title;
+                    const link = item.link;
+                    const pubDate = item.pubDate;
+                    const desc = item.description;
                     
                     const tmp = document.createElement("DIV");
                     tmp.innerHTML = desc;
                     const snippet = tmp.textContent || tmp.innerText || "";
                     
                     let cleanTitle = titleStr;
-                    let parsedSource = item.author || "Online News";
+                    let parsedSource = "Online News";
                     const sourceIdx = titleStr.lastIndexOf(" - ");
                     if (sourceIdx !== -1) {
                         cleanTitle = titleStr.substring(0, sourceIdx).trim();
@@ -8425,7 +8441,7 @@ async function fetchOnlineMentions() {
                     };
                 });
             } catch (err) {
-                console.error("rss2json fetch failed for query:", queryObj.q, err);
+                console.error("AllOrigins RSS fetch failed for query:", queryObj.q, err);
                 return [];
             }
         });
@@ -8519,8 +8535,8 @@ async function fetchOnlineMentions() {
                 console.warn(`Direct feed fetch failed for ${feedObj.name}:`, err);
             }
             directDebug.push(statusLog);
-            // Small 150ms sleep to be a good citizen
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // 500ms sleep to be safe from rate limits and proxy blocks
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         return {
@@ -9246,15 +9262,8 @@ async function handleRunBriefing() {
         const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
         
         let fetchedData = null;
-        
         try {
-            const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.status === 'ok' && Array.isArray(data.items)) {
-                    fetchedData = data.items;
-                }
-            }
+            fetchedData = await fetchGoogleNewsRss(query);
         } catch (e) {
             console.warn("Date-bounded RSS fetch failed, will try broad fallback", e);
         }
@@ -9262,18 +9271,12 @@ async function handleRunBriefing() {
         // Broad Search Fallback if date-bounded search returned nothing
         if (!fetchedData || fetchedData.length === 0) {
             const fallbackQuery = `RVNL OR "Rail Vikas Nigam" OR "Joka Metro" OR "Orange Line Metro" OR "Rishikesh-Karnprayag" OR "New Garia Metro" OR "Ruby Metro"`;
-            const fallbackFeedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
             try {
-                const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(fallbackFeedUrl)}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.status === 'ok' && Array.isArray(data.items)) {
-                        fetchedData = data.items.filter(item => {
-                            let parsedDate = new Date(item.pubDate);
-                            return !isNaN(parsedDate.getTime()) && parsedDate >= startLimit && parsedDate <= endLimit;
-                        });
-                    }
-                }
+                const results = await fetchGoogleNewsRss(fallbackQuery);
+                fetchedData = results.filter(item => {
+                    let parsedDate = new Date(item.pubDate);
+                    return !isNaN(parsedDate.getTime()) && parsedDate >= startLimit && parsedDate <= endLimit;
+                });
             } catch (fallbackErr) {
                 console.warn("Broad RSS fallback fetch failed:", fallbackErr);
             }
