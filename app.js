@@ -8322,7 +8322,7 @@ const TALENTSPRINT_QUERIES = [
 ];
 
 const RVNL_QUERIES = [
-    { category: "Own News", q: "(\"Rail Vikas Nigam Limited\" OR \"Rail Vikas Nigam\" OR RVNL OR \"Pradeep Gaur\" OR \"MP Singh\") when:7d" },
+    { category: "Own News", q: "(\"Rail Vikas Nigam Limited\" OR \"Rail Vikas Nigam\" OR RVNL OR \"Pradeep Gaur\" OR \"MP Singh\" OR \"Mritunjay Pratap Singh\") when:7d" },
     { category: "Key Projects", q: "(\"Rishikesh-Karnaprayag\" OR \"New Pamban Bridge\" OR \"Vande Bharat manufacturing\" OR \"UTF Harbour\" OR \"TBM tunneling\" OR \"Navratna PSU\" OR \"Barddhaman Cable Stayed Bridge\") when:7d" },
     { category: "Key Projects", q: "(\"Kolkata Metro\" OR \"Purple Line\" OR \"Pink Line\" OR \"Orange Line\" OR \"Indore Metro\" OR \"Delhi Metro Phase IV\" OR \"Nagpur Metro\" OR \"Bengaluru Suburban\") when:7d" },
     { category: "Industry News", q: "(\"Railway infrastructure\" OR \"Metro rail projects\" OR \"Indian Railways\" OR \"Tunnel Boring Machines\" OR \"Railway electrification\" OR \"Urban mass transit\") when:7d" },
@@ -8560,7 +8560,7 @@ function isArticleRelevant(art) {
     }
     
     if (state.activeClient === "RVNL") {
-        const mentionsBrand = combined.includes("rvnl") || combined.includes("rail vikas") || combined.includes("pradeep gaur") || combined.includes("mp singh");
+        const mentionsBrand = combined.includes("rvnl") || combined.includes("rail vikas") || combined.includes("pradeep gaur") || combined.includes("mp singh") || combined.includes("mritunjay pratap singh") || combined.includes("mritunjay pratap");
         
         if (art.category === "Own News") {
             return mentionsBrand;
