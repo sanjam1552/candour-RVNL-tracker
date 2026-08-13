@@ -9745,7 +9745,8 @@ function renderBriefingResults(data) {
     reportContainer.innerHTML = "";
     
     if (data.days && data.days.length > 0) {
-        data.days.forEach((day, idx) => {
+        const sortedDays = [...data.days].reverse();
+        sortedDays.forEach((day, idx) => {
             const fOptions = { day: 'numeric', month: 'short' };
             const dateStr = new Date(day.date).toLocaleDateString('en-US', fOptions);
             const tag = day.subType.replace(/\s+/g, '');
