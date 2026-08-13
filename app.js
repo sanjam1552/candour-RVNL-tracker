@@ -8345,6 +8345,36 @@ function getProxyUrl(targetUrl) {
     return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
 }
 
+function isArticleRelevant(art) {
+    const title = art.title.toLowerCase();
+    const snippet = art.snippet.toLowerCase();
+    const combined = title + " " + snippet;
+    
+    // Blacklist of noisy/junk keywords
+    const blacklist = [
+        "obituary", "funeral", "death", "obituaries", "passed away", "tribute to", 
+        "sports", "soccer", "goal", "league", "match", "vs.", "football", "cricket", "olympics",
+        "theft", "stolen", "gold stolen", "jewellery stolen", "arrested", "robbery", "scam", "accused", "fraud", "court order",
+        "political", "election", "voter", "voters", "petition against", "protest", "strike"
+    ];
+    
+    if (blacklist.some(word => combined.includes(word))) {
+        return false;
+    }
+    
+    // Strict skilling relevance filter for Partnering Institutions (IIT/IIM/IISc)
+    if (art.category === "Partnering Institutions") {
+        const partnersKeywords = [
+            "skilling", "upskill", "reskill", "course", "program", "certif", "degree", 
+            "partnership", "collaborat", "launch", "co-create", "mou", "agreement", "fintech",
+            "placement", "hiring", "job", "career", "exec", "learning", "academy", "training"
+        ];
+        return partnersKeywords.some(word => combined.includes(word));
+    }
+    
+    return true;
+}
+
 async function fetchGoogleNewsRss(query) {
     try {
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
@@ -8453,7 +8483,7 @@ async function fetchOnlineMentions() {
                                     snippet,
                                     category: queryObj.category
                                 };
-                            });
+                            }).filter(isArticleRelevant);
                         } catch (err) {
                             console.error("AllOrigins RSS fetch failed for query:", queryObj.q, err);
                             return [];
@@ -8531,14 +8561,17 @@ async function fetchOnlineMentions() {
                                             displayDate = d.toISOString().split('T')[0];
                                         } catch(e){}
                                         
-                                        directResults.push({
+                                        const artItem = {
                                             title,
                                             outlet: feedObj.name,
                                             date: displayDate,
                                             link,
                                             snippet,
                                             category
-                                        });
+                                        };
+                                        if (isArticleRelevant(artItem)) {
+                                            directResults.push(artItem);
+                                        }
                                     }
                                 });
                                 statusLog.matchedCount = matchedCount;
