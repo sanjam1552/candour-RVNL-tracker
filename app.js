@@ -1088,15 +1088,18 @@ function initUserSession() {
                 // Developer check & personalization
                 if (displayNameEl) {
                     const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+                    const briefingBtn = document.getElementById("nav-btn-briefing");
                     if (devEmails.includes(state.currentUserEmail)) {
                         displayNameEl.innerHTML = `${state.currentUser} <span class="dev-badge"><i class="fa-solid fa-code"></i> Developer</span>`;
                         const devLabSection = document.getElementById("dev-lab-section");
                         if (devLabSection) devLabSection.classList.remove("hidden");
+                        if (briefingBtn) briefingBtn.style.display = "";
                         
                         // Initialize Developer-Only Chat System
                         initDeveloperChat();
                     } else {
                         displayNameEl.textContent = state.currentUser;
+                        if (briefingBtn) briefingBtn.style.display = "none";
                     }
                 }
                 
@@ -3296,6 +3299,12 @@ function resetFilters() {
 
 // Switch between navigation tabs
 function switchTab(tabName) {
+    if (tabName === 'briefing') {
+        const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+        if (!devEmails.includes(state.currentUserEmail)) {
+            tabName = 'dashboard';
+        }
+    }
     state.activeTab = tabName;
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
