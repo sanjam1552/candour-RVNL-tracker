@@ -8407,145 +8407,159 @@ async function fetchOnlineMentions() {
     }, 50);
     
     // Run fetch in background in parallel with timeouts
+    // Run fetch in background in parallel with paced batching to avoid proxy rate-limits
     const fetchPromise = (async () => {
-        const results = [];
-        for (const queryObj of TALENTSPRINT_QUERIES) {
-            try {
-                const items = await fetchGoogleNewsRss(queryObj.q);
-                const mapped = items.map(item => {
-                    const titleStr = item.title;
-                    const link = item.link;
-                    const pubDate = item.pubDate;
-                    const desc = item.description;
-                    
-                    const tmp = document.createElement("DIV");
-                    tmp.innerHTML = desc;
-                    const snippet = tmp.textContent || tmp.innerText || "";
-                    
-                    let cleanTitle = titleStr;
-                    let parsedSource = "Online News";
-                    const sourceIdx = titleStr.lastIndexOf(" - ");
-                    if (sourceIdx !== -1) {
-                        cleanTitle = titleStr.substring(0, sourceIdx).trim();
-                        parsedSource = titleStr.substring(sourceIdx + 3).trim();
-                    }
-                    
-                    let displayDate = pubDate;
-                    try {
-                        const d = new Date(pubDate);
-                        displayDate = d.toISOString().split('T')[0];
-                    } catch(e){}
-                    
-                    return {
-                        title: cleanTitle,
-                        outlet: parsedSource,
-                        date: displayDate,
-                        link,
-                        snippet,
-                        category: queryObj.category
-                    };
-                });
-                results.push(...mapped);
-            } catch (err) {
-                console.error("AllOrigins RSS fetch failed for query:", queryObj.q, err);
-            }
-            // 350ms sleep to avoid AllOrigins proxy rate limits
-            await new Promise(resolve => setTimeout(resolve, 350));
-        }
-        
-        const directResults = [];
         const directDebug = [];
-        for (const feedObj of DIRECT_BUSINESS_FEEDS) {
-            const statusLog = { name: feedObj.name, success: false, url: feedObj.url };
-            try {
-                // 8-second timeout for direct feeds to be safe
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-                
-                 const feedUrlWithBuster = feedObj.url + (feedObj.url.includes('?') ? '&' : '?') + 't=' + Date.now();
-                // Fetch the raw XML via CORS proxy (relative redirect in production to bypass adblockers)
-                const res = await fetch(getProxyUrl(feedUrlWithBuster), {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                statusLog.httpStatus = res.status;
-                if (res.ok) {
-                    const xmlText = await res.text();
-                    statusLog.xmlLength = xmlText.length;
-                    
-                    // Parse the XML natively in the browser
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                    
-                    // Check for parser errors
-                    const parserError = xmlDoc.getElementsByTagName("parsererror");
-                    if (parserError.length > 0) {
-                        statusLog.apiError = "XML parsing error: " + parserError[0].textContent;
-                    } else {
-                        const items = Array.from(xmlDoc.getElementsByTagName("item"));
-                        statusLog.itemCount = items.length;
-                        statusLog.success = true;
-                        let matchedCount = 0;
-                        
-                        items.forEach(item => {
-                            const title = item.getElementsByTagName("title")[0]?.textContent || "";
-                            const link = item.getElementsByTagName("link")[0]?.textContent || "";
-                            const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || "";
-                            const desc = item.getElementsByTagName("description")[0]?.textContent || "";
-                            
-                            const tmp = document.createElement("DIV");
-                            tmp.innerHTML = desc;
-                            const snippet = tmp.textContent || tmp.innerText || "";
-                            
-                            const combinedText = (title + " " + snippet).toLowerCase();
-                            let category = null;
-                            
-                            // Categorize direct matches based on target terms
-                            if (combinedText.includes("talentsprint") || combinedText.includes("learnvantage") || combinedText.includes("learn vantage")) {
-                                category = "Own News";
-                            } else if (combinedText.includes("accenture")) {
-                                category = "Accenture News";
-                            } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || combinedText.includes("upgrad") || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
-                                category = "Competitor News";
-                            } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
-                                category = "Industry News";
-                            }
-                            
-                            if (category) {
-                                matchedCount++;
+        
+        // Execute Google News queries in batches of 3, and direct feeds sequentially in parallel
+        const [googleNewsResults, directFeedsResults] = await Promise.all([
+            (async () => {
+                const results = [];
+                const batchSize = 3;
+                for (let i = 0; i < TALENTSPRINT_QUERIES.length; i += batchSize) {
+                    const batch = TALENTSPRINT_QUERIES.slice(i, i + batchSize);
+                    const batchPromises = batch.map(async (queryObj) => {
+                        try {
+                            const items = await fetchGoogleNewsRss(queryObj.q);
+                            return items.map(item => {
+                                const titleStr = item.title;
+                                const link = item.link;
+                                const pubDate = item.pubDate;
+                                const desc = item.description;
+                                
+                                const tmp = document.createElement("DIV");
+                                tmp.innerHTML = desc;
+                                const snippet = tmp.textContent || tmp.innerText || "";
+                                
+                                let cleanTitle = titleStr;
+                                let parsedSource = "Online News";
+                                const sourceIdx = titleStr.lastIndexOf(" - ");
+                                if (sourceIdx !== -1) {
+                                    cleanTitle = titleStr.substring(0, sourceIdx).trim();
+                                    parsedSource = titleStr.substring(sourceIdx + 3).trim();
+                                }
+                                
                                 let displayDate = pubDate;
                                 try {
                                     const d = new Date(pubDate);
                                     displayDate = d.toISOString().split('T')[0];
                                 } catch(e){}
                                 
-                                directResults.push({
-                                    title,
-                                    outlet: feedObj.name,
+                                return {
+                                    title: cleanTitle,
+                                    outlet: parsedSource,
                                     date: displayDate,
                                     link,
                                     snippet,
-                                    category
-                                });
-                            }
-                        });
-                        statusLog.matchedCount = matchedCount;
+                                    category: queryObj.category
+                                };
+                            });
+                        } catch (err) {
+                            console.error("AllOrigins RSS fetch failed for query:", queryObj.q, err);
+                            return [];
+                        }
+                    });
+                    
+                    const batchResults = await Promise.all(batchPromises);
+                    results.push(...batchResults.flat());
+                    
+                    if (i + batchSize < TALENTSPRINT_QUERIES.length) {
+                        // 1.2s delay between batches to stay under limits
+                        await new Promise(resolve => setTimeout(resolve, 1200));
                     }
-                } else {
-                    statusLog.apiError = "HTTP response not ok";
                 }
-            } catch (err) {
-                statusLog.error = err.message || err.toString();
-                console.warn(`Direct feed fetch failed for ${feedObj.name}:`, err);
-            }
-            directDebug.push(statusLog);
-            // 500ms sleep to be safe from rate limits and proxy blocks
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
+                return results;
+            })(),
+            (async () => {
+                const directResults = [];
+                for (const feedObj of DIRECT_BUSINESS_FEEDS) {
+                    const statusLog = { name: feedObj.name, success: false, url: feedObj.url };
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        
+                        const feedUrlWithBuster = feedObj.url + (feedObj.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                        const res = await fetch(getProxyUrl(feedUrlWithBuster), {
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                        
+                        statusLog.httpStatus = res.status;
+                        if (res.ok) {
+                            const xmlText = await res.text();
+                            statusLog.xmlLength = xmlText.length;
+                            
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                            const parserError = xmlDoc.getElementsByTagName("parsererror");
+                            if (parserError.length > 0) {
+                                statusLog.apiError = "XML parsing error: " + parserError[0].textContent;
+                            } else {
+                                const items = Array.from(xmlDoc.getElementsByTagName("item"));
+                                statusLog.itemCount = items.length;
+                                statusLog.success = true;
+                                let matchedCount = 0;
+                                
+                                items.forEach(item => {
+                                    const title = item.getElementsByTagName("title")[0]?.textContent || "";
+                                    const link = item.getElementsByTagName("link")[0]?.textContent || "";
+                                    const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || item.getElementsByTagName("pubdate")[0]?.textContent || "";
+                                    const desc = item.getElementsByTagName("description")[0]?.textContent || "";
+                                    
+                                    const tmp = document.createElement("DIV");
+                                    tmp.innerHTML = desc;
+                                    const snippet = tmp.textContent || tmp.innerText || "";
+                                    
+                                    const combinedText = (title + " " + snippet).toLowerCase();
+                                    let category = null;
+                                    
+                                    if (combinedText.includes("talentsprint") || combinedText.includes("learnvantage") || combinedText.includes("learn vantage")) {
+                                        category = "Own News";
+                                    } else if (combinedText.includes("accenture")) {
+                                        category = "Accenture News";
+                                    } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || combinedText.includes("upgrad") || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
+                                        category = "Competitor News";
+                                    } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
+                                        category = "Industry News";
+                                    }
+                                    
+                                    if (category) {
+                                        matchedCount++;
+                                        let displayDate = pubDate;
+                                        try {
+                                            const d = new Date(pubDate);
+                                            displayDate = d.toISOString().split('T')[0];
+                                        } catch(e){}
+                                        
+                                        directResults.push({
+                                            title,
+                                            outlet: feedObj.name,
+                                            date: displayDate,
+                                            link,
+                                            snippet,
+                                            category
+                                        });
+                                    }
+                                });
+                                statusLog.matchedCount = matchedCount;
+                            }
+                        } else {
+                            statusLog.apiError = "HTTP response not ok";
+                        }
+                    } catch (err) {
+                        statusLog.error = err.message || err.toString();
+                        console.warn(`Direct feed fetch failed for ${feedObj.name}:`, err);
+                    }
+                    directDebug.push(statusLog);
+                    // 500ms sleep to be safe from rate limits and proxy blocks
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                return directResults;
+            })()
+        ]);
         
         return {
-            allArticles: results.flat().concat(directResults),
+            allArticles: googleNewsResults.concat(directFeedsResults),
             directDebug
         };
     })();
