@@ -3221,9 +3221,9 @@ function switchClient(client) {
         }
     }
 
-    // Show/hide PR Monitor tab button in sidebar (TalentSprint exclusive for now)
+    // Show/hide PR Monitor tab button in sidebar (TalentSprint and RVNL)
     const prMonitorTabBtn = document.getElementById("nav-btn-pr-monitor");
-    if (targetClient === "TalentSprint") {
+    if (targetClient === "TalentSprint" || targetClient === "RVNL") {
         if (prMonitorTabBtn) prMonitorTabBtn.style.display = "";
     } else {
         if (prMonitorTabBtn) prMonitorTabBtn.style.display = "none";
@@ -8186,6 +8186,13 @@ const TALENTSPRINT_QUERIES = [
     { category: "Industry News", q: "(TalentSprint OR LearnVantage OR \"Learn Vantage\" OR \"Agentic AI\" OR skilling) AND (site:orissadiary.com OR site:indiaeducationdiary.in OR site:cxotoday.com OR site:indiascr.com OR site:smeplay.com) when:7d" }
 ];
 
+const RVNL_QUERIES = [
+    { category: "Own News", q: "(\"Rail Vikas Nigam Limited\" OR \"Rail Vikas Nigam\" OR RVNL OR \"Pradeep Gaur\" OR \"MP Singh\") when:7d" },
+    { category: "Key Projects", q: "(\"Rishikesh-Karnaprayag\" OR \"New Pamban Bridge\" OR \"Vande Bharat manufacturing\" OR \"UTF Harbour\" OR \"TBM tunneling\" OR \"Navratna PSU\" OR \"Barddhaman Cable Stayed Bridge\") when:7d" },
+    { category: "Industry News", q: "(\"Railway infrastructure\" OR \"Metro rail projects\" OR \"Indian Railways\" OR \"Tunnel Boring Machines\" OR \"Railway electrification\" OR \"Urban mass transit\") when:7d" },
+    { category: "Industry News", q: "(\"Infrastructure development\" OR \"High-speed rail India\" OR \"Multimodal logistics\" OR \"Rail signalling systems\" OR \"Rail cum Road Bridge\" OR \"Metro Projects\") when:7d" }
+];
+
 const DIRECT_BUSINESS_FEEDS = [
     { name: "Economic Times", url: "https://economictimes.indiatimes.com/rssfeedsdefault.cms" },
     { name: "Financial Express", url: "https://www.financialexpress.com/feed/" },
@@ -8245,6 +8252,26 @@ async function initPrMonitorTab() {
         
         const dateInput = document.getElementById("manual-pr-date");
         if (dateInput) dateInput.value = getPrTodayDateStr();
+    }
+    
+    // Dynamically set category dropdown options
+    const categorySelect = document.getElementById("manual-pr-category");
+    if (categorySelect) {
+        if (state.activeClient === "RVNL") {
+            categorySelect.innerHTML = `
+                <option value="Own News">Own News</option>
+                <option value="Key Projects">Key Projects</option>
+                <option value="Industry News">Industry News</option>
+            `;
+        } else {
+            categorySelect.innerHTML = `
+                <option value="Own News">Own News</option>
+                <option value="Accenture News">Accenture News</option>
+                <option value="Competitor News">Competitor News</option>
+                <option value="Industry News">Industry / Sector News</option>
+                <option value="Partnering Institutions">Partnering Institutions</option>
+            `;
+        }
     }
     
     // Automatic Daily Garbage Collection & Load for active client
@@ -8393,6 +8420,20 @@ function isArticleRelevant(art) {
         return false;
     }
     
+    if (state.activeClient === "RVNL") {
+        if (art.category === "Industry News" || art.category === "Key Projects") {
+            const rvnlKeywords = [
+                "rail vikas", "rvnl", "pradeep gaur", "mp singh", "rishikesh", "karnaprayag", "pamban", 
+                "vande bharat", "utf harbour", "tunneling", "navratna", "barddhaman", 
+                "railway", "metro rail", "tunnel boring", "mass transit", "infrastructure", "high-speed rail", 
+                "logistics", "electrification", "solar energy", "carbon emission", "power transmission",
+                "signalling", "train yard", "bridge construction", "rail bridge", "metro project"
+            ];
+            return rvnlKeywords.some(word => combined.includes(word));
+        }
+        return true;
+    }
+
     // Strict skilling/edtech relevance filter for non-brand categories
     if (art.category === "Partnering Institutions" || art.category === "Industry News" || art.category === "Competitor News") {
         const skillingKeywords = [
@@ -8478,8 +8519,9 @@ async function fetchOnlineMentions() {
             (async () => {
                 const results = [];
                 const batchSize = 3;
-                for (let i = 0; i < TALENTSPRINT_QUERIES.length; i += batchSize) {
-                    const batch = TALENTSPRINT_QUERIES.slice(i, i + batchSize);
+                const activeQueries = state.activeClient === "RVNL" ? RVNL_QUERIES : TALENTSPRINT_QUERIES;
+                for (let i = 0; i < activeQueries.length; i += batchSize) {
+                    const batch = activeQueries.slice(i, i + batchSize);
                     const batchPromises = batch.map(async (queryObj) => {
                         try {
                             const items = await fetchGoogleNewsRss(queryObj.q);
@@ -8525,7 +8567,7 @@ async function fetchOnlineMentions() {
                     const batchResults = await Promise.all(batchPromises);
                     results.push(...batchResults.flat());
                     
-                    if (i + batchSize < TALENTSPRINT_QUERIES.length) {
+                    if (i + batchSize < activeQueries.length) {
                         // 1.2s delay between batches to stay under limits
                         await new Promise(resolve => setTimeout(resolve, 1200));
                     }
@@ -8575,14 +8617,24 @@ async function fetchOnlineMentions() {
                                     const combinedText = (title + " " + snippet).toLowerCase();
                                     let category = null;
                                     
-                                    if (combinedText.includes("talentsprint") || combinedText.includes("learnvantage") || combinedText.includes("learn vantage")) {
-                                        category = "Own News";
-                                    } else if (combinedText.includes("accenture")) {
-                                        category = "Accenture News";
-                                    } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || (combinedText.includes("upgrad") && !combinedText.includes("upgrade")) || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
-                                        category = "Competitor News";
-                                    } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
-                                        category = "Industry News";
+                                    if (state.activeClient === "RVNL") {
+                                        if (combinedText.includes("rvnl") || combinedText.includes("rail vikas") || combinedText.includes("pradeep gaur") || combinedText.includes("mp singh")) {
+                                            category = "Own News";
+                                        } else if (combinedText.includes("rishikesh-karnaprayag") || combinedText.includes("rishikesh karnaprayag") || combinedText.includes("pamban bridge") || combinedText.includes("vande bharat") || combinedText.includes("utf harbour") || combinedText.includes("navratna") || combinedText.includes("barddhaman") || combinedText.includes("tbm tunnel")) {
+                                            category = "Key Projects";
+                                        } else if (combinedText.includes("railway") || combinedText.includes("metro rail") || combinedText.includes("tunnel boring") || combinedText.includes("electrification") || combinedText.includes("mass transit") || combinedText.includes("infrastructure") || combinedText.includes("high-speed rail") || combinedText.includes("logistics") || combinedText.includes("signalling") || combinedText.includes("rail bridge") || combinedText.includes("metro project")) {
+                                            category = "Industry News";
+                                        }
+                                    } else {
+                                        if (combinedText.includes("talentsprint") || combinedText.includes("learnvantage") || combinedText.includes("learn vantage")) {
+                                            category = "Own News";
+                                        } else if (combinedText.includes("accenture")) {
+                                            category = "Accenture News";
+                                        } else if (combinedText.includes("simplilearn") || combinedText.includes("great learning") || (combinedText.includes("upgrad") && !combinedText.includes("upgrade")) || (combinedText.includes("emeritus") && (combinedText.includes("skilling") || combinedText.includes("course") || combinedText.includes("program")))) {
+                                            category = "Competitor News";
+                                        } else if (combinedText.includes("skilling") || combinedText.includes("reskilling") || combinedText.includes("upskilling") || combinedText.includes("skill") || combinedText.includes("skills") || combinedText.includes("agentic ai") || combinedText.includes("ai skills") || combinedText.includes("ai readiness")) {
+                                            category = "Industry News";
+                                        }
                                     }
                                     
                                     if (category) {
@@ -8746,8 +8798,9 @@ function renderPrCoverageLog() {
         logContainer.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 40px 0;">No approved articles logged for today yet.</p>`;
         return;
     }
-    
-    const categoryOrder = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    const categoryOrder = state.activeClient === "RVNL" 
+        ? ["Own News", "Key Projects", "Industry News"] 
+        : ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
     
     const grouped = {};
     categoryOrder.forEach(cat => {
@@ -8811,8 +8864,8 @@ function renderPrCoverageLog() {
 
 function getPrCategoryColor(cat) {
     if (cat === "Own News") return "var(--accent-blue)";
-    if (cat === "Accenture News") return "var(--accent-purple)";
-    if (cat === "Competitor News") return "var(--accent-amber)";
+    if (cat === "Accenture News" || cat === "Key Projects") return "var(--accent-purple)";
+    if (cat === "Competitor News" || cat === "Industry News") return "var(--accent-amber)";
     return "var(--accent-green)";
 }
 
@@ -8844,10 +8897,32 @@ function updatePrStats() {
     
     items.forEach(x => {
         if (x.category === "Own News") own++;
-        else if (x.category === "Accenture News") accenture++;
-        else if (x.category === "Competitor News") competitors++;
+        else if (x.category === "Accenture News" || x.category === "Key Projects") accenture++;
+        else if (x.category === "Competitor News" || x.category === "Industry News") competitors++;
         else industry++;
     });
+    
+    const statCards = document.querySelectorAll(".pr-monitor-stats .pr-stat-card");
+    const titleAccenture = statCards[1]?.querySelector("h3");
+    const titleCompetitors = statCards[2]?.querySelector("h3");
+    const titleIndustry = statCards[3]?.querySelector("h3");
+    
+    if (state.activeClient === "RVNL") {
+        if (statCards[1]) statCards[1].style.display = "";
+        if (statCards[2]) statCards[2].style.display = "";
+        if (statCards[3]) statCards[3].style.display = "none";
+        
+        if (titleAccenture) titleAccenture.textContent = "Key Projects";
+        if (titleCompetitors) titleCompetitors.textContent = "Industry News";
+    } else {
+        if (statCards[1]) statCards[1].style.display = "";
+        if (statCards[2]) statCards[2].style.display = "";
+        if (statCards[3]) statCards[3].style.display = "";
+        
+        if (titleAccenture) titleAccenture.textContent = "Accenture News";
+        if (titleCompetitors) titleCompetitors.textContent = "Competitors";
+        if (titleIndustry) titleIndustry.textContent = "Partners & Industry";
+    }
     
     document.getElementById("pr-stat-own").textContent = own;
     document.getElementById("pr-stat-accenture").textContent = accenture;
@@ -8869,12 +8944,12 @@ function generateEmailDigest() {
     });
     
     // Plain Text Version
-    let plainText = `TalentSprint Media Coverage Summary\n\n`;
+    let plainText = `${state.activeClient} Media Coverage Summary\n\n`;
     
     // Rich HTML Version with Table
     let htmlContent = `
         <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; max-width: 800px; line-height: 1.6; padding: 10px;">
-            <h2 style="color: #1e3a8a; font-family: 'Segoe UI', Arial, sans-serif; margin: 0 0 4px 0;">TalentSprint</h2>
+            <h2 style="color: #1e3a8a; font-family: 'Segoe UI', Arial, sans-serif; margin: 0 0 4px 0;">${state.activeClient}</h2>
             <h3 style="color: #475569; margin: 0 0 16px 0; font-weight: normal; font-size: 16px;">Daily Media Monitor (${new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })})</h3>
             <table style="width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #cbd5e1; font-size: 13px;">
                 <thead>
@@ -8888,7 +8963,9 @@ function generateEmailDigest() {
                 <tbody>
     `;
     
-    const categories = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    const categories = state.activeClient === "RVNL" 
+        ? ["Own News", "Key Projects", "Industry News"] 
+        : ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
     
     categories.forEach(cat => {
         if (grouped[cat] && grouped[cat].length > 0) {
@@ -8983,7 +9060,7 @@ function downloadPrPdf() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>TalentSprint Media Coverage - ${todayStr}</title>
+            <title>${state.activeClient} Media Coverage - ${todayStr}</title>
             <style>
                 body {
                     font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -9063,7 +9140,7 @@ function downloadPrPdf() {
         <body>
             <div class="header">
                 <div>
-                    <h1>TalentSprint Daily Media Monitor</h1>
+                    <h1>${state.activeClient} Daily Media Monitor</h1>
                     <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Candour Communications PR Tracking</div>
                 </div>
                 <div class="date">${todayStr}</div>
@@ -9080,7 +9157,9 @@ function downloadPrPdf() {
                 <tbody>
     `);
     
-    const categories = ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
+    const categories = state.activeClient === "RVNL" 
+        ? ["Own News", "Key Projects", "Industry News"] 
+        : ["Own News", "Accenture News", "Competitor News", "Industry News", "Partnering Institutions"];
     
     categories.forEach(cat => {
         if (grouped[cat] && grouped[cat].length > 0) {
@@ -9342,7 +9421,8 @@ async function handleRunBriefing() {
         endLimitPlusOne.setDate(endLimitPlusOne.getDate() + 1);
         const beforeStr = `${endLimitPlusOne.getFullYear()}-${pad(endLimitPlusOne.getMonth()+1)}-${pad(endLimitPlusOne.getDate())}`;
         
-        const query = `RVNL OR "Rail Vikas Nigam" OR "Joka Metro" OR "Orange Line Metro" OR "Rishikesh-Karnprayag" OR "New Garia Metro" OR "Ruby Metro" after:${afterStr} before:${beforeStr}`;
+        // Full RVNL company + industry keyword search
+        const query = `"Rail Vikas Nigam" OR RVNL OR "Pradeep Gaur" OR "MP Singh" OR "Rishikesh-Karnaprayag" OR "New Pamban Bridge" OR "Vande Bharat" OR "UTF Harbour" OR "Navratna PSU" OR "Barddhaman" OR "TBM tunneling" after:${afterStr} before:${beforeStr}`;
         const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en&t=${Date.now()}`;
         
         let fetchedData = null;
@@ -9354,7 +9434,7 @@ async function handleRunBriefing() {
 
         // Broad Search Fallback if date-bounded search returned nothing
         if (!fetchedData || fetchedData.length === 0) {
-            const fallbackQuery = `RVNL OR "Rail Vikas Nigam" OR "Joka Metro" OR "Orange Line Metro" OR "Rishikesh-Karnprayag" OR "New Garia Metro" OR "Ruby Metro"`;
+            const fallbackQuery = `"Rail Vikas Nigam" OR RVNL OR "Rishikesh-Karnaprayag" OR "New Pamban Bridge" OR "Vande Bharat" OR "railway electrification" OR "metro rail" OR "TBM tunnel" OR "rail bridge" OR "Indian Railways infrastructure"`;
             try {
                 const results = await fetchGoogleNewsRss(fallbackQuery);
                 fetchedData = results.filter(item => {
@@ -9374,18 +9454,36 @@ async function handleRunBriefing() {
                 
                 const itemDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth()+1)}-${pad(parsedDate.getDate())}`;
                 const tLower = item.title.toLowerCase();
-                const isRelevant = tLower.includes("rvnl") || 
-                                   tLower.includes("rail vikas") || 
-                                   tLower.includes("railway") || 
-                                   tLower.includes("joka metro") || 
-                                   tLower.includes("orange line") || 
-                                   tLower.includes("purple line") || 
-                                   tLower.includes("new garia") || 
-                                   tLower.includes("ruby metro") || 
-                                   tLower.includes("rishikesh") || 
-                                   tLower.includes("karnprayag") || 
-                                   tLower.includes("vande bharat") || 
-                                   tLower.includes("bullet train");
+                // Full RVNL company + industry keyword relevance filter
+                const isRelevant = tLower.includes("rvnl") ||
+                                   tLower.includes("rail vikas") ||
+                                   tLower.includes("pradeep gaur") ||
+                                   tLower.includes("mp singh") ||
+                                   tLower.includes("rishikesh") ||
+                                   tLower.includes("karnaprayag") ||
+                                   tLower.includes("karnprayag") ||
+                                   tLower.includes("new pamban") ||
+                                   tLower.includes("vande bharat") ||
+                                   tLower.includes("utf harbour") ||
+                                   tLower.includes("navratna") ||
+                                   tLower.includes("barddhaman") ||
+                                   tLower.includes("tbm tunnel") ||
+                                   tLower.includes("railway infrastructure") ||
+                                   tLower.includes("metro rail") ||
+                                   tLower.includes("indian railways") ||
+                                   tLower.includes("tunnel boring") ||
+                                   tLower.includes("railway electrification") ||
+                                   tLower.includes("urban mass transit") ||
+                                   tLower.includes("high-speed rail") ||
+                                   tLower.includes("multimodal logistics") ||
+                                   tLower.includes("hydro electrification") ||
+                                   tLower.includes("rail signalling") ||
+                                   tLower.includes("rail-cum-road") ||
+                                   tLower.includes("rail bridge") ||
+                                   tLower.includes("railway yard") ||
+                                   tLower.includes("metro project") ||
+                                   tLower.includes("3d printing railway") ||
+                                   tLower.includes("carbon emission") && tLower.includes("rail");
                 
                 if (isRelevant) {
                     const exists = gatheredItems.some(c => c.title.toLowerCase().substring(0, 30) === item.title.toLowerCase().substring(0, 30));
@@ -9430,52 +9528,26 @@ async function handleRunBriefing() {
     }
 
     try {
-        // Compile B2B strategies for each milestone
+        // Compile PR intelligence for each news item (LinkedIn/Twitter/Reel removed)
         const dayBriefings = gatheredItems.map(item => {
             const dateStr = item.date;
             const projectValue = item.value;
-            const railwayEntity = item.zone;
             const projectType = item.type;
             const subTypeTag = item.subType;
             const divisionName = item.division;
-            
-            const staticTitle = `Celebrate ${projectValue} Win`;
-            const staticConcept = `A premium corporate creative celebrating the milestone: "${item.title}".
-Layout: High-contrast split layout. Left side shows rail infrastructure. Right side holds typography: "${projectValue} project milestone in ${divisionName}".
-Accents: Neon blue gradients.
-Branding: Integrate the RVNL logo with Candour PR tagging.`;
-            const staticCaption = `Delivering rail modernization! 🚄
 
-We are pleased to highlight the milestone: ${item.title}.
+            const prTitle = `${subTypeTag} — ${divisionName}`;
+            const prConcept = `Media intelligence on: "${item.title}".
+Angle: National infrastructure impact, RVNL's role, project timeline (${item.timeline}), and policy significance.
+Spokesperson: RVNL Corporate Communications / Pradeep Gaur, CMD.
+Target Outlets: Financial Express, Business Standard, Construction World, ETInfra, The Hindu BusinessLine.`;
+            const prCaption = `Media update: ${item.title}.
 
-This represents our ongoing commitment to building state-of-the-art rail infrastructure for the nation.
-
-#RVNL #IndianRailways #Infrastructure #${subTypeTag.replace(/\s+/g, '')} #Engineering #Growth`;
-
-            const reelTitle = `Modernizing ${divisionName}`;
-            const reelConcept = `A fast-paced, 15-second B2B transition video.
-Storyboard:
-- 0-3s: Tight macro shot of modern engineering layout. Overlay: "Precision engineering in action..."
-- 3-7s: Footage of project teams and digital blueprints.
-- 7-11s: Cinematic train tracking shot. Overlay: "${projectValue} project - ${divisionName}."
-- 11-15s: Animated RVNL logo: "Engineering the future."
-Audio: Futuristic corporate synth-wave.`;
-            const reelCaption = `Step behind the scenes of rail connectivity! 🖥️🛤️
-
-Highlighting modern development in the ${divisionName} under our latest ${projectValue} milestone.
-
-#TechInRailways #${subTypeTag.replace(/\s+/g, '')} #EngineeringLife #Corporate #Infrastructure #RVNL #SafetyFirst`;
-
-            const prTitle = `${subTypeTag} Milestone in ${divisionName}`;
-            const prConcept = `A detailed media release highlighting: "${item.title}".
-Angle: Emphasize the national infrastructure impact, timeline of ${item.timeline}, and safety benefits.
-Spokesperson: RVNL Corporate Communications.
-Target Outlets: Financial Express, Business Standard, Construction World.`;
-            const prCaption = `Official release: RVNL has hit a new milestone: ${item.title}. Read the complete release detailing the scope of ${projectType.toLowerCase()} upgrades.
+This milestone reinforces RVNL's position as India's leading railway infrastructure developer.
 
 Read more: [Link to PR Room]
 
-#PressRelease #MediaUpdate #CorporateCommunications #PR #InfrastructureNews #RVNL`;
+#RVNL #RailVikasNigam #IndianRailways #Infrastructure #${subTypeTag.replace(/\s+/g, '')} #NavratnaPSU`;
 
             return {
                 date: item.date,
@@ -9488,8 +9560,6 @@ Read more: [Link to PR Room]
                 subType: item.subType,
                 desc: item.desc,
                 timeline: item.timeline,
-                static: { title: staticTitle, concept: staticConcept, caption: staticCaption },
-                reel: { title: reelTitle, concept: reelConcept, caption: reelCaption },
                 pr: { title: prTitle, concept: prConcept, caption: prCaption }
             };
         });
@@ -9776,11 +9846,7 @@ function renderBriefingResults(data) {
             card.style.borderRadius = "18px";
             card.style.padding = "24px";
             card.style.marginBottom = "24px";
-            card.style.position = "relative";
-            card.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
-            card.style.transition = "all var(--transition-normal)";
-            
-            card.innerHTML = `
+                card.innerHTML = `
                 <!-- Top Meta Row -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
                     <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); background: rgba(139, 92, 246, 0.1); padding: 5px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -9793,11 +9859,11 @@ function renderBriefingResults(data) {
 
                 <!-- Title -->
                 <h4 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; line-height: 1.4;">
-                    ${day.title}
+                    ${day.url ? `<a href="${day.url}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">${day.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 12px; color: var(--accent-blue); margin-left: 4px;"></i></a>` : day.title}
                 </h4>
 
                 <!-- Scope & Focus -->
-                <div style="display: flex; gap: 14px; font-size: 13px; margin-bottom: 24px; flex-wrap: wrap; width: 100%;">
+                <div style="display: flex; gap: 14px; font-size: 13px; margin-bottom: 20px; flex-wrap: wrap; width: 100%;">
                     <div style="background: var(--bg-primary); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); flex: 1; min-width: 200px;">
                         <strong style="color: var(--text-primary);">Milestone Scope:</strong> <span style="color: var(--text-secondary);">${day.type} (${day.value})</span>
                     </div>
@@ -9809,104 +9875,27 @@ function renderBriefingResults(data) {
                 <!-- Divider -->
                 <div style="border-top: 1px solid var(--border-color); margin-bottom: 20px;"></div>
 
-                <!-- Strategy Tabs Navigation -->
-                <div class="briefing-tabs-nav">
-                    <button class="briefing-tab-btn active" onclick="switchBriefingCardTab(event, ${idx}, 'linkedin')">
-                        <i class="fa-brands fa-linkedin" style="color: #0077b5; font-size: 14px;"></i> LinkedIn Campaign
-                    </button>
-                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'twitter')">
-                        <i class="fa-brands fa-x-twitter" style="font-size: 13px;"></i> X (Twitter) Tweet
-                    </button>
-                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'reel')">
-                        <i class="fa-solid fa-video" style="color: var(--accent-amber); font-size: 13px;"></i> Video Reel
-                    </button>
-                    <button class="briefing-tab-btn" onclick="switchBriefingCardTab(event, ${idx}, 'pr')">
-                        <i class="fa-solid fa-file-lines" style="color: var(--accent-purple); font-size: 13px;"></i> PR Update
+                <!-- PR Update Panel (direct, no tabs) -->
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 12px;">
+                    <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); text-transform: uppercase;">PR Update / Media Angle</span>
+                    <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">PR Title: ${day.pr.title}</span>
+                </div>
+                <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px;">
+                    <strong style="color: var(--text-primary);">Release Angle &amp; Target Outlets:</strong> ${day.pr.concept}
+                </div>
+                <div class="draft-container">
+                    <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.pr.caption}</div>
+                    <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy PR Draft">
+                        <i class="fa-solid fa-copy"></i>
                     </button>
                 </div>
-
-                <!-- Tab Panels Container -->
-                <div class="briefing-panels-container">
-                    <!-- LinkedIn Panel -->
-                    <div id="panel-${idx}-linkedin" class="briefing-panel">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-blue); text-transform: uppercase;">Static Creative Asset</span>
-                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Asset Title: ${day.static.title}</span>
-                        </div>
-                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
-                            <strong style="color: var(--text-primary);">Visual Concept:</strong> ${day.static.concept}
-                        </div>
-                        <div class="draft-container">
-                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.static.caption}</div>
-                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy LinkedIn Draft">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'static')" style="padding: 8px 16px; font-size: 12px;">
-                                <i class="fa-solid fa-plus"></i> Add LinkedIn to Tracker
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Twitter Panel -->
-                    <div id="panel-${idx}-twitter" class="briefing-panel hidden-panel">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">Twitter / X Post</span>
-                        </div>
-                        <div class="draft-container">
-                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5;">🚄 Milestone Win: ${day.title.substring(0, 150)}... Read the details here: [Link] #RVNL #IndianRailways #${tag}</div>
-                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy Tweet Draft">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'twitter')" style="padding: 8px 16px; font-size: 12px;">
-                                <i class="fa-solid fa-plus"></i> Add Tweet to Tracker
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Reel Panel -->
-                    <div id="panel-${idx}-reel" class="briefing-panel hidden-panel">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-amber); text-transform: uppercase;">Video Reel Concept</span>
-                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Asset Title: ${day.reel.title}</span>
-                        </div>
-                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
-                            <strong style="color: var(--text-primary);">Video Concept Storyboard:</strong> ${day.reel.concept}
-                        </div>
-                        <div class="draft-container">
-                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.reel.caption}</div>
-                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy Reel Caption">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'reel')" style="padding: 8px 16px; font-size: 12px;">
-                                <i class="fa-solid fa-plus"></i> Add Video to Tracker
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- PR Panel -->
-                    <div id="panel-${idx}-pr" class="briefing-panel hidden-panel">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); text-transform: uppercase;">PR Update / Media Angle</span>
-                            <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">PR Title: ${day.pr.title}</span>
-                        </div>
-                        <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
-                            <strong style="color: var(--text-primary);">Release Angle & Target Outlets:</strong> ${day.pr.concept}
-                        </div>
-                        <div class="draft-container">
-                            <div style="white-space: pre-wrap; font-style: italic; line-height: 1.5; max-height: 150px; overflow-y: auto;">${day.pr.caption}</div>
-                            <button class="copy-btn-briefing" onclick="copyBriefingText(this)" title="Copy PR Draft">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                            <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'pr')" style="padding: 8px 16px; font-size: 12px;">
-                                <i class="fa-solid fa-plus"></i> Add PR to Tracker
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="addDynamicBriefingStrategyToTracker(${idx}, 'pr')" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fa-solid fa-plus"></i> Add PR to Tracker
+                    </button>
+                </div>
+            `;
+            reportContainer.appendChild(card);Add PR to Tracker
                             </button>
                         </div>
                     </div>
