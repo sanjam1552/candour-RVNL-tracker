@@ -1325,7 +1325,9 @@ async function saveData(taskOrId = null, isBulkWrite = false) {
     } finally {
         state.isBulkWriting = false;
     }
-    updateStorageIndicator();
+    // Only recalculate storage stats if user is viewing Settings tab
+    // (avoids expensive Firebase Storage network calls on every save)
+    if (state.activeTab === 'settings') updateStorageIndicator();
 }
 
 // Initialize and Setup Theme Toggle (Dark Mode default) and Color Themes
@@ -1360,6 +1362,11 @@ function populateOwnerFilter() {
             owners.add(t.owner);
         }
     });
+
+    // Cache check: skip DOM rebuild if the owner list hasn't changed
+    const cacheKey = state.activeClient + '|' + Array.from(owners).sort().join('|');
+    if (state._ownerFilterCache === cacheKey) return;
+    state._ownerFilterCache = cacheKey;
     
     const select = document.getElementById("filter-owner");
     // Clear dynamic options (keep first)
@@ -1397,6 +1404,11 @@ function populateMonthDropdowns() {
             months.add(task.month);
         }
     });
+
+    // Cache check: skip DOM rebuild if the month set hasn't changed
+    const cacheKey = Array.from(months).sort().join('|');
+    if (state._monthDropdownCache === cacheKey) return;
+    state._monthDropdownCache = cacheKey;
 
     const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const sortedMonths = Array.from(months).sort((a, b) => {
@@ -3227,7 +3239,9 @@ function switchClient(client) {
     // Only regenerate report if the user is currently viewing the Report Builder tab
     // (it regenerates automatically when the user navigates to that tab via switchTab)
     if (state.activeTab === 'reports') generateReport();
-    updateStorageIndicator();
+    // Only recalculate storage stats if user is on Settings tab
+    // (avoids expensive Firebase Storage network calls on every client switch)
+    if (state.activeTab === 'settings') updateStorageIndicator();
 
     // Check if code has changed on the server
     checkCodeUpdate();
