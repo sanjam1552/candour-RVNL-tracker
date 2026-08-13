@@ -3252,6 +3252,40 @@ function switchClient(client) {
         }
     }
     
+    // Update filter-status dropdown options dynamically
+    const filterStatusSelect = document.getElementById("filter-status");
+    if (filterStatusSelect) {
+        if (targetClient === "RVNL") {
+            filterStatusSelect.innerHTML = `
+                <option value="all">All Statuses</option>
+                <option value="In Progress">In Progress (Active)</option>
+                <option value="WIP">🟡 WIP</option>
+                <option value="Sent for internal approval">🟡 Sent for internal approval</option>
+                <option value="Sent to client">🟡 Sent to client</option>
+                <option value="Client Approval Pending">🟡 Client Approval Pending</option>
+                <option value="Sent to journalist">🟡 Sent to journalist</option>
+                <option value="On hold">🔴 On hold</option>
+                <option value="Published/Closed">🟢 Published/Closed</option>
+                <option value="Published directly by client">🟢 Published directly by client</option>
+                <option value="Missed opportunity">🔴 Missed opportunity</option>
+                <option value="Not used by client">🔴 Not used by client</option>
+            `;
+        } else {
+            filterStatusSelect.innerHTML = `
+                <option value="all">All Statuses</option>
+                <option value="In Progress">In Progress (Active)</option>
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
+                <option value="Sent to journalist">Sent to journalist</option>
+                <option value="On hold">On hold</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
+    }
+
     // Refresh all data displays
     populateOwnerFilter();
     updateDashboard();
@@ -4342,6 +4376,35 @@ function openDrawer(taskId = null, prefillData = null) {
     // Default current month/week selection
     document.getElementById("task-month").value = getCurrentMonthStr();
     document.getElementById("task-week").value = getCurrentWeekStr();
+    
+    const statusSelect = document.getElementById("task-status");
+    if (statusSelect) {
+        if (state.activeClient === "RVNL") {
+            statusSelect.innerHTML = `
+                <option value="WIP">🟡 WIP</option>
+                <option value="Sent for internal approval">🟡 Sent for internal approval</option>
+                <option value="Sent to client">🟡 Sent to client</option>
+                <option value="Client Approval Pending">🟡 Client Approval Pending</option>
+                <option value="Sent to journalist">🟡 Sent to journalist</option>
+                <option value="On hold">🔴 On hold</option>
+                <option value="Published/Closed">🟢 Published/Closed</option>
+                <option value="Published directly by client">🟢 Published directly by client</option>
+                <option value="Missed opportunity">🔴 Missed opportunity</option>
+                <option value="Not used by client">🔴 Not used by client</option>
+            `;
+        } else {
+            statusSelect.innerHTML = `
+                <option value="WIP">WIP</option>
+                <option value="Sent for internal approval">Sent for internal approval</option>
+                <option value="Sent to client">Sent to client</option>
+                <option value="Client Approval Pending">Client Approval Pending</option>
+                <option value="Sent to journalist">Sent to journalist</option>
+                <option value="On hold">On hold</option>
+                <option value="Published/Closed">Published/Closed</option>
+                <option value="Not used by client">Not used by client</option>
+            `;
+        }
+    }
     document.getElementById("task-status").value = "WIP";
     
     const taskTypeSelect = document.getElementById("task-type");
