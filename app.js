@@ -3239,6 +3239,8 @@ function switchClient(client) {
     // Only regenerate report if the user is currently viewing the Report Builder tab
     // (it regenerates automatically when the user navigates to that tab via switchTab)
     if (state.activeTab === 'reports') generateReport();
+    // Refresh PR Monitor if user is on the PR Monitor tab during client switch
+    if (state.activeTab === 'pr-monitor') initPrMonitorTab();
     // Only recalculate storage stats if user is on Settings tab
     // (avoids expensive Firebase Storage network calls on every client switch)
     if (state.activeTab === 'settings') updateStorageIndicator();
