@@ -8342,7 +8342,12 @@ function clearManualPrForm() {
 }
 
 function getProxyUrl(targetUrl) {
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+        return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    } else {
+        return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
 }
 
 async function fetchGoogleNewsRss(query) {
