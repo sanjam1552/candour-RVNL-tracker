@@ -3504,6 +3504,13 @@ function togglePRFormFields(type) {
     const taskDateGroup = document.getElementById("task-date").closest(".form-group");
     const taskStatusSelect = document.getElementById("task-status");
 
+    const remarksGroup = document.getElementById("remarks-form-group");
+    const refLinksSection = document.getElementById("ref-links-section");
+
+    // Always reset remarks and reference links visibility to show
+    if (remarksGroup) remarksGroup.classList.remove("hidden");
+    if (refLinksSection) refLinksSection.classList.remove("hidden");
+
     // Always show sub-type group first (will be hidden for Social Media)
     const subTypeGroupEl = subTypeSelect.closest('.form-group');
     if (subTypeGroupEl) subTypeGroupEl.classList.remove('hidden');
@@ -3608,6 +3615,8 @@ function togglePRFormFields(type) {
                 <option value="Sent to journalist">Sent to journalist</option>
                 <option value="On hold">On hold</option>
                 <option value="Published/Closed">Published/Closed</option>
+                <option value="Published directly by client">Published directly by client</option>
+                <option value="Missed opportunity">Missed opportunity</option>
                 <option value="Not used by client">Not used by client</option>
             `;
         }
@@ -3615,6 +3624,10 @@ function togglePRFormFields(type) {
         prPubsSection.classList.remove("hidden");
         if (prMetaRow) prMetaRow.classList.remove("hidden");
         
+        // Hide Remarks & Notes and Reference Links for PR Update
+        if (remarksGroup) remarksGroup.classList.add("hidden");
+        if (refLinksSection) refLinksSection.classList.add("hidden");
+
         // Hide standard singular fields for PR
         if (liveLinkGroup) liveLinkGroup.classList.add("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.add("hidden");
