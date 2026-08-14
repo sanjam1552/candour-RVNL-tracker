@@ -1729,9 +1729,14 @@ function setupEventListeners() {
                 finalFilterType = "all";
             }
 
+            let finalFilterStatus = filterStatus;
+            if (state.activeClient === "RVNL" && filterType === "PR Update") {
+                finalFilterStatus = "all";
+            }
+
             // Set filters in state
             state.filters.type = finalFilterType;
-            state.filters.status = filterStatus;
+            state.filters.status = finalFilterStatus;
             state.filters.month = selectedMonth;
             
             // Sync values to UI inputs
@@ -1739,7 +1744,7 @@ function setupEventListeners() {
             if (filterTypeEl) filterTypeEl.value = finalFilterType;
             
             const filterStatusEl = document.getElementById("filter-status");
-            if (filterStatusEl) filterStatusEl.value = filterStatus;
+            if (filterStatusEl) filterStatusEl.value = finalFilterStatus;
             
             const filterMonthEl = document.getElementById("filter-month");
             if (filterMonthEl) filterMonthEl.value = selectedMonth;
