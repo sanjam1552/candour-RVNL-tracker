@@ -5070,7 +5070,7 @@ async function handleFormSubmit(e) {
         taskData.liveLink = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].link : "";
         taskData.image = taskData.publicationsList.length > 0 ? taskData.publicationsList[0].image : "";
         taskData.date = taskData.publicationsList.length > 0 ? (taskData.publicationsList[0].date || "") : "";
-        taskData.week = taskData.date ? getWeekFromDateStr(taskData.date) : "Week 1";
+        taskData.week = taskData.date ? getWeekFromDateStr(taskData.date) : (week || "Week 1");
     } else {
         taskData.spokesperson = "";
         taskData.publication = "";
