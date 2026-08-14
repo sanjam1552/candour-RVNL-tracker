@@ -3582,6 +3582,18 @@ function togglePRFormFields(type) {
     const taskDateGroup = document.getElementById("task-date").closest(".form-group");
     const taskStatusSelect = document.getElementById("task-status");
 
+    const lblTargetCompDate = document.querySelector('label[for="task-target-completion-date"]');
+    const lblOppDeadline = document.querySelector('label[for="task-opportunity-deadline"]');
+    if (lblTargetCompDate && lblOppDeadline) {
+        if (state.activeClient === "RVNL") {
+            lblTargetCompDate.textContent = "Activity initiated on";
+            lblOppDeadline.textContent = "Activity closed";
+        } else {
+            lblTargetCompDate.textContent = "Target Completion Date";
+            lblOppDeadline.textContent = "Opportunity Deadline";
+        }
+    }
+
     const remarksGroup = document.getElementById("remarks-form-group");
     const refLinksSection = document.getElementById("ref-links-section");
 
@@ -3710,9 +3722,9 @@ function togglePRFormFields(type) {
         if (liveLinkGroup) liveLinkGroup.classList.add("hidden");
         if (canvaLinkGroup) canvaLinkGroup.classList.add("hidden");
         if (imageGroup) imageGroup.classList.add("hidden");
-        if (taskWeekGroup) taskWeekGroup.classList.add("hidden");
+        if (taskWeekGroup) taskWeekGroup.classList.remove("hidden");
         if (taskDateGroup) taskDateGroup.classList.add("hidden");
-        if (taskMonthGroup) taskMonthGroup.className = "form-group col-12";
+        if (taskMonthGroup) taskMonthGroup.className = "form-group col-6";
         if (oldPubGroup) oldPubGroup.classList.add("hidden");
         if (spokespersonGroup) spokespersonGroup.classList.add("hidden");
 
@@ -6200,11 +6212,11 @@ function renderTrackerTable() {
                                     <span class="pr-summary-val">${task.priority || 'Medium'}</span>
                                 </div>
                                 <div class="pr-summary-row">
-                                    <span class="pr-summary-label">Target Completion:</span>
+                                    <span class="pr-summary-label">${task.client === 'RVNL' ? 'Activity Initiated:' : 'Target Completion:'}</span>
                                     <span class="pr-summary-val">${task.targetCompletionDate || 'N/A'}</span>
                                 </div>
                                 <div class="pr-summary-row">
-                                    <span class="pr-summary-label">Opportunity Deadline:</span>
+                                    <span class="pr-summary-label">${task.client === 'RVNL' ? 'Activity Closed:' : 'Opportunity Deadline:'}</span>
                                     <span class="pr-summary-val">${task.opportunityDeadline || 'N/A'}</span>
                                 </div>
                                 <div class="pr-summary-row" style="margin-top: 10px;">
