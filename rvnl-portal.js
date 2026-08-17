@@ -251,6 +251,14 @@ function isTaskActiveInMonth(task, selectedMonthStr) {
     
     // Carry forward: task month is before selected month, and status is not Published/Closed and not Not used by client
     if (taskMonthVal < selectedMonthVal) {
+        // Do not carry forward if the selected month is in the future relative to the current actual month
+        const now = new Date();
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const currentMonthStr = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+        const currentMonthVal = getMonthValue(currentMonthStr);
+        if (selectedMonthVal > currentMonthVal) {
+            return false;
+        }
         return task.status !== "Published/Closed" && task.status !== "Not used by client";
     }
     

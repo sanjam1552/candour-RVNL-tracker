@@ -151,6 +151,11 @@ function isTaskActiveInMonth(task, selectedMonthStr) {
     
     // Carry forward: task month is before selected month, and status is not Published/Closed and not Not used by client
     if (taskMonthVal < selectedMonthVal) {
+        // Do not carry forward if the selected month is in the future relative to the current actual month
+        const currentMonthVal = getMonthValue(getCurrentMonthStr());
+        if (selectedMonthVal > currentMonthVal) {
+            return false;
+        }
         return task.status !== "Published/Closed" && task.status !== "Not used by client";
     }
     
@@ -200,7 +205,7 @@ function showCarryForwardConfirm(task, activeMonthStr) {
                 <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #a78bfa;">
                     <i class="fa-solid fa-arrow-right-arrow-left" style="font-size: 18px;"></i>
                 </div>
-                <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #f8fafc;">RVNL Carry Forward Option</h3>
+                <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #f8fafc;">${task.client || 'RVNL'} Carry Forward Option</h3>
             </div>
             
             <div style="font-size: 14px; line-height: 1.5; color: #cbd5e1; margin: 8px 0;">
@@ -303,14 +308,12 @@ async function updateCarryForwardTaskMonth(task, activeMonthStr) {
     const activeMonthVal = getMonthValue(activeMonthStr);
     if (taskMonthVal < activeMonthVal) {
         if (task.status === "Published/Closed" || task.status === "Not used by client") {
-            if (task.client === "RVNL") {
-                const choice = await showCarryForwardConfirm(task, activeMonthStr);
-                if (choice === "cancel") {
-                    return "cancel";
-                }
-                if (choice === "keep") {
-                    return "keep";
-                }
+            const choice = await showCarryForwardConfirm(task, activeMonthStr);
+            if (choice === "cancel") {
+                return "cancel";
+            }
+            if (choice === "keep") {
+                return "keep";
             }
             task.month = activeMonthStr;
             return "roll";
