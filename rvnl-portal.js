@@ -284,6 +284,34 @@ const tasksTableCard = document.getElementById("tasks-table-card");
 const prPublicationsCard = document.getElementById("pr-publications-card");
 const prPublicationsContainer = document.getElementById("pr-publications-container");
 
+// Send Telegram log when someone opens the tool
+function sendTelegramAlert(email, context = "Client Portal") {
+    if (sessionStorage.getItem(`tg_alert_sent_${context}`)) return;
+    
+    const BOT_TOKEN = "8990955400:AAE1fd6R6ASL5gtjTUFYEnhL-t9VlmH2gzg";
+    const CHAT_ID = "5177384818";
+    
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const message = `🔔 *Tool Access Alert*\n\n👤 *User:* ${email}\n💻 *Location:* ${context}\n⏰ *Time:* ${timeStr} (${dateStr})`;
+    
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: message,
+            parse_mode: 'Markdown'
+        })
+    })
+    .then(() => {
+        sessionStorage.setItem(`tg_alert_sent_${context}`, "true");
+    })
+    .catch(err => console.warn("Telegram alert failed:", err));
+}
+
 // Initialize Auth listener
 function initAuth() {
     // Check for Firebase passwordless sign-in link
@@ -321,6 +349,9 @@ function initAuth() {
                 state.currentUser = email;
                 clientUserDisplay.innerHTML = `<i class="fa-regular fa-user" style="margin-right: 5px;"></i> ${email.split("@")[0]}`;
                 loginOverlay.style.display = "none";
+                
+                // Send Telegram Notification
+                sendTelegramAlert(email, "Client Portal");
                 
                 // Show Admin switch button if logged in as admin
                 if (isCandourAdmin) {

@@ -1040,6 +1040,34 @@ async function loadData() {
     }
 }
 
+// Send Telegram log when someone opens the tool
+function sendTelegramAlert(email, context = "Admin Panel") {
+    if (sessionStorage.getItem(`tg_alert_sent_${context}`)) return;
+    
+    const BOT_TOKEN = "8990955400:AAE1fd6R6ASL5gtjTUFYEnhL-t9VlmH2gzg";
+    const CHAT_ID = "5177384818";
+    
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const message = `🔔 *Tool Access Alert*\n\n👤 *User:* ${email}\n💻 *Location:* ${context}\n⏰ *Time:* ${timeStr} (${dateStr})`;
+    
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: message,
+            parse_mode: 'Markdown'
+        })
+    })
+    .then(() => {
+        sessionStorage.setItem(`tg_alert_sent_${context}`, "true");
+    })
+    .catch(err => console.warn("Telegram alert failed:", err));
+}
+
 // Initialize User Session with Firebase Email Link (Passwordless) Authentication
 function initUserSession() {
     const overlay = document.getElementById("login-modal-overlay");
@@ -1088,6 +1116,9 @@ function initUserSession() {
             if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
                 state.currentUserEmail = email.toLowerCase();
+                
+                // Send Telegram Notification
+                sendTelegramAlert(email, "Admin Panel");
                 
                 // Developer check & personalization
                 if (displayNameEl) {
