@@ -3247,4 +3247,207 @@ img[src*="neo4j.png"] {
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
+/* Resource Hub Component Styles */
+.hub-tab-btn:hover {
+    color: var(--text-primary) !important;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.hub-tab-btn.active {
+    color: #ffffff !important;
+    background: var(--accent-purple) !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.library-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.library-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.library-card .card-icon {
+    font-size: 28px;
+    color: var(--accent-purple);
+    margin-bottom: 12px;
+}
+
+.library-card h4 {
+    margin: 0 0 8px 0;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    font-size: 15px;
+}
+
+.library-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.library-card .badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--accent-purple);
+}
+
+/* Photo Gallery Thumbnail Layout */
+.photo-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.photo-thumbnail-container {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+}
+
+.photo-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.photo-thumbnail-container:hover .photo-thumbnail {
+    transform: scale(1.1);
+}
+
+/* Logos Grid Layout */
+.logo-asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.logo-thumbnail-container {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.logo-thumbnail-container:hover {
+    border-color: var(--accent-purple);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.logo-thumbnail-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Leadership Cards */
+.leadership-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.leadership-card:hover {
+    border-color: var(--accent-purple);
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.02);
+}
+
+.leadership-card img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.leadership-card h4 {
+    margin: 0;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.leadership-card p {
+    margin: 2px 0 0 0;
+    color: var(--accent-purple);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Drive Folder Tree Structure */
+.drive-node {
+    margin-left: 15px;
+    position: relative;
+}
+
+.drive-node-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.drive-node-title:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.drive-node-icon {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+}
+
+.drive-node-arrow {
+    font-size: 10px;
+    width: 12px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.mock-upload-zone:hover {
+    background: rgba(139, 92, 246, 0.06) !important;
+    border-color: var(--accent-purple) !important;
+}
+
+
 

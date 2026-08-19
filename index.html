@@ -97,6 +97,9 @@
                 <button class="nav-btn" data-tab="reports">
                     <i class="fa-solid fa-file-invoice"></i> <span>Report Builder</span>
                 </button>
+                <button class="nav-btn" data-tab="resource-hub" id="nav-btn-resource-hub" style="display: none;">
+                    <i class="fa-solid fa-folder-open"></i> <span>Resource Hub</span>
+                </button>
                 <button class="nav-btn" data-tab="settings">
                     <i class="fa-solid fa-user-gear"></i> <span>Admin Panel</span>
                 </button>
@@ -913,6 +916,149 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Resource Hub Tab -->
+            <section id="resource-hub" class="tab-content">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Resource & Media Hub</h2>
+                        <p>Centralized document library, influencer/media database, and integrated Google Drive storage manager.</p>
+                    </div>
+                    <!-- Sub-tabs within the Hub -->
+                    <div class="hub-tabs" style="display: flex; gap: 12px; background: rgba(255,255,255,0.03); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <button class="hub-tab-btn active" data-subtab="library" style="padding: 8px 16px; border: none; background: none; border-radius: 8px; cursor: pointer; color: var(--text-primary); font-weight: 600; transition: all 0.3s; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-folder-open"></i> Asset Library</button>
+                        <button class="hub-tab-btn" data-subtab="contacts" style="padding: 8px 16px; border: none; background: none; border-radius: 8px; cursor: pointer; color: var(--text-secondary); font-weight: 600; transition: all 0.3s; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-users"></i> Contacts & Media List</button>
+                        <button class="hub-tab-btn" data-subtab="drive" style="padding: 8px 16px; border: none; background: none; border-radius: 8px; cursor: pointer; color: var(--text-secondary); font-weight: 600; transition: all 0.3s; display: flex; align-items: center; gap: 8px;"><i class="fa-brands fa-google-drive"></i> Google Drive Cloud</button>
+                    </div>
+                </div>
+
+                <!-- Sub-tab content 1: Asset Library -->
+                <div id="hub-library-content" class="hub-sub-content">
+                    <!-- Library Grid Injected by JS -->
+                    <div class="library-grid-container" id="library-grid-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px;">
+                        <!-- JS updates based on client type -->
+                    </div>
+
+                    <!-- Leadership Team Profiles (Static Global Section) -->
+                    <div class="leadership-section-container" style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 25px;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 15px; color: var(--text-primary); font-size: 18px;"><i class="fa-solid fa-id-card"></i> Leadership Profiles</h3>
+                        <div class="leadership-grid" id="leadership-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-tab content 2: Contacts & Media List -->
+                <div id="hub-contacts-content" class="hub-sub-content hidden" style="margin-top: 20px;">
+                    <div class="card-panel" style="padding: 20px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                            <h4 id="contacts-table-title" style="margin: 0; font-family: var(--font-heading); font-size: 16px; color: var(--text-primary);">Contacts Directory</h4>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="contacts-search-input" placeholder="Search contacts..." style="background: var(--bg-primary); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 13px; border-radius: 8px;" onclick="alert('Adding contact is disabled in placeholder mode.')"><i class="fa-solid fa-plus"></i> Add Contact</button>
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                                <thead>
+                                    <tr id="contacts-table-header">
+                                        <!-- Dynamic Header -->
+                                    </tr>
+                                </thead>
+                                <tbody id="contacts-table-body">
+                                    <!-- Dynamic Body -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-tab content 3: Google Drive Integration -->
+                <div id="hub-drive-content" class="hub-sub-content hidden" style="margin-top: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+                        
+                        <!-- Left Panel: Storage Meter & Tree Directory -->
+                        <div class="card-panel" style="padding: 20px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color);">
+                            <h4 style="margin-top: 0; margin-bottom: 15px; font-family: var(--font-heading); color: var(--text-primary); font-size: 16px; display: flex; align-items: center; gap: 8px;"><i class="fa-brands fa-google-drive" style="color: #34a853;"></i> Google Workspace Storage</h4>
+                            
+                            <!-- Storage Bar -->
+                            <div style="margin-bottom: 25px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 6px;">
+                                    <span>Workspace Storage Utilized</span>
+                                    <span style="font-weight: 600; color: var(--text-primary);">85.4 GB / 100 GB (85.4%)</span>
+                                </div>
+                                <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden;">
+                                    <div style="width: 85.4%; height: 100%; background: linear-gradient(90deg, #34a853, #fbbc05, #ea4335); border-radius: 5px;"></div>
+                                </div>
+                                <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(234, 67, 53, 0.08); border: 1px solid rgba(234, 67, 53, 0.2); border-radius: 8px; font-size: 12px; color: #f87171;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <span>Running low on space. Please upgrade your Google One / Workspace plan.</span>
+                                </div>
+                            </div>
+
+                            <!-- Directory Tree Explorer -->
+                            <h5 style="margin-bottom: 10px; font-family: var(--font-heading); color: var(--text-secondary); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Virtual Folder Structure</h5>
+                            <div class="drive-folder-tree" id="drive-folder-tree" style="font-family: monospace; font-size: 13px; background: var(--bg-primary); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); color: var(--text-primary); min-height: 200px; max-height: 300px; overflow-y: auto; line-height: 1.6;">
+                                <!-- Dynamically populated by JS based on Client -->
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Smart Drag & Drop Uploader -->
+                        <div class="card-panel" style="padding: 20px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <h4 style="margin-top: 0; margin-bottom: 15px; font-family: var(--font-heading); color: var(--text-primary); font-size: 16px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-cloud-arrow-up"></i> Google Drive Smart Uploader</h4>
+                                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px;">Drag files here or select below to simulate how the tool automatically routes files into the client's dedicated subfolder inside your Google Drive workspace.</p>
+                                
+                                <div class="mock-upload-zone" id="mock-upload-zone" style="border: 2px dashed var(--accent-purple); border-radius: 12px; padding: 40px 20px; text-align: center; background: rgba(139, 92, 246, 0.02); cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                                    <i class="fa-solid fa-file-invoice" style="font-size: 40px; color: var(--accent-purple); opacity: 0.7; margin-bottom: 5px;"></i>
+                                    <p style="margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary);">Click or Drag & Drop file to upload</p>
+                                    <p style="margin: 0; font-size: 11px; color: var(--text-muted);">PDF, DOCX, PNG, JPG, or ZIP</p>
+                                    <input type="file" id="mock-file-input" style="display: none;">
+                                </div>
+                            </div>
+
+                            <!-- Upload Status Tracker -->
+                            <div id="upload-status-display" style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; display: none;">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: var(--text-primary);">
+                                    <span id="upload-filename" style="font-weight: 600;">document.pdf</span>
+                                    <span id="upload-percentage">0%</span>
+                                </div>
+                                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; position: relative;">
+                                    <div id="upload-progress-bar" style="width: 0%; height: 100%; background: var(--accent-purple); transition: width 0.1s;"></div>
+                                </div>
+                                <div id="upload-status-msg" style="font-size: 11px; color: var(--accent-purple); margin-top: 6px; font-weight: 500;">Uploading to Drive...</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leadership Profile Bio Modal -->
+            <div class="modal-overlay hidden" id="bio-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(5px);">
+                <div class="card-panel" style="max-width: 500px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 25px; position: relative; margin: auto;">
+                    <button id="close-bio-modal" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                        <img id="bio-modal-avatar" src="" alt="Avatar" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-purple);">
+                        <div>
+                            <h3 id="bio-modal-name" style="margin: 0; font-family: var(--font-heading); color: var(--text-primary); font-size: 20px;">Name</h3>
+                            <p id="bio-modal-title" style="margin: 2px 0 0 0; color: var(--accent-purple); font-size: 14px; font-weight: 600;">Title</p>
+                        </div>
+                    </div>
+                    <div id="bio-modal-text" style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; max-height: 250px; overflow-y: auto;">
+                        Full biography...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lightbox Modal for Photo Gallery -->
+            <div class="modal-overlay hidden" id="lightbox-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 10001; backdrop-filter: blur(5px);">
+                <div style="position: relative; max-width: 90%; max-height: 90%; margin: auto; text-align: center;">
+                    <button id="close-lightbox-modal" style="position: absolute; top: -40px; right: 0; background: none; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+                    <img id="lightbox-modal-img" src="" alt="Preview" style="max-width: 100%; max-height: 80vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <p id="lightbox-modal-caption" style="color: white; text-align: center; margin-top: 10px; font-family: var(--font-heading); font-size: 14px; font-weight: 500;">Caption</p>
+                </div>
+            </div>
 
             <!-- Backup & Settings Tab -->
             <section id="settings" class="tab-content">

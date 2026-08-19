@@ -1124,17 +1124,20 @@ function initUserSession() {
                 if (displayNameEl) {
                     const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
                     const briefingBtn = document.getElementById("nav-btn-briefing");
+                    const resourceHubBtn = document.getElementById("nav-btn-resource-hub");
                     if (devEmails.includes(state.currentUserEmail)) {
                         displayNameEl.innerHTML = `${state.currentUser} <span class="dev-badge"><i class="fa-solid fa-code"></i> Developer</span>`;
                         const devLabSection = document.getElementById("dev-lab-section");
                         if (devLabSection) devLabSection.classList.remove("hidden");
                         if (briefingBtn) briefingBtn.style.display = "";
+                        if (resourceHubBtn) resourceHubBtn.style.display = "";
                         
                         // Initialize Developer-Only Chat System
                         initDeveloperChat();
                     } else {
                         displayNameEl.textContent = state.currentUser;
                         if (briefingBtn) briefingBtn.style.display = "none";
+                        if (resourceHubBtn) resourceHubBtn.style.display = "none";
                     }
                 }
                 
@@ -2410,7 +2413,13 @@ function adjustClientSpecificOptions(client) {
     // 1. Task Type Filter Dropdown
     const filterType = document.getElementById("filter-type");
     if (filterType) {
-        if (client === "iCode") {
+        if (isPROnlyClient(client)) {
+            filterType.innerHTML = `
+                <option value="all">All Types</option>
+                <option value="PR Update">PR Update</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
+            `;
+        } else if (client === "iCode") {
             filterType.innerHTML = `
                 <option value="all">All Campaigns</option>
                 <option value="Organic">Organic Campaign</option>
@@ -2421,18 +2430,12 @@ function adjustClientSpecificOptions(client) {
                 <option value="all">All Types</option>
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
             `;
         } else if (client === "BT Group") {
             filterType.innerHTML = `
                 <option value="all">All Types</option>
                 <option value="Social Media">Social Media Post</option>
-                <option value="Creative / Collateral">Creative / Collateral</option>
-            `;
-        } else if (client === "Green Shine Solar") {
-            filterType.innerHTML = `
-                <option value="all">All Types</option>
-                <option value="Social Media">Social Media Post</option>
-                <option value="PR Update">PR Update</option>
                 <option value="Creative / Collateral">Creative / Collateral</option>
                 <option value="Digital Campaigns">Digital Campaigns</option>
             `;
@@ -2442,6 +2445,7 @@ function adjustClientSpecificOptions(client) {
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update</option>
                 <option value="Creative / Collateral">Creative / Collateral</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
             `;
         }
     }
@@ -2452,23 +2456,21 @@ function adjustClientSpecificOptions(client) {
     const icodeCampaignGroup = document.getElementById("icode-campaign-group");
     const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
     if (taskTypeSelect) {
-        if (client === "iCode") {
-            if (taskTypeGroup) taskTypeGroup.classList.add("hidden");
-            taskTypeSelect.removeAttribute("required");
-            if (icodeCampaignGroup) icodeCampaignGroup.classList.remove("hidden");
-            if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
-        } else if (client === "Green Shine Solar") {
+        if (isPROnlyClient(client)) {
             if (taskTypeGroup) taskTypeGroup.classList.remove("hidden");
             taskTypeSelect.setAttribute("required", "required");
             if (icodeCampaignGroup) icodeCampaignGroup.classList.add("hidden");
             if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
 
             taskTypeSelect.innerHTML = `
-                <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update (Press Release / Media)</option>
-                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
                 <option value="Digital Campaigns">Digital Campaigns</option>
             `;
+        } else if (client === "iCode") {
+            if (taskTypeGroup) taskTypeGroup.classList.add("hidden");
+            taskTypeSelect.removeAttribute("required");
+            if (icodeCampaignGroup) icodeCampaignGroup.classList.remove("hidden");
+            if (greenshineCampaignGroup) greenshineCampaignGroup.classList.add("hidden");
         } else {
             if (taskTypeGroup) taskTypeGroup.classList.remove("hidden");
             taskTypeSelect.setAttribute("required", "required");
@@ -2479,6 +2481,7 @@ function adjustClientSpecificOptions(client) {
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update (Press Release / Media)</option>
                 <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+                <option value="Digital Campaigns">Digital Campaigns</option>
             `;
             if (client === "Legrand" || client === "Kompact AI") {
                 const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
@@ -3334,6 +3337,7 @@ function switchClient(client) {
     if (state.activeTab === 'reports') generateReport();
     // Refresh PR Monitor if user is on the PR Monitor tab during client switch
     if (state.activeTab === 'pr-monitor') initPrMonitorTab();
+    if (state.activeTab === 'resource-hub') initResourceHubTab();
     // Only recalculate storage stats if user is on Settings tab
     // (avoids expensive Firebase Storage network calls on every client switch)
     if (state.activeTab === 'settings') updateStorageIndicator();
@@ -3389,7 +3393,7 @@ function resetFilters() {
 
 // Switch between navigation tabs
 function switchTab(tabName) {
-    if (tabName === 'briefing') {
+    if (tabName === 'briefing' || tabName === 'resource-hub') {
         const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
         if (!devEmails.includes(state.currentUserEmail)) {
             tabName = 'dashboard';
@@ -3413,6 +3417,8 @@ function switchTab(tabName) {
         initBriefingTab();
     } else if (tabName === 'pr-monitor') {
         initPrMonitorTab();
+    } else if (tabName === 'resource-hub') {
+        initResourceHubTab();
     } else if (tabName === 'settings') {
         checkSettingsPasswordState();
     }
@@ -3655,7 +3661,7 @@ function togglePRFormFields(type) {
 
     const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
     if (greenshineCampaignGroup) {
-        if (state.activeClient === "Green Shine Solar" && type === "Digital Campaigns") {
+        if (state.activeClient !== "iCode" && type === "Digital Campaigns") {
             greenshineCampaignGroup.classList.remove("hidden");
         } else {
             greenshineCampaignGroup.classList.add("hidden");
@@ -4460,7 +4466,10 @@ function openDrawer(taskId = null, prefillData = null) {
     
     const taskTypeSelect = document.getElementById("task-type");
     if (isPROnlyClient(state.activeClient)) {
-        taskTypeSelect.innerHTML = `<option value="PR Update">PR Update (Press Release / Media)</option>`;
+        taskTypeSelect.innerHTML = `
+            <option value="PR Update">PR Update (Press Release / Media)</option>
+            <option value="Digital Campaigns">Digital Campaigns</option>
+        `;
         taskTypeSelect.value = "PR Update";
         togglePRFormFields("PR Update");
     } else if (state.activeClient === "iCode") {
@@ -4474,19 +4483,19 @@ function openDrawer(taskId = null, prefillData = null) {
             cb.checked = (cb.value === "Organic");
         });
     } else {
-        if (state.activeClient === "Green Shine Solar") {
-            taskTypeSelect.innerHTML = `
-                <option value="Social Media">Social Media Post</option>
-                <option value="PR Update">PR Update (Press Release / Media)</option>
-                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
-                <option value="Digital Campaigns">Digital Campaigns</option>
-            `;
-        } else {
-            taskTypeSelect.innerHTML = `
-                <option value="Social Media">Social Media Post</option>
-                <option value="PR Update">PR Update (Press Release / Media)</option>
-                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
-            `;
+        taskTypeSelect.innerHTML = `
+            <option value="Social Media">Social Media Post</option>
+            <option value="PR Update">PR Update (Press Release / Media)</option>
+            <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+            <option value="Digital Campaigns">Digital Campaigns</option>
+        `;
+        if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+            const creativeDrawerOpt = taskTypeSelect.querySelector('option[value="Creative / Collateral"]');
+            if (creativeDrawerOpt) creativeDrawerOpt.remove();
+        }
+        if (state.activeClient === "BT Group") {
+            const prDrawerOpt = taskTypeSelect.querySelector('option[value="PR Update"]');
+            if (prDrawerOpt) prDrawerOpt.remove();
         }
         taskTypeSelect.value = "Social Media";
         togglePRFormFields("Social Media");
@@ -4526,8 +4535,8 @@ function openDrawer(taskId = null, prefillData = null) {
                 togglePRFormFields(task.type);
             }
 
-            // Prefill Green Shine campaign type checkboxes if client is Green Shine Solar
-            if (task.client === "Green Shine Solar") {
+            // Prefill campaign type checkboxes if client is not iCode and task type is Digital Campaigns
+            if (task.client !== "iCode" && task.type === "Digital Campaigns") {
                 const campaignTypes = Array.isArray(task.campaignType) 
                     ? task.campaignType 
                     : (task.campaignType ? [task.campaignType] : []);
@@ -5015,7 +5024,7 @@ async function handleFormSubmit(e) {
             alert("Please select at least one iCode center.");
             return;
         }
-    } else if (taskClient === "Green Shine Solar" && type === "Digital Campaigns") {
+    } else if (taskClient !== "iCode" && type === "Digital Campaigns") {
         const selectedCampaignTypes = Array.from(document.querySelectorAll('input[name="greenshine-campaign-type"]:checked')).map(cb => cb.value);
         if (selectedCampaignTypes.length === 0) {
             alert("Please select at least one Campaign Type (Organic / Paid).");
@@ -5366,9 +5375,11 @@ function renderTrendChart() {
     if (isPROnlyClient(state.activeClient)) {
         const tasksCountData = [];
         const coveragesCountData = [];
+        const dcData = [];
         months.forEach(m => {
             tasksCountData.push(clientTasks.filter(t => t.month === m && t.type === 'PR Update').length);
             coveragesCountData.push(getPRPublicationsCount(clientTasks.filter(t => t.month === m)));
+            dcData.push(clientTasks.filter(t => t.month === m && t.type === 'Digital Campaigns').length);
         });
         datasets = [
             {
@@ -5381,6 +5392,12 @@ function renderTrendChart() {
                 label: 'Coverages Secured',
                 data: coveragesCountData,
                 backgroundColor: '#3b82f6',
+                borderRadius: 4
+            },
+            {
+                label: 'Digital Campaigns',
+                data: dcData,
+                backgroundColor: '#ec4899',
                 borderRadius: 4
             }
         ];
@@ -5433,7 +5450,7 @@ function renderTrendChart() {
             });
         }
 
-        if (state.activeClient === "Green Shine Solar") {
+        if (state.activeClient !== "iCode") {
             datasets.push({
                 label: 'Digital Campaigns',
                 data: dcData,
@@ -11521,6 +11538,571 @@ function monitorCustomGroups() {
             console.error("Custom groups sync failed: ", err);
         });
 }
+
+// ==========================================
+// RESOURCE & MEDIA HUB CORE UTILITIES
+// ==========================================
+
+const MOCK_PITCHES = {
+    "RVNL": [
+        { title: "RVNL Creative & Social Vision 2026", format: "PPTX", date: "July 2026", size: "12.4 MB" },
+        { title: "Ad Campaign Media Plan", format: "PDF", date: "June 2026", size: "5.1 MB" }
+    ],
+    "Zoom": [
+        { title: "Zoom Enterprise PR Proposal", format: "PPTX", date: "August 2026", size: "18.2 MB" },
+        { title: "AI Search Brand Strategy", format: "PDF", date: "May 2026", size: "3.7 MB" }
+    ],
+    "default": [
+        { title: "Candour Hub New Business Pitch", format: "PPTX", date: "August 2026", size: "14.5 MB" },
+        { title: "General Branding Guidelines Proposal", format: "PDF", date: "July 2026", size: "6.2 MB" }
+    ]
+};
+
+const MOCK_CASE_STUDIES = {
+    "RVNL": [
+        { title: "RVNL Engagement Optimization", duration: "3 Months", format: "PDF", size: "2.1 MB" },
+        { title: "Creative Branding Impact Study", duration: "1 Year", format: "PDF", size: "10.4 MB" }
+    ],
+    "Zoom": [
+        { title: "Zoom AEO Visibility Performance", duration: "1 Month", format: "PDF", size: "1.8 MB" },
+        { title: "Generative Engine Audit Results", duration: "6 Months", format: "PDF", size: "8.5 MB" }
+    ],
+    "default": [
+        { title: "Corporate PR Success Metrics", duration: "3 Months", format: "PDF", size: "1.5 MB" },
+        { title: "Digital Campaign Annual Impact Report", duration: "1 Year", format: "PDF", size: "9.2 MB" }
+    ]
+};
+
+const MOCK_LOGOS = {
+    "RVNL": [
+        { title: "RVNL Main Vector Logo", format: "PNG", url: "inputs/RVNL (R)logo_vector.png" },
+        { title: "RVNL Dark Monochrome Emblem", format: "SVG", url: "inputs/RVNL (R)logo_vector.png" }
+    ],
+    "Green Shine Solar": [
+        { title: "Green Shine Solar Primary Logo", format: "PNG", url: "inputs/greenshine logo.png" }
+    ],
+    "default": [
+        { title: "Candour Branding Badge (Light)", format: "PNG", url: "https://picsum.photos/100/100?random=1" },
+        { title: "Candour Branding Badge (Dark)", format: "PNG", url: "https://picsum.photos/100/100?random=2" }
+    ]
+};
+
+const MOCK_CREATIVE_ASSETS = {
+    "RVNL": [
+        { title: "RVNL Independence Day Social Grid", format: "PSD", date: "Aug 2026", size: "45.0 MB" },
+        { title: "Canva Dashboard Templates Link", format: "LINK", date: "Aug 2026", size: "-" }
+    ],
+    "default": [
+        { title: "General Social Media Mockup (Canva)", format: "LINK", date: "July 2026", size: "-" },
+        { title: "Brand Presentation Vectors", format: "AI", date: "Aug 2026", size: "32.4 MB" }
+    ]
+};
+
+const MOCK_PHOTOS = [
+    { title: "Independence Day Campaign", url: "https://picsum.photos/300/200?random=101" },
+    { title: "RVNL Leadership Roundtable Meet", url: "https://picsum.photos/300/200?random=102" },
+    { title: "Creative Production Outdoor Shoot", url: "https://picsum.photos/300/200?random=103" },
+    { title: "Collaborators Hub Sync Day", url: "https://picsum.photos/300/200?random=104" }
+];
+
+const MOCK_MOMS = [
+    { title: "Q3 Strategy Alignment Sync", date: "15 Aug 2026", retention: "Active", days: "86 days remaining" },
+    { title: "Campaign Deliverables Review", date: "02 Aug 2026", retention: "Active", days: "73 days remaining" },
+    { title: "Project Onboarding Minutes (May)", date: "10 May 2026", retention: "Archived", days: "Moved to Archives" }
+];
+
+const MOCK_LEADERSHIP = [
+    { name: "Executive Profile A", title: "Chief Communications Officer", avatar: "https://picsum.photos/100/100?random=201", bio: "Experienced corporate officer with over 15 years in strategic public relations and communication initiatives.", longBio: "Executive Profile A is the Chief Communications Officer. They specialize in corporate reputation management, crisis counseling, and investor relations." },
+    { name: "Executive Profile B", title: "Creative Director", avatar: "https://picsum.photos/100/100?random=202", bio: "Visual storyteller overseeing creative design workflows across all print and digital brand assets.", longBio: "Executive Profile B is the Creative Director. They oversee design systems and brand guidelines, ensuring alignment with corporate visual identities." }
+];
+
+const MOCK_INFLUENCERS = [
+    { name: "Influencer Alpha", platform: "Instagram", niche: "Tech & Gadgets", reach: "250K Followers", engagement: "4.2%" },
+    { name: "Influencer Beta", platform: "YouTube", niche: "Lifestyle & Decor", reach: "500K Subscribers", engagement: "5.8%" },
+    { name: "Influencer Gamma", platform: "Twitter/X", niche: "Corporate Finance", reach: "90K Followers", engagement: "3.1%" },
+    { name: "Influencer Delta", platform: "LinkedIn", niche: "Startup Advisor", reach: "40K Connections", engagement: "6.5%" }
+];
+
+const MOCK_JOURNALISTS = [
+    { name: "Journalist Alpha", outlet: "Publication A", beat: "Infrastructure & Railways", status: "Interview Scheduled" },
+    { name: "Journalist Beta", outlet: "Publication B", beat: "Tech & Corporate Affairs", status: "Press Release Sent" },
+    { name: "Journalist Gamma", outlet: "Publication C", beat: "Energy & Solar Power", status: "Article Published" },
+    { name: "Journalist Delta", outlet: "Publication D", beat: "Investments & Finance", status: "Pitch Pending" }
+];
+
+function initResourceHubTab() {
+    const activeClient = state.activeClient || "RVNL";
+    const isPR = isPROnlyClient(activeClient);
+
+    // 1. Hook up Sub-Tab Navigation inside the Hub
+    document.querySelectorAll(".hub-tab-btn").forEach(btn => {
+        btn.onclick = (e) => {
+            const targetSubtab = btn.getAttribute("data-subtab");
+            
+            // Switch tabs styling
+            document.querySelectorAll(".hub-tab-btn").forEach(b => {
+                b.classList.remove("active");
+                b.style.color = "var(--text-secondary)";
+            });
+            btn.classList.add("active");
+            btn.style.color = "#ffffff";
+
+            // Show content panels
+            document.querySelectorAll(".hub-sub-content").forEach(pane => {
+                pane.classList.add("hidden");
+            });
+            const activePane = document.getElementById(`hub-${targetSubtab}-content`);
+            if (activePane) activePane.classList.remove("hidden");
+        };
+    });
+
+    // 2. Populate Resource Library
+    renderResourceLibrary(activeClient, isPR);
+
+    // 3. Populate Contacts Database Table
+    renderContactsDirectory(activeClient, isPR);
+    const searchInput = document.getElementById("contacts-search-input");
+    if (searchInput) {
+        searchInput.oninput = (e) => {
+            renderContactsDirectory(activeClient, isPR, e.target.value.trim().toLowerCase());
+        };
+    }
+
+    // 4. Populate Google Drive Visual Tree
+    renderDriveFolderTree(activeClient, isPR);
+
+    // 5. Initialize Smart Drag & Drop Uploader Event Listeners
+    initDriveUploader(activeClient, isPR);
+
+    // 6. Bind Modal Backdrop & Close Button triggers once
+    const bioModal = document.getElementById("bio-modal-overlay");
+    if (bioModal) {
+        bioModal.onclick = (e) => {
+            if (e.target === bioModal) {
+                bioModal.classList.add("hidden");
+                bioModal.style.display = "none";
+            }
+        };
+    }
+    const closeBtn = document.getElementById("close-bio-modal");
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            if (bioModal) {
+                bioModal.classList.add("hidden");
+                bioModal.style.display = "none";
+            }
+        };
+    }
+
+    const lightboxModal = document.getElementById("lightbox-modal-overlay");
+    if (lightboxModal) {
+        lightboxModal.onclick = (e) => {
+            if (e.target === lightboxModal) {
+                lightboxModal.classList.add("hidden");
+                lightboxModal.style.display = "none";
+            }
+        };
+    }
+    const closeLightboxBtn = document.getElementById("close-lightbox-modal");
+    if (closeLightboxBtn) {
+        closeLightboxBtn.onclick = () => {
+            if (lightboxModal) {
+                lightboxModal.classList.add("hidden");
+                lightboxModal.style.display = "none";
+            }
+        };
+    }
+}
+
+function renderResourceLibrary(client, isPR) {
+    const grid = document.getElementById("library-grid-container");
+    const leadershipGrid = document.getElementById("leadership-grid");
+    if (!grid) return;
+
+    let htmlContent = "";
+
+    // Pitches Card
+    const clientPitches = MOCK_PITCHES[client] || MOCK_PITCHES["default"];
+    htmlContent += `
+        <div class="library-card">
+            <div class="card-icon"><i class="fa-solid fa-file-powerpoint"></i></div>
+            <h4>Business Pitches</h4>
+            <p>Pitch proposals, creative frameworks, and expansion decks mapped for this client.</p>
+            <div style="margin-top: 12px; font-size: 11px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                ${clientPitches.map(p => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${p.title}</span>
+                        <button class="btn btn-text" style="font-size: 10px; padding: 2px 6px;" onclick="alert('Downloading: ${p.title}')"><i class="fa-solid fa-download"></i> ${p.format}</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    // Case Studies Card
+    const clientCases = MOCK_CASE_STUDIES[client] || MOCK_CASE_STUDIES["default"];
+    htmlContent += `
+        <div class="library-card">
+            <div class="card-icon"><i class="fa-solid fa-file-contract"></i></div>
+            <h4>Case Studies</h4>
+            <p>Detailed performance analytics and metrics archives detailing historic impact.</p>
+            <div style="margin-top: 12px; font-size: 11px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                ${clientCases.map(c => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">${c.title}</span>
+                        <span style="color: var(--text-muted); font-size: 9px;">(${c.duration})</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    if (isPR) {
+        // Press Release Kits Card (PR Only)
+        htmlContent += `
+            <div class="library-card">
+                <div class="card-icon"><i class="fa-solid fa-newspaper"></i></div>
+                <h4>Press Release Kits</h4>
+                <p>Media boilerplate releases, spokespersons quotes, and distribution plans.</p>
+                <div style="margin-top: 12px; font-size: 11px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">Q3 Product Launch PR.docx</span>
+                        <button class="btn btn-text" style="font-size: 10px;" onclick="alert('Downloading...')"><i class="fa-solid fa-download"></i></button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">Corporate Spokesperson Q&A.pdf</span>
+                        <button class="btn btn-text" style="font-size: 10px;" onclick="alert('Downloading...')"><i class="fa-solid fa-download"></i></button>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // Logos & Brand Identity Card (Marketing Only)
+        const clientLogos = MOCK_LOGOS[client] || MOCK_LOGOS["default"];
+        htmlContent += `
+            <div class="library-card">
+                <div class="card-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+                <h4>Logos & Brand Identity</h4>
+                <p>High-resolution company vector logos, style guides, and branding packages.</p>
+                <div class="logo-asset-grid">
+                    ${clientLogos.map(logo => `
+                        <div class="logo-thumbnail-container" title="Open ${logo.title}" onclick="alert('Viewing logo: ${logo.title}')">
+                            <img src="${logo.url}" alt="${logo.title}">
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        // Creative Assets & Templates Card (Marketing Only)
+        const clientCreatives = MOCK_CREATIVE_ASSETS[client] || MOCK_CREATIVE_ASSETS["default"];
+        htmlContent += `
+            <div class="library-card">
+                <div class="card-icon"><i class="fa-solid fa-palette"></i></div>
+                <h4>Creative Templates</h4>
+                <p>Canva workspace share links, raw PSD layouts, and video templates.</p>
+                <div style="margin-top: 12px; font-size: 11px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    ${clientCreatives.map(c => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="color: var(--text-primary); font-weight: 500;">${c.title}</span>
+                            ${c.format === "LINK" ? 
+                                `<button class="btn btn-text" style="font-size: 10px; color: var(--accent-purple);" onclick="window.open('https://canva.com', '_blank')"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open</button>` : 
+                                `<button class="btn btn-text" style="font-size: 10px;" onclick="alert('Downloading asset...')"><i class="fa-solid fa-download"></i> ${c.format}</button>`
+                            }
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        // Photo Gallery Card (Marketing Only)
+        htmlContent += `
+            <div class="library-card">
+                <div class="card-icon"><i class="fa-solid fa-images"></i></div>
+                <h4>Photo Gallery</h4>
+                <p>Event captures, product photographs, and campaign photo assets.</p>
+                <div class="photo-gallery-grid">
+                    ${MOCK_PHOTOS.map(p => `
+                        <div class="photo-thumbnail-container" onclick="openPhotoLightbox('${p.url}', '${p.title}')">
+                            <img src="${p.url}" alt="${p.title}" class="photo-thumbnail">
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // MoMs Card (With Retention Auto-Archiving Rules)
+    const retentionDays = isPR ? "90" : "60";
+    htmlContent += `
+        <div class="library-card">
+            <div class="card-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <span class="badge" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-red);">${retentionDays}-Day Rule</span>
+            <h4>Minutes of Meetings (MoMs)</h4>
+            <p>MoM logs automatically archived to offline storage files after ${retentionDays} days.</p>
+            <div style="margin-top: 12px; font-size: 11px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                ${MOCK_MOMS.map(m => {
+                    const isArchived = m.retention === "Archived";
+                    const statusColor = isArchived ? "var(--text-muted)" : "var(--accent-green)";
+                    return `
+                        <div style="display: flex; flex-direction: column; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: var(--text-primary); font-weight: 500;">${m.title}</span>
+                                <span style="font-size: 9px; color: ${statusColor}; font-weight: bold;">${m.retention}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 1px;">
+                                <span>Date: ${m.date}</span>
+                                <span>${m.days}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+
+    grid.innerHTML = htmlContent;
+
+    // Populate Leadership Profiles
+    if (leadershipGrid) {
+        leadershipGrid.innerHTML = MOCK_LEADERSHIP.map(leader => `
+            <div class="leadership-card" onclick="openLeadershipBio('${leader.name}', '${leader.title}', '${leader.avatar}', '${leader.longBio.replace(/'/g, "\\'")}')">
+                <img src="${leader.avatar}" alt="${leader.name}">
+                <div>
+                    <h4>${leader.name}</h4>
+                    <p>${leader.title}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function openLeadershipBio(name, title, avatar, longBio) {
+    const modal = document.getElementById("bio-modal-overlay");
+    if (!modal) return;
+
+    document.getElementById("bio-modal-name").textContent = name;
+    document.getElementById("bio-modal-title").textContent = title;
+    document.getElementById("bio-modal-avatar").src = avatar;
+    document.getElementById("bio-modal-text").textContent = longBio;
+
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+}
+window.openLeadershipBio = openLeadershipBio;
+
+function openPhotoLightbox(url, caption) {
+    const lightbox = document.getElementById("lightbox-modal-overlay");
+    if (!lightbox) return;
+
+    document.getElementById("lightbox-modal-img").src = url;
+    document.getElementById("lightbox-modal-caption").textContent = caption;
+
+    lightbox.classList.remove("hidden");
+    lightbox.style.display = "flex";
+}
+window.openPhotoLightbox = openPhotoLightbox;
+
+function renderContactsDirectory(client, isPR, query = "") {
+    const headerRow = document.getElementById("contacts-table-header");
+    const bodyContainer = document.getElementById("contacts-table-body");
+    const title = document.getElementById("contacts-table-title");
+    if (!headerRow || !bodyContainer) return;
+
+    if (isPR) {
+        if (title) title.innerHTML = `<i class="fa-solid fa-users"></i> Journalist & Media Contacts Directory (PR Accounts)`;
+        headerRow.innerHTML = `
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Journalist Name</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Publication</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Beat/Niche</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Pitch Status</th>
+        `;
+
+        const filtered = MOCK_JOURNALISTS.filter(j => 
+            j.name.toLowerCase().includes(query) || 
+            j.outlet.toLowerCase().includes(query) || 
+            j.beat.toLowerCase().includes(query)
+        );
+
+        bodyContainer.innerHTML = filtered.map(j => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-primary);">${j.name}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">${j.outlet}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">${j.beat}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);"><span style="background: rgba(139,92,246,0.12); color: var(--accent-purple); font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 500;">${j.status}</span></td>
+            </tr>
+        `).join('');
+    } else {
+        if (title) title.innerHTML = `<i class="fa-solid fa-users"></i> Influencer & Creator Directory (Marketing Accounts)`;
+        headerRow.innerHTML = `
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Influencer/Creator</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Platform</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Niche</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Reach</th>
+            <th style="padding: 10px; border-bottom: 2px solid var(--border-color);">Engagement Rate</th>
+        `;
+
+        const filtered = MOCK_INFLUENCERS.filter(i => 
+            i.name.toLowerCase().includes(query) || 
+            i.niche.toLowerCase().includes(query) || 
+            i.platform.toLowerCase().includes(query)
+        );
+
+        bodyContainer.innerHTML = filtered.map(i => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-primary);">${i.name}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);"><i class="fa-brands fa-${i.platform.toLowerCase() === 'instagram' ? 'instagram' : (i.platform.toLowerCase() === 'youtube' ? 'youtube' : 'twitter')}"></i> ${i.platform}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">${i.niche}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 500;">${i.reach}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--accent-green); font-weight: 600;">${i.engagement}</td>
+            </tr>
+        `).join('');
+    }
+}
+
+function renderDriveFolderTree(client, isPR) {
+    const treeElement = document.getElementById("drive-folder-tree");
+    if (!treeElement) return;
+
+    let treeHtml = `
+        <div class="drive-node">
+            <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-down"></i><i class="drive-node-icon fa-brands fa-google-drive" style="color: #4285f4;"></i><b>Google Drive Root (Storage)</b></span>
+            <div class="drive-node">
+                <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-down"></i><i class="drive-node-icon fa-solid fa-folder-open" style="color: #fbbc05;"></i><b>Clients</b></span>
+                <div class="drive-node">
+                    <span class="drive-node-title" style="color: var(--accent-purple);"><i class="drive-node-arrow fa-solid fa-chevron-down"></i><i class="drive-node-icon fa-solid fa-folder-open"></i><b>${client}</b></span>
+    `;
+
+    if (isPR) {
+        treeHtml += `
+                    <!-- PR Folders -->
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Pitches (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Case Studies (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Press Releases (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>MoMs (Auto-Archives Active)</span>
+                    </div>
+        `;
+    } else {
+        treeHtml += `
+                    <!-- Marketing Folders -->
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Logos & Brand (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Photo Gallery (4 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Creative Assets (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>Pitches (2 files)</span>
+                    </div>
+                    <div class="drive-node">
+                        <span class="drive-node-title"><i class="drive-node-arrow fa-solid fa-chevron-right"></i><i class="drive-node-icon fa-solid fa-folder" style="color: #ffca28;"></i>MoMs (Auto-Archives Active)</span>
+                    </div>
+        `;
+    }
+
+    treeHtml += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    treeElement.innerHTML = treeHtml;
+}
+
+function initDriveUploader(client, isPR) {
+    const uploadZone = document.getElementById("mock-upload-zone");
+    const fileInput = document.getElementById("mock-file-input");
+    const statusDisplay = document.getElementById("upload-status-display");
+    const filenameLabel = document.getElementById("upload-filename");
+    const percentageLabel = document.getElementById("upload-percentage");
+    const progressBar = document.getElementById("upload-progress-bar");
+    const statusMsg = document.getElementById("upload-status-msg");
+
+    if (!uploadZone || !fileInput) return;
+
+    // Trigger click on zone to select file
+    uploadZone.onclick = () => fileInput.click();
+
+    // Drag-over styling
+    uploadZone.ondragover = (e) => {
+        e.preventDefault();
+        uploadZone.style.background = "rgba(139, 92, 246, 0.08)";
+    };
+    uploadZone.ondragleave = () => {
+        uploadZone.style.background = "rgba(139, 92, 246, 0.02)";
+    };
+
+    // File Drop
+    uploadZone.ondrop = (e) => {
+        e.preventDefault();
+        uploadZone.style.background = "rgba(139, 92, 246, 0.02)";
+        if (e.dataTransfer.files.length > 0) {
+            handleMockUpload(e.dataTransfer.files[0], client, isPR);
+        }
+    };
+
+    // File Input change
+    fileInput.onchange = (e) => {
+        if (fileInput.files.length > 0) {
+            handleMockUpload(fileInput.files[0], client, isPR);
+        }
+    };
+
+    function handleMockUpload(file, currentClient, isPRClient) {
+        // Show status tracker
+        if (statusDisplay) statusDisplay.style.display = "block";
+        if (filenameLabel) filenameLabel.textContent = file.name;
+        if (percentageLabel) percentageLabel.textContent = "0%";
+        if (progressBar) progressBar.style.width = "0%";
+        if (statusMsg) statusMsg.textContent = "Connecting to Google Drive...";
+
+        let progress = 0;
+        const uploadInterval = setInterval(() => {
+            progress += 10;
+            if (percentageLabel) percentageLabel.textContent = `${progress}%`;
+            if (progressBar) progressBar.style.width = `${progress}%`;
+
+            if (progress === 30) {
+                if (statusMsg) statusMsg.textContent = `Authenticating storage permissions for ${currentClient}...`;
+            } else if (progress === 60) {
+                // Determine destination directory folder
+                let folderDest = "Pitches";
+                const ext = file.name.split('.').pop().toLowerCase();
+                
+                if (isPRClient) {
+                    if (ext === "pdf" || ext === "doc" || ext === "docx") {
+                        folderDest = "Press Releases";
+                    }
+                } else {
+                    if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "svg") {
+                        folderDest = "Photo Gallery";
+                    } else if (ext === "psd" || ext === "ai" || ext === "eps") {
+                        folderDest = "Creative Assets";
+                    }
+                }
+                if (statusMsg) statusMsg.textContent = `Routing to directory: Clients / ${currentClient} / ${folderDest}...`;
+            } else if (progress === 100) {
+                clearInterval(uploadInterval);
+                if (statusMsg) statusMsg.textContent = "File uploaded successfully to Google Drive!";
+                showToast("✅ Drive Sync Complete", `Successfully organized "${file.name}" into Google Drive clients folder.`, 5000);
+                
+                // Clear inputs
+                fileInput.value = "";
+            }
+        }, 3000 / 10);
+    }
+}
+
 
 
 
