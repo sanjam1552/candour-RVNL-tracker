@@ -5285,17 +5285,17 @@ function updateDashboard() {
         if (smCardH3) smCardH3.textContent = "Social Outputs";
         if (smCardDesc) smCardDesc.textContent = "Published on LinkedIn/X";
         if (prCardH3) {
-            prCardH3.textContent = state.activeClient === "RVNL" ? "PR Activities" : "PR Coverages";
+            prCardH3.textContent = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") ? "PR Activities" : "PR Coverages";
         }
         if (prCardDesc) {
-            prCardDesc.textContent = state.activeClient === "RVNL" ? "PR activities tracked" : "Media coverages secured";
+            prCardDesc.textContent = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") ? "PR activities tracked" : "Media coverages secured";
         }
         if (wipCardH3) wipCardH3.textContent = "Work in Progress";
         if (wipCardDesc) wipCardDesc.textContent = "Currently active/review";
         
         const totalVal = clientTasks.length;
         const linkedinVal = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-        const prVal = state.activeClient === "RVNL"
+        const prVal = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar")
             ? clientTasks.filter(t => t.type === 'PR Update').length
             : getPRPublicationsCount(clientTasks);
         const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold', 'Client Approval Pending'].includes(t.status)).length;
