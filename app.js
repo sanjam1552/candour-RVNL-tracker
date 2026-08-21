@@ -6839,7 +6839,7 @@ function renderReportView() {
 
         const prReleaseLabel = document.getElementById("rep-stat-pr-releases")?.nextElementSibling;
         if (prReleaseLabel) {
-            if (state.activeClient === "RVNL") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
                 prReleaseLabel.textContent = "PR Activities";
             } else {
                 prReleaseLabel.textContent = "Press Releases Issued";
@@ -6878,7 +6878,7 @@ function renderReportView() {
             // 5. Populate statistics
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
-        } else if (state.activeClient === "RVNL" && periodType === "weekly") {
+        } else if ((state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") && periodType === "weekly") {
             // 1. Hide Press Coverage Items box (prBox)
             if (prBox) prBox.style.display = "none";
             
@@ -6994,7 +6994,7 @@ function renderReportView() {
             if (verificationLink === "Sent for internal approval") {
                 verificationLink = "WIP";
             }
-            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL") && task.status !== "Published/Closed") {
+            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") && task.status !== "Published/Closed") {
                 verificationLink = "WIP";
             }
             if (task.liveLink && task.liveLink.startsWith("http")) {
@@ -7056,7 +7056,7 @@ function renderReportView() {
             }
 
             let screenStatusHtml = "";
-            if (state.activeClient === "RVNL") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
                 const screenText = task.status === "Published/Closed" ? timelineDisplay : displayStatus;
                 screenStatusHtml = `
                     <div class="no-print">
@@ -7235,7 +7235,7 @@ function renderReportView() {
                         : "";
 
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
                         screenStatusHtml = isWipTask 
                             ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                             : "";
@@ -7409,7 +7409,7 @@ function renderReportView() {
                     const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
                         screenStatusHtml = `
                             <div class="no-print">
                                 <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
