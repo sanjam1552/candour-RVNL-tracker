@@ -2315,16 +2315,89 @@ function setupEventListeners() {
         }
     }
 
-    // User login event listeners (Email Link passwordless sign-in)
+    // User login event listeners (Email & Password sign-in + Email Link fallback)
     const emailLoginForm = document.getElementById("email-login-form");
     if (emailLoginForm) {
         emailLoginForm.addEventListener("submit", (e) => {
             e.preventDefault();
             const emailInput = document.getElementById("login-email-input");
+            const passwordInput = document.getElementById("login-password-input");
             const email = emailInput.value.trim();
+            const password = passwordInput ? passwordInput.value : "";
             const errorMsgEl = document.getElementById("login-error-msg");
             const infoMsgEl = document.getElementById("login-info-msg");
             const submitBtn = document.getElementById("login-submit-btn");
+
+            const lowerEmail = email.toLowerCase();
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
+                    errorMsgEl.style.display = "block";
+                }
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
+
+            if (!password) {
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Please enter your password to sign in. If you don't have a password yet, request a login link below.";
+                    errorMsgEl.style.display = "block";
+                }
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
+
+            if (errorMsgEl) errorMsgEl.style.display = "none";
+            if (infoMsgEl) {
+                infoMsgEl.textContent = "Signing in...";
+                infoMsgEl.style.color = "var(--accent-blue)";
+                infoMsgEl.style.display = "block";
+            }
+            if (submitBtn) submitBtn.disabled = true;
+
+            const rememberMeInput = document.getElementById("login-remember-me");
+            const persistence = (rememberMeInput && rememberMeInput.checked) 
+                ? firebase.auth.Auth.Persistence.LOCAL 
+                : firebase.auth.Auth.Persistence.SESSION;
+
+            firebase.auth().setPersistence(persistence)
+                .then(() => {
+                    return firebase.auth().signInWithEmailAndPassword(email, password);
+                })
+                .then(() => {
+                    if (infoMsgEl) infoMsgEl.style.display = "none";
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (passwordInput) passwordInput.value = "";
+                })
+                .catch((error) => {
+                    console.error("Error signing in with password:", error);
+                    if (infoMsgEl) infoMsgEl.style.display = "none";
+                    if (errorMsgEl) {
+                        errorMsgEl.textContent = `Failed to sign in: ${error.message}`;
+                        errorMsgEl.style.display = "block";
+                    }
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+        });
+    }
+
+    const sendLinkBtn = document.getElementById("login-send-link-btn");
+    if (sendLinkBtn) {
+        sendLinkBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById("login-email-input");
+            const email = emailInput.value.trim();
+            const errorMsgEl = document.getElementById("login-error-msg");
+            const infoMsgEl = document.getElementById("login-info-msg");
+
+            if (!email) {
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Please enter your email address first.";
+                    errorMsgEl.style.display = "block";
+                }
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
 
             const lowerEmail = email.toLowerCase();
             if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
@@ -2342,7 +2415,6 @@ function setupEventListeners() {
                 infoMsgEl.style.color = "var(--accent-blue)";
                 infoMsgEl.style.display = "block";
             }
-            if (submitBtn) submitBtn.disabled = true;
 
             const actionCodeSettings = {
                 url: window.location.origin + window.location.pathname,
@@ -2351,14 +2423,11 @@ function setupEventListeners() {
 
             firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
                 .then(() => {
-                    // Save email locally to avoid asking on same device
                     window.localStorage.setItem('emailForSignIn', email);
                     if (infoMsgEl) {
                         infoMsgEl.textContent = `Success! A login link has been sent to ${email}. Please check your inbox (and spam folder) and click the link to sign in.`;
                         infoMsgEl.style.color = "var(--accent-blue)";
                     }
-                    if (submitBtn) submitBtn.disabled = false;
-                    emailInput.value = "";
                 })
                 .catch((error) => {
                     console.error("Error sending email link:", error);
@@ -2367,7 +2436,59 @@ function setupEventListeners() {
                         errorMsgEl.textContent = `Failed to send link: ${error.message}`;
                         errorMsgEl.style.display = "block";
                     }
-                    if (submitBtn) submitBtn.disabled = false;
+                });
+        });
+    }
+
+    const forgotPwBtn = document.getElementById("login-forgot-pw-btn");
+    if (forgotPwBtn) {
+        forgotPwBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById("login-email-input");
+            const email = emailInput.value.trim();
+            const errorMsgEl = document.getElementById("login-error-msg");
+            const infoMsgEl = document.getElementById("login-info-msg");
+
+            if (!email) {
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Please enter your email address first.";
+                    errorMsgEl.style.display = "block";
+                }
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
+
+            const lowerEmail = email.toLowerCase();
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
+                    errorMsgEl.style.display = "block";
+                }
+                if (infoMsgEl) infoMsgEl.style.display = "none";
+                return;
+            }
+
+            if (errorMsgEl) errorMsgEl.style.display = "none";
+            if (infoMsgEl) {
+                infoMsgEl.textContent = "Sending password setup/reset link...";
+                infoMsgEl.style.color = "var(--accent-blue)";
+                infoMsgEl.style.display = "block";
+            }
+
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    if (infoMsgEl) {
+                        infoMsgEl.textContent = `Success! A password reset/setup link has been sent to ${email}. Please check your inbox and follow the instructions to set up your password.`;
+                        infoMsgEl.style.color = "var(--accent-blue)";
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error sending password reset email:", error);
+                    if (infoMsgEl) infoMsgEl.style.display = "none";
+                    if (errorMsgEl) {
+                        errorMsgEl.textContent = `Failed to send password link: ${error.message}`;
+                        errorMsgEl.style.display = "block";
+                    }
                 });
         });
     }

@@ -388,11 +388,13 @@ function showLoginError(msg) {
     if (preloader) preloader.style.display = "none";
 }
 
-// Passwordless Login Request
+// Login Form Submission (Password sign-in)
 loginForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const email = loginEmailInput.value.trim().toLowerCase();
-    
+    const passwordInput = document.getElementById("login-password-input");
+    const password = passwordInput ? passwordInput.value : "";
+
     // Validate if the email entered is one of the authorized client/admin emails
     const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
     const isClient = clientEmails.includes(email);
@@ -404,27 +406,125 @@ loginForm.addEventListener("submit", (e) => {
         return;
     }
 
-    loginInfoMsg.textContent = "Sending login link to your email...";
+    if (!password) {
+        loginErrorMsg.textContent = "Please enter your password. If you don't have a password yet, request a login link below.";
+        loginErrorMsg.style.display = "block";
+        loginInfoMsg.style.display = "none";
+        return;
+    }
+
+    loginInfoMsg.textContent = "Signing in...";
     loginInfoMsg.style.display = "block";
     loginErrorMsg.style.display = "none";
 
-    const actionCodeSettings = {
-        url: window.location.href,
-        handleCodeInApp: true
-    };
+    const rememberMeInput = document.getElementById("login-remember-me");
+    const persistence = (rememberMeInput && rememberMeInput.checked) 
+        ? firebase.auth.Auth.Persistence.LOCAL 
+        : firebase.auth.Auth.Persistence.SESSION;
 
-    firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+    firebase.auth().setPersistence(persistence)
         .then(() => {
-            window.localStorage.setItem('emailForSignIn', email);
-            loginInfoMsg.textContent = "Login link sent! Please check your email inbox (and spam folder) to complete sign-in.";
+            return firebase.auth().signInWithEmailAndPassword(email, password);
+        })
+        .then(() => {
+            loginInfoMsg.style.display = "none";
+            if (passwordInput) passwordInput.value = "";
         })
         .catch((error) => {
-            console.error("Error sending email link:", error);
+            console.error("Error signing in with password:", error);
             loginInfoMsg.style.display = "none";
             loginErrorMsg.textContent = `Error: ${error.message}`;
             loginErrorMsg.style.display = "block";
         });
 });
+
+// Sign-in with link click handler
+const sendLinkBtn = document.getElementById("login-send-link-btn");
+if (sendLinkBtn) {
+    sendLinkBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value.trim().toLowerCase();
+
+        if (!email) {
+            loginErrorMsg.textContent = "Please enter your email address first.";
+            loginErrorMsg.style.display = "block";
+            loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+        const isClient = clientEmails.includes(email);
+
+        if (!isCandourAdmin && !isClient) {
+            loginErrorMsg.textContent = "Access Denied: This email address is not authorized.";
+            loginErrorMsg.style.display = "block";
+            loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        loginInfoMsg.textContent = "Sending login link to your email...";
+        loginInfoMsg.style.display = "block";
+        loginErrorMsg.style.display = "none";
+
+        const actionCodeSettings = {
+            url: window.location.href,
+            handleCodeInApp: true
+        };
+
+        firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+            .then(() => {
+                window.localStorage.setItem('emailForSignIn', email);
+                loginInfoMsg.textContent = "Login link sent! Please check your email inbox (and spam folder) to complete sign-in.";
+            })
+            .catch((error) => {
+                console.error("Error sending email link:", error);
+                loginInfoMsg.style.display = "none";
+                loginErrorMsg.textContent = `Error: ${error.message}`;
+                loginErrorMsg.style.display = "block";
+            });
+    });
+}
+
+// Reset/Setup password click handler
+const forgotPwBtn = document.getElementById("login-forgot-pw-btn");
+if (forgotPwBtn) {
+    forgotPwBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value.trim().toLowerCase();
+
+        if (!email) {
+            loginErrorMsg.textContent = "Please enter your email address first.";
+            loginErrorMsg.style.display = "block";
+            loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+        const isClient = clientEmails.includes(email);
+
+        if (!isCandourAdmin && !isClient) {
+            loginErrorMsg.textContent = "Access Denied: This email address is not authorized.";
+            loginErrorMsg.style.display = "block";
+            loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        loginInfoMsg.textContent = "Sending password setup/reset link...";
+        loginInfoMsg.style.display = "block";
+        loginErrorMsg.style.display = "none";
+
+        firebase.auth().sendPasswordResetEmail(email)
+            .then(() => {
+                loginInfoMsg.textContent = `Success! A password reset/setup link has been sent to ${email}. Please check your inbox and follow instructions to set your password.`;
+            })
+            .catch((error) => {
+                console.error("Error sending password reset email:", error);
+                loginInfoMsg.style.display = "none";
+                loginErrorMsg.textContent = `Error: ${error.message}`;
+                loginErrorMsg.style.display = "block";
+            });
+    });
+}
 
 // Logout Handler
 logoutBtn.addEventListener("click", () => {

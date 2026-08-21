@@ -454,10 +454,18 @@
             <div style="font-size: 40px; color: var(--accent-blue); margin-bottom: 20px;"><i class="fa-solid fa-chart-pie"></i></div>
             <h3 style="margin-bottom: 10px; font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--text-primary);">RVNL Portal</h3>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">Access is restricted. Please sign in with your authorized client email address.</p>
-            <form id="client-login-form">
-                <input type="email" id="login-email-input" placeholder="advisor.media.rail@gmail.com" required>
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;">Send Login Link</button>
+            <form id="client-login-form" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+                <input type="email" id="login-email-input" placeholder="advisor.media.rail@gmail.com" required style="width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 14px; outline: none; font-family: var(--font-body); box-sizing: border-box;">
+                <input type="password" id="login-password-input" placeholder="Password" style="width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 14px; outline: none; font-family: var(--font-body); box-sizing: border-box;">
+                <label style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; cursor: pointer; user-select: none; text-align: left; margin: 2px 0;">
+                    <input type="checkbox" id="login-remember-me" checked style="width: 16px; height: 16px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background-color: var(--bg-primary);"> Remember Me
+                </label>
+                <button type="submit" id="login-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px; font-weight: 600; border-radius: 12px;">Sign In with Password</button>
             </form>
+            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+                <a href="#" id="login-send-link-btn" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">Sign in with one-click email link instead</a>
+                <a href="#" id="login-forgot-pw-btn" style="color: var(--text-secondary); text-decoration: none; font-weight: 500;">Set up password / Forgot password?</a>
+            </div>
             <div id="login-info-msg"></div>
             <div id="login-error-msg"></div>
         </div>
