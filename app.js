@@ -24,6 +24,39 @@ const PR_ONLY_CLIENTS = [
 const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar"];
 const ALL_CLIENTS = [...PR_ONLY_CLIENTS, ...SOCIAL_CREATIVE_CLIENTS];
 
+// Helper to get client full display name
+function getClientFullName(client) {
+    const names = {
+        "RVNL": "Rail Vikas Nigam Limited (RVNL)",
+        "Zoom": "Zoom Video Communications",
+        "Legrand": "Sanjay Motwani Leadership Profiling",
+        "iCode": "iCode",
+        "Kompact AI": "Kompact AI",
+        "BT Group": "BT Group",
+        "Candour": "Candour Communications",
+        "Green Shine Solar": "Green Shine Solar",
+        "Databricks": "Databricks",
+        "DXC": "DXC Technology",
+        "Delinea": "Delinea",
+        "SUSE": "SUSE",
+        "DEP": "DEP",
+        "IIIT Hyd": "IIIT Hyderabad",
+        "LDCS": "Legrand Data Center Solutions (LDCS)",
+        "NIIT University": "NIIT University",
+        "NIIT MTS": "NIIT MTS",
+        "Atlassian": "Atlassian",
+        "OutSystems": "OutSystems",
+        "Ziroh Labs": "Ziroh Labs",
+        "OVHcloud": "OVHcloud",
+        "TalentSprint": "TalentSprint",
+        "Neo4j": "Neo4j",
+        "Arup": "Arup",
+        "WSA": "WSA",
+        "Tenarai": "Tenarai"
+    };
+    return names[client] || client;
+}
+
 // Helper to get client logo path
 function getClientLogo(client) {
     if (client === "RVNL") return "inputs/RVNL (R)logo_vector.png";
@@ -3432,6 +3465,8 @@ function switchClient(client) {
                 <option value="Published directly by client">🟢 Published directly by client</option>
                 <option value="Missed opportunity">🔴 Missed opportunity</option>
                 <option value="Not used by client">🔴 Not used by client</option>
+                <option value="Coverage did not appear">🔴 Coverage did not appear</option>
+                <option value="Pending coverage">🟡 Pending coverage</option>
             `;
         } else {
             filterStatusSelect.innerHTML = `
@@ -3445,6 +3480,8 @@ function switchClient(client) {
                 <option value="On hold">On hold</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
+                <option value="Coverage did not appear">Coverage did not appear</option>
+                <option value="Pending coverage">Pending coverage</option>
             `;
         }
     }
@@ -3863,18 +3900,37 @@ function togglePRFormFields(type) {
 
     if (type === "PR Update") {
         if (taskStatusSelect) {
-            taskStatusSelect.innerHTML = `
-                <option value="WIP">WIP</option>
-                <option value="Sent for internal approval">Sent for internal approval</option>
-                <option value="Sent to client">Sent to client</option>
-                <option value="Client Approval Pending">Client Approval Pending</option>
-                <option value="Sent to journalist">Sent to journalist</option>
-                <option value="On hold">On hold</option>
-                <option value="Published/Closed">Published/Closed</option>
-                <option value="Published directly by client">Published directly by client</option>
-                <option value="Missed opportunity">Missed opportunity</option>
-                <option value="Not used by client">Not used by client</option>
-            `;
+            if (state.activeClient === "RVNL") {
+                taskStatusSelect.innerHTML = `
+                    <option value="WIP">🟡 WIP</option>
+                    <option value="Sent for internal approval">🟡 Sent for internal approval</option>
+                    <option value="Sent to client">🟡 Sent to client</option>
+                    <option value="Client Approval Pending">🟡 Client Approval Pending</option>
+                    <option value="Sent to journalist">🟡 Sent to journalist</option>
+                    <option value="On hold">🔴 On hold</option>
+                    <option value="Published/Closed">🟢 Published/Closed</option>
+                    <option value="Published directly by client">🟢 Published directly by client</option>
+                    <option value="Missed opportunity">🔴 Missed opportunity</option>
+                    <option value="Not used by client">🔴 Not used by client</option>
+                    <option value="Coverage did not appear">🔴 Coverage did not appear</option>
+                    <option value="Pending coverage">🟡 Pending coverage</option>
+                `;
+            } else {
+                taskStatusSelect.innerHTML = `
+                    <option value="WIP">WIP</option>
+                    <option value="Sent for internal approval">Sent for internal approval</option>
+                    <option value="Sent to client">Sent to client</option>
+                    <option value="Client Approval Pending">Client Approval Pending</option>
+                    <option value="Sent to journalist">Sent to journalist</option>
+                    <option value="On hold">On hold</option>
+                    <option value="Published/Closed">Published/Closed</option>
+                    <option value="Published directly by client">Published directly by client</option>
+                    <option value="Missed opportunity">Missed opportunity</option>
+                    <option value="Not used by client">Not used by client</option>
+                    <option value="Coverage did not appear">Coverage did not appear</option>
+                    <option value="Pending coverage">Pending coverage</option>
+                `;
+            }
         }
         prFields.classList.remove("hidden");
         prPubsSection.classList.remove("hidden");
@@ -4569,6 +4625,8 @@ function openDrawer(taskId = null, prefillData = null) {
                 <option value="Published directly by client">🟢 Published directly by client</option>
                 <option value="Missed opportunity">🔴 Missed opportunity</option>
                 <option value="Not used by client">🔴 Not used by client</option>
+                <option value="Coverage did not appear">🔴 Coverage did not appear</option>
+                <option value="Pending coverage">🟡 Pending coverage</option>
             `;
         } else {
             statusSelect.innerHTML = `
@@ -4580,6 +4638,8 @@ function openDrawer(taskId = null, prefillData = null) {
                 <option value="On hold">On hold</option>
                 <option value="Published/Closed">Published/Closed</option>
                 <option value="Not used by client">Not used by client</option>
+                <option value="Coverage did not appear">Coverage did not appear</option>
+                <option value="Pending coverage">Pending coverage</option>
             `;
         }
     }
@@ -5786,7 +5846,7 @@ function renderDashboardLists() {
 
     // 2. Hot Tasks (WIP / Awaiting Review)
     const hotTasks = clientTasks
-        .filter(t => t.status === 'WIP' || t.status === 'Sent for internal approval' || t.status === 'Sent to client' || t.status === 'Client Approval Pending')
+        .filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Client Approval Pending', 'Pending coverage'].includes(t.status))
         .slice(0, 5);
         
     const hotList = document.getElementById("recent-hot-tasks");
@@ -5804,7 +5864,7 @@ function renderDashboardLists() {
             });
             
             let badgeStatus = "status-wip";
-            if (item.status === "Sent for internal approval") badgeStatus = "status-review";
+            if (item.status === "Sent for internal approval" || item.status === "Pending coverage") badgeStatus = "status-review";
             if (item.status === "Sent to client" || item.status === "Client Approval Pending") badgeStatus = "status-approval";
 
             let iconOrImageHtml = `<div class="item-icon bg-amber"><i class="fa-solid fa-hourglass-half"></i></div>`;
@@ -6090,7 +6150,7 @@ function renderTrackerTable() {
         let statusClass = "status-wip";
         if (state.activeClient === "RVNL" && task.type === "PR Update") {
             const greenStatuses = ["Published/Closed", "Published directly by client"];
-            const redStatuses = ["On hold", "Missed opportunity", "Not used by client"];
+            const redStatuses = ["On hold", "Missed opportunity", "Not used by client", "Coverage did not appear"];
             if (greenStatuses.includes(task.status)) {
                 statusClass = "status-published";
             } else if (redStatuses.includes(task.status)) {
@@ -6103,7 +6163,8 @@ function renderTrackerTable() {
             if (task.status === "Sent for internal approval") statusClass = "status-review";
             if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
             if (task.status === "Not used by client") statusClass = "status-hold";
-            if (task.status === "Missed opportunity") statusClass = "status-missed";
+            if (task.status === "Missed opportunity" || task.status === "Coverage did not appear") statusClass = "status-missed";
+            if (task.status === "Pending coverage") statusClass = "status-review";
         }
         const statusPill = `<span class="status-pill ${statusClass}">${task.status}</span>`;
 
@@ -6782,32 +6843,16 @@ function generateReport(keepExclusions = false) {
     const reportLogo = document.getElementById("report-client-logo");
     
     if (reportTitle) {
-        if (state.activeClient === "RVNL") {
-            reportTitle.textContent = "Rail Vikas Nigam Limited (RVNL)";
-        } else if (state.activeClient === "Kompact AI") {
-            reportTitle.textContent = "Kompact AI";
-        } else if (state.activeClient === "Legrand") {
-            reportTitle.textContent = "Sanjay Motwani Leadership Profiling";
-        } else if (state.activeClient === "iCode") {
-            reportTitle.textContent = "iCode";
-        } else if (state.activeClient === "BT Group") {
-            reportTitle.textContent = "BT Group";
-        } else if (state.activeClient === "Candour") {
-            reportTitle.textContent = "Candour Communications";
-        } else if (state.activeClient === "Green Shine Solar") {
-            reportTitle.textContent = "Green Shine Solar";
-        } else if (state.activeClient === "Zoom") {
-            reportTitle.textContent = "Zoom Video Communications";
-        }
+        reportTitle.textContent = getClientFullName(state.activeClient);
     }
     
     if (reportSubtitle) {
-        if (state.activeClient === "BT Group") {
+        if (isPROnlyClient(state.activeClient)) {
+            reportSubtitle.textContent = "PR Coverage & Media Tracking Report";
+        } else if (state.activeClient === "BT Group") {
             reportSubtitle.textContent = "Social Media & Creative Marketing Report";
         } else if (state.activeClient === "iCode") {
             reportSubtitle.textContent = "Social Media & Campaigns Report";
-        } else if (state.activeClient === "Zoom") {
-            reportSubtitle.textContent = "PR Coverage & Media Tracking Report";
         } else {
             reportSubtitle.textContent = "PR, Social Media & Creative Marketing Report";
         }
@@ -6958,26 +7003,65 @@ function renderReportView() {
         if (defaultStats) defaultStats.classList.remove("hidden");
         if (icodeStats) icodeStats.classList.add("hidden");
 
-        const prReleaseLabel = document.getElementById("rep-stat-pr-releases")?.nextElementSibling;
-        if (prReleaseLabel) {
-            if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
-                prReleaseLabel.textContent = "PR Activities";
-            } else {
-                prReleaseLabel.textContent = "Press Releases Issued";
-            }
-        }
-
+        const smBox = document.getElementById("rep-stat-sm")?.closest('.summary-stat-box');
         const prBox = document.getElementById("rep-stat-pr")?.closest('.summary-stat-box');
         const prReleaseBox = document.getElementById("rep-stat-pr-releases")?.closest('.summary-stat-box');
         const collateralBox = document.getElementById("rep-stat-collateral-box");
         const secondaryRow = document.getElementById("report-stats-row-secondary");
         const firstRow = document.querySelector("#report-stats-summary-default .report-stats-row:first-child");
         
+        const reportSecSocial = document.getElementById("report-sec-social");
         const reportSecPr = document.getElementById("report-sec-pr");
+        const reportSecCreative = document.getElementById("report-sec-creative");
+        const reportSecDigital = document.getElementById("report-sec-digital-campaigns");
         const creativeTitleEl = document.getElementById("report-sec-creative-title");
         const prTitleEl = document.getElementById("report-sec-pr-title");
+
+        // Defaults resets
+        if (smBox) smBox.style.display = "";
+        if (prBox) prBox.style.display = "";
+        if (prReleaseBox) prReleaseBox.style.display = "";
+        if (collateralBox) collateralBox.style.display = "";
+        if (secondaryRow) secondaryRow.style.display = "";
+        if (reportSecSocial) reportSecSocial.style.display = "";
+        if (reportSecCreative) reportSecCreative.style.display = "";
+        if (reportSecDigital) reportSecDigital.style.display = "";
+        if (reportSecPr) reportSecPr.style.display = "";
         
-        if (state.activeClient === "BT Group") {
+        if (isPROnlyClient(state.activeClient)) {
+            // 1. Hide Social Media & Collateral boxes
+            if (smBox) smBox.style.display = "none";
+            if (collateralBox) collateralBox.style.display = "none";
+            
+            // 2. Move Press Coverage and Press Releases (labeled "PR Activities") to first row
+            if (firstRow) {
+                firstRow.classList.add("row-2col");
+                if (prBox) firstRow.appendChild(prBox);
+                if (prReleaseBox) firstRow.appendChild(prReleaseBox);
+            }
+            
+            // 3. Hide secondary row
+            if (secondaryRow) secondaryRow.style.display = "none";
+            
+            // 4. Hide unused sections
+            if (reportSecSocial) reportSecSocial.style.display = "none";
+            if (reportSecCreative) reportSecCreative.style.display = "none";
+            if (reportSecDigital) reportSecDigital.style.display = "none";
+            
+            // 5. Update PR section title and text
+            if (prTitleEl) {
+                prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 2. PR Activities & Media Coverage`;
+            }
+            if (prReleaseLabel) {
+                prReleaseLabel.textContent = "PR Activities";
+            }
+            
+            // 6. Populate statistics
+            const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
+            if (document.getElementById("rep-stat-pr")) document.getElementById("rep-stat-pr").textContent = totalPrPublications;
+            if (document.getElementById("rep-stat-pr-releases")) document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
+            
+        } else if (state.activeClient === "BT Group") {
             // 1. Hide PR stats boxes
             if (prBox) prBox.style.display = "none";
             if (prReleaseBox) prReleaseBox.style.display = "none";
@@ -6987,18 +7071,19 @@ function renderReportView() {
                 firstRow.classList.add("row-2col");
                 if (collateralBox) firstRow.appendChild(collateralBox);
             }
-            if (collateralBox) collateralBox.style.display = "";
             
             // 3. Hide secondary row
             if (secondaryRow) secondaryRow.style.display = "none";
             
-            // 4. Hide PR section & renumber creative section to 3
+            // 4. Hide PR section & digital campaigns
             if (reportSecPr) reportSecPr.style.display = "none";
+            if (reportSecDigital) reportSecDigital.style.display = "none";
             if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 3. Creative Collaterals & Graphic Designs`;
             
             // 5. Populate statistics
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
+            
         } else if ((state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") && periodType === "weekly") {
             // 1. Hide Press Coverage Items box (prBox)
             if (prBox) prBox.style.display = "none";
@@ -7009,15 +7094,12 @@ function renderReportView() {
                 if (prReleaseBox) firstRow.appendChild(prReleaseBox);
                 if (collateralBox) firstRow.appendChild(collateralBox);
             }
-            if (prReleaseBox) prReleaseBox.style.display = "";
-            if (collateralBox) collateralBox.style.display = "";
             
             // 3. Hide secondary row
             if (secondaryRow) secondaryRow.style.display = "none";
             
-            // 4. PR section stays since it is a WIP report
-            if (reportSecPr) reportSecPr.style.display = "";
-            if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
+            // 4. Hide digital campaigns
+            if (reportSecDigital) reportSecDigital.style.display = "none";
             
             // 5. Populate statistics
             if (document.getElementById("rep-stat-pr")) document.getElementById("rep-stat-pr").textContent = 0;
@@ -7025,30 +7107,35 @@ function renderReportView() {
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
+            if (prReleaseLabel) {
+                prReleaseLabel.textContent = "PR Activities";
+            }
             if (prTitleEl) {
                 prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
             }
+            if (creativeTitleEl) {
+                creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
+            }
         } else {
             // Restore default displays
-            if (prBox) prBox.style.display = "";
-            if (prReleaseBox) prReleaseBox.style.display = "";
             if (firstRow) {
                 firstRow.classList.add("row-2col");
+                if (smBox) firstRow.appendChild(smBox);
                 if (prBox) firstRow.appendChild(prBox);
             }
             if (secondaryRow && prReleaseBox) secondaryRow.appendChild(prReleaseBox);
             if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
             
-            // Show PR section & restore creative title to 4
-            if (reportSecPr) reportSecPr.style.display = "";
+            // Hide digital campaigns unless Green Shine Solar
+            if (state.activeClient !== "Green Shine Solar") {
+                if (reportSecDigital) reportSecDigital.style.display = "none";
+            }
+            
             if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
             
             if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                 if (collateralBox) collateralBox.style.display = "none";
                 if (secondaryRow) secondaryRow.style.display = "none";
-            } else {
-                if (collateralBox) collateralBox.style.display = "";
-                if (secondaryRow) secondaryRow.style.display = "";
             }
             
             const totalPrPublications = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
@@ -7062,6 +7149,9 @@ function renderReportView() {
             }
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
+            if (prReleaseLabel) {
+                prReleaseLabel.textContent = "Press Releases Issued";
+            }
             if (prTitleEl) {
                 if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
                     prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
@@ -7330,10 +7420,11 @@ function renderReportView() {
                     if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
                     if (task.status === "Sent to journalist") statusClass = "status-review";
                     if (task.status === "On hold") statusClass = "status-hold";
-                    if (task.status === "Not used by client") statusClass = "status-missed";
+                    if (task.status === "Not used by client" || task.status === "Coverage did not appear") statusClass = "status-missed";
+                    if (task.status === "Pending coverage") statusClass = "status-wip";
 
                     let statusOptionsHtml = "";
-                    const prStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Sent to journalist", "On hold", "Published/Closed", "Not used by client"];
+                    const prStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Sent to journalist", "On hold", "Published/Closed", "Not used by client", "Coverage did not appear", "Pending coverage"];
                     prStatuses.forEach(st => {
                         statusOptionsHtml += `<option value="${st}" ${task.status === st ? 'selected' : ''} style="background: #1e293b; color: #f8fafc;">${st}</option>`;
                     });
@@ -7490,7 +7581,7 @@ function renderReportView() {
     if (creativeBody && creativeSec) {
         creativeBody.innerHTML = "";
 
-        if (state.activeClient === "Legrand" || state.activeClient === "iCode" || state.activeClient === "Kompact AI") {
+        if (state.activeClient === "Legrand" || state.activeClient === "iCode" || state.activeClient === "Kompact AI" || isPROnlyClient(state.activeClient)) {
             creativeSec.style.display = "none";
         } else {
             creativeSec.style.display = "";
@@ -8219,24 +8310,18 @@ Report metrics:
 Write ONLY the final paragraph. Do not write any greetings or explanations.
 `;
         } else {
-            clientFullName = state.activeClient === "RVNL"
-                ? "Rail Vikas Nigam Limited (RVNL)"
-                : state.activeClient === "Kompact AI"
-                    ? "Kompact AI"
-                    : state.activeClient === "Green Shine Solar"
-                        ? "Green Shine Solar"
-                        : state.activeClient === "Zoom"
-                            ? "Zoom Video Communications"
-                            : "Legrand Data Center Solutions (LDCS)";
+            clientFullName = getClientFullName(state.activeClient);
 
-            const summaryHighlights = state.activeClient === "Legrand"
-                ? "overall output, key social milestones, and press/PR coverages"
-                : state.activeClient === "Zoom"
-                    ? "overall output, press/PR coverages, and media distribution metrics"
-                    : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
+            const summaryHighlights = isPROnlyClient(state.activeClient)
+                ? "overall output, press/PR coverages, and media distribution metrics"
+                : state.activeClient === "Legrand"
+                    ? "overall output, key social milestones, and press/PR coverages"
+                    : state.activeClient === "Zoom"
+                        ? "overall output, press/PR coverages, and media distribution metrics"
+                        : "overall output, key social milestones, press/PR coverages, and collaterals delivered";
 
             let creativeMetricsPrompt = "";
-            if (state.activeClient !== "Legrand") {
+            if (!isPROnlyClient(state.activeClient) && state.activeClient !== "Legrand") {
                 creativeMetricsPrompt = `\n- Creative Collaterals: ${repCollateral} (Titles: ${clippingsTitles.slice(0, 10).join(", ")})`;
             }
 
