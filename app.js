@@ -12650,6 +12650,7 @@ if (refreshGeoBtn) {
         if (insightsEl) insightsEl.textContent = "Regenerating GEO Strategy...";
         const selectedMonth = document.getElementById("report-month").value;
         await updateAeoGeoAnalytics(selectedMonth, true); // Force bypass local cache
+    });
 }
 
 
