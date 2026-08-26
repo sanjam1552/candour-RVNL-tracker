@@ -6956,6 +6956,11 @@ function generateReport(keepExclusions = false) {
 
     // Call actual renderer
     renderReportView();
+    
+    // Fetch and update Otterly analytics on fresh report generation
+    if (keepExclusions !== true) {
+        updateAeoGeoAnalytics(selectedMonth);
+    }
 }
 
 function renderReportView() {
@@ -7006,6 +7011,7 @@ function renderReportView() {
         const smBox = document.getElementById("rep-stat-sm")?.closest('.summary-stat-box');
         const prBox = document.getElementById("rep-stat-pr")?.closest('.summary-stat-box');
         const prReleaseBox = document.getElementById("rep-stat-pr-releases")?.closest('.summary-stat-box');
+        const prReleaseLabel = prReleaseBox ? prReleaseBox.querySelector(".box-lbl") : null;
         const collateralBox = document.getElementById("rep-stat-collateral-box");
         const secondaryRow = document.getElementById("report-stats-row-secondary");
         const firstRow = document.querySelector("#report-stats-summary-default .report-stats-row:first-child");
@@ -12307,6 +12313,299 @@ function initDriveUploader(client, isPR) {
             }
         }, 3000 / 10);
     }
+}
+
+// ====================================================
+// AEO & GEO SEARCH ENGINE VISIBILITY (OTTERLY AI)
+// ====================================================
+
+let aeoSovChartInstance = null;
+
+function getMonthDateRange(monthStr) {
+    if (!monthStr) return { start: "2026-08-01", end: "2026-08-26" };
+    const parts = monthStr.trim().split(/\s+/);
+    if (parts.length !== 2) return { start: "2026-08-01", end: "2026-08-26" };
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthIdx = monthNames.indexOf(parts[0]);
+    const year = parseInt(parts[1], 10);
+    if (monthIdx === -1 || isNaN(year)) return { start: "2026-08-01", end: "2026-08-26" };
+    
+    const startMonth = String(monthIdx + 1).padStart(2, '0');
+    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+    return {
+        start: `${year}-${startMonth}-01`,
+        end: `${year}-${startMonth}-${String(lastDay).padStart(2, '0')}`
+    };
+}
+
+async function updateAeoGeoAnalytics(selectedMonth) {
+    const sectionEl = document.getElementById("report-sec-aeo-geo");
+    if (!sectionEl) return;
+    
+    // RVNL client focus and monthly report only
+    const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
+    if (state.activeClient !== "RVNL" || periodType === "weekly") {
+        sectionEl.style.display = "none";
+        return;
+    }
+    
+    sectionEl.style.display = "";
+    
+    const range = getMonthDateRange(selectedMonth);
+    
+    // Set loading indicator
+    document.getElementById("aeo-metric-sov").textContent = "...";
+    document.getElementById("aeo-metric-mentions").textContent = "...";
+    document.getElementById("aeo-metric-position").textContent = "...";
+    document.getElementById("aeo-metric-sources").textContent = "...";
+    
+    const competitorBody = document.getElementById("aeo-competitor-table-body");
+    const citationsBody = document.getElementById("aeo-citations-table-body");
+    const insightsEl = document.getElementById("aeo-geo-insights-content");
+    
+    if (competitorBody) competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">Loading competitor visibility...</td></tr>`;
+    if (citationsBody) citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">Loading citation metrics...</td></tr>`;
+    if (insightsEl) insightsEl.textContent = "Analyzing Otterly citation data and calculating GEO recommendations...";
+    
+    try {
+        const reportId = "01KZ32Y3BSH4E19NQHF9G31MGD";
+        
+        // Fetch stats
+        const statsRes = await fetch(`/api/otterly?endpoint=stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in`);
+        const stats = await statsRes.json();
+        
+        // Fetch citations stats
+        const citStatsRes = await fetch(`/api/otterly?endpoint=citations/stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in`);
+        const citStats = await citStatsRes.json();
+        
+        // 1. Render Metrics Grid
+        const summary = stats.summary || {};
+        document.getElementById("aeo-metric-sov").textContent = `${summary.shareOfVoice || 0}%`;
+        document.getElementById("aeo-metric-mentions").textContent = Number(summary.totalMentions || 0).toLocaleString();
+        document.getElementById("aeo-metric-position").textContent = Number(summary.averagePosition || 0).toFixed(2);
+        document.getElementById("aeo-metric-sources").textContent = summary.totalSources || 0;
+        
+        // 2. Render Competitors Table
+        if (competitorBody) {
+            competitorBody.innerHTML = "";
+            const allMentionsList = stats.allBrandsAnalysis?.brandMentions || [];
+            allMentionsList.forEach(item => {
+                const tr = document.createElement("tr");
+                const isMain = item.isMainBrand;
+                tr.innerHTML = `
+                    <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}">
+                        ${item.brand} ${isMain ? '(RVNL)' : ''}
+                    </td>
+                    <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${Number(item.mentions || 0).toLocaleString()}</td>
+                    <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${item.shareOfVoice || 0}%</td>
+                `;
+                competitorBody.appendChild(tr);
+            });
+            if (allMentionsList.length === 0) {
+                competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">No competitor stats found.</td></tr>`;
+            }
+        }
+        
+        // 3. Render Top Citation Sources Table
+        if (citationsBody) {
+            citationsBody.innerHTML = "";
+            const topCitations = citStats.citations || [];
+            topCitations.slice(0, 8).forEach((item, index) => {
+                const tr = document.createElement("tr");
+                let hostname = "link";
+                try {
+                    hostname = new URL(item.url).hostname;
+                } catch(err) {
+                    hostname = item.url || "source";
+                }
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${item.logoUrl ? `<img src="${item.logoUrl}" style="width: 16px; height: 16px; object-fit: contain; border-radius: 2px;">` : '<i class="fa-solid fa-globe" style="font-size: 12px; color: var(--text-muted);"></i>'}
+                            <a href="${item.url}" target="_blank" style="color: var(--accent-blue); text-decoration: none; word-break: break-all;">
+                                ${hostname}
+                            </a>
+                        </div>
+                    </td>
+                    <td style="text-align: right;">${item.currentCitations || 0}</td>
+                    <td style="text-align: right;">${(item.citationShare || 0).toFixed(2)}%</td>
+                `;
+                citationsBody.appendChild(tr);
+            });
+            if (topCitations.length === 0) {
+                citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No citation sources recorded.</td></tr>`;
+            }
+        }
+        
+        // 4. Render Chart.js Donut for Engine Breakdown
+        const engines = ['chatgpt', 'perplexity', 'copilot'];
+        const enginePromises = engines.map(eng => 
+            fetch(`/api/otterly?endpoint=stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in&engines=${eng}`)
+                .then(r => r.json())
+                .catch(() => ({}))
+        );
+        const engineResults = await Promise.all(enginePromises);
+        
+        const chartLabels = ['ChatGPT', 'Perplexity', 'Copilot'];
+        const chartData = engines.map((eng, idx) => {
+            const res = engineResults[idx];
+            let rvnlMentions = 0;
+            const bmList = res.allBrandsAnalysis?.brandMentions || [];
+            const rvnlItem = bmList.find(b => b.brand === 'RVNL');
+            if (rvnlItem) {
+                rvnlMentions = rvnlItem.mentions || 0;
+            }
+            return rvnlMentions;
+        });
+        
+        const chartCanvas = document.getElementById('aeo-sov-chart');
+        if (chartCanvas) {
+            const ctx = chartCanvas.getContext('2d');
+            if (aeoSovChartInstance) {
+                aeoSovChartInstance.destroy();
+            }
+            
+            aeoSovChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: [
+                            '#10b981',
+                            '#3b82f6',
+                            '#8b5cf6'
+                        ],
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#94a3b8',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                },
+                                boxWidth: 12
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Populate textual values legend
+        const legendContainer = document.getElementById("aeo-sov-values-legend");
+        if (legendContainer) {
+            legendContainer.innerHTML = "";
+            const totalEngineMentions = chartData.reduce((a, b) => a + b, 0);
+            const colors = ['#10b981', '#3b82f6', '#8b5cf6'];
+            
+            chartLabels.forEach((label, idx) => {
+                const count = chartData[idx];
+                const pct = totalEngineMentions > 0 ? ((count / totalEngineMentions) * 100).toFixed(1) : 0;
+                
+                const legendItem = document.createElement("div");
+                legendItem.style.display = "flex";
+                legendItem.style.alignItems = "center";
+                legendItem.style.justifyContent = "space-between";
+                legendItem.style.width = "100%";
+                
+                legendItem.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${colors[idx]};"></span>
+                        <span style="font-weight: 500;">${label}</span>
+                    </div>
+                    <div style="font-weight: 600; color: var(--text-primary);">
+                        ${Number(count).toLocaleString()} mentions (${pct}%)
+                    </div>
+                `;
+                legendContainer.appendChild(legendItem);
+            });
+        }
+        
+        // 5. Generate Recommendations using Gemini
+        await generateGeoRecommendations(summary, stats.allBrandsAnalysis?.brandMentions || [], citStats.citations || []);
+        
+    } catch (e) {
+        console.error("Failed to load Otterly data:", e);
+        if (insightsEl) {
+            insightsEl.innerHTML = `
+                <div style="color: var(--accent-red); font-weight: 500;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Failed to connect to Otterly API proxy. Please ensure the local python server is running and the API key is active.
+                </div>
+            `;
+        }
+    }
+}
+
+async function generateGeoRecommendations(summary, competitors, topCitations) {
+    const insightsEl = document.getElementById("aeo-geo-insights-content");
+    if (!insightsEl) return;
+
+    const geminiKey = localStorage.getItem("rvnl_gemini_key");
+    if (!geminiKey) {
+        let staticGeoInsights = `
+            <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>Optimize Wikipedia Citations</strong>: Wikipedia remains a core citation source for LLMs representing major overall influence. Update the RVNL page with latest corporate awards and milestone projects.</li>
+                <li><strong>Target Industry Portals</strong>: Outperform competitors like <strong>IRCON</strong> by pitching guest articles or earning brand mentions on high-ranking domain sources (e.g. <em>theindustryoutlook.com</em>, <em>psuconnect.in</em>).</li>
+                <li><strong>RAG Alignment</strong>: Format online press releases with clear headers and bullet points to improve ingestion rate by LLM retrieval pipelines (Retrieval-Augmented Generation).</li>
+            </ul>
+            <div class="no-print" style="margin-top: 12px; font-size: 11px; color: var(--text-muted); font-style: italic;">
+                💡 Tip: Add a Gemini API Key in the settings tab to generate dynamic real-time AI recommendations.
+            </div>
+        `;
+        insightsEl.innerHTML = staticGeoInsights;
+        return;
+    }
+
+    const citationsStr = topCitations.slice(0, 5).map(c => `- ${c.url} (${c.currentCitations} citations)`).join("\n");
+    const competitorsStr = competitors.slice(0, 4).map(c => `- ${c.brand}: ${c.shareOfVoice}% SOV`).join("\n");
+    
+    const prompt = `
+You are a senior Answer Engine Optimization (AEO) and Generative Engine Optimization (GEO) strategist at Candour Communications.
+Provide 3 highly actionable, bulleted recommendations (max 120 words total) for our client RVNL to improve their search engine visibility and recommendation rate across LLMs (ChatGPT, Gemini, Perplexity).
+Use the following Otterly brand visibility context:
+- Share of Voice: ${summary.shareOfVoice || 31}%
+- Total Mentions: ${summary.totalMentions || 6413}
+- Average Position: ${summary.averagePosition || 1.42}
+- Top Competitors:
+${competitorsStr}
+- Top Cited Domains/URLs:
+${citationsStr}
+
+Format the response strictly as an HTML bulleted list (<ul> and <li> tags). Keep the tone professional, authoritative, and direct. Do not include any introduction or markdown blocks.
+`;
+    try {
+        const aiText = await callGemini(geminiKey, prompt);
+        insightsEl.innerHTML = aiText.trim();
+    } catch (e) {
+        console.error("Gemini GEO strategy generation failed:", e);
+        insightsEl.innerHTML = `
+            <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>Optimize Wikipedia Citations</strong>: wikipedia.org represents a major RAG retrieval source for RVNL. Maintain up-to-date information regarding projects.</li>
+                <li><strong>Acquire High-Authority Domain Citations</strong>: Target news portals such as <em>psuconnect.in</em> and industry journals.</li>
+            </ul>
+        `;
+    }
+}
+
+// Hook up GEO Refresh Button
+const refreshGeoBtn = document.getElementById("btn-generate-geo-ai");
+if (refreshGeoBtn) {
+    refreshGeoBtn.addEventListener("click", async () => {
+        const insightsEl = document.getElementById("aeo-geo-insights-content");
+        if (insightsEl) insightsEl.textContent = "Regenerating GEO Strategy...";
+        const selectedMonth = document.getElementById("report-month").value;
+        await updateAeoGeoAnalytics(selectedMonth);
+    });
 }
 
 

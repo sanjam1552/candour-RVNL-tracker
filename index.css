@@ -3449,5 +3449,13 @@ img[src*="neo4j.png"] {
     border-color: var(--accent-purple) !important;
 }
 
+/* AEO & GEO section layout print styles */
+@media print {
+    #report-sec-aeo-geo {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
+}
+
 
 

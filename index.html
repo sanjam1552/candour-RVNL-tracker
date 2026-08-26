@@ -692,6 +692,98 @@
                         </div>
                     </div>
 
+                    <!-- AEO & GEO Analytics Section -->
+                    <div class="report-section page-break-before" id="report-sec-aeo-geo" style="display: none;">
+                        <h3 class="report-section-title" id="report-sec-aeo-geo-title"><i class="fa-solid fa-brain"></i> 6. AEO & GEO Search Engine Visibility</h3>
+                        
+                        <!-- Otterly Metrics Grid -->
+                        <div class="aeo-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="aeo-metric-sov">0%</span>
+                                <span class="box-lbl">Share of Voice</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="aeo-metric-mentions">0</span>
+                                <span class="box-lbl">Brand Mentions</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="aeo-metric-position">0.00</span>
+                                <span class="box-lbl">Average Position</span>
+                            </div>
+                            <div class="summary-stat-box">
+                                <span class="box-num" id="aeo-metric-sources">0</span>
+                                <span class="box-lbl">Total Citations</span>
+                            </div>
+                        </div>
+
+                        <!-- Chart and Details Layout -->
+                        <div style="display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap;">
+                            <!-- Chart Container -->
+                            <div style="flex: 1; min-width: 280px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 20px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <h4 style="margin: 0 0 15px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; width: 100%; text-align: left; color: var(--text-primary);">AI Search Engine Share of Voice</h4>
+                                <div style="width: 200px; height: 200px; position: relative;">
+                                    <canvas id="aeo-sov-chart"></canvas>
+                                </div>
+                                <!-- Textual values legend visible in PDF exports -->
+                                <div id="aeo-sov-values-legend" style="margin-top: 20px; width: 100%; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 12px; box-sizing: border-box;">
+                                    <!-- Dynamic elements -->
+                                </div>
+                            </div>
+                            
+                            <!-- Competitor Comparison -->
+                            <div style="flex: 1.2; min-width: 320px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 20px; border-radius: 16px; box-sizing: border-box;">
+                                <h4 style="margin: 0 0 15px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--text-primary);">Share of Voice vs. Competitors</h4>
+                                <div class="table-responsive">
+                                    <table class="report-print-table" style="margin-top: 0;">
+                                        <thead>
+                                            <tr>
+                                                <th>Brand Domain</th>
+                                                <th style="width: 100px; text-align: right;">Citations</th>
+                                                <th style="width: 120px; text-align: right;">Share of Voice</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="aeo-competitor-table-body">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Citation Sources -->
+                        <h4 style="margin: 20px 0 10px; font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--text-primary);"><i class="fa-solid fa-link"></i> Top AI Recommendation Citations</h4>
+                        <div class="table-responsive" style="margin-bottom: 24px;">
+                            <table class="report-print-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Rank</th>
+                                        <th>Cited Web URL / Domain</th>
+                                        <th style="width: 150px; text-align: right;">Source Mentions</th>
+                                        <th style="width: 150px; text-align: right;">Influence Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="aeo-citations-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- GEO Strategies & AI Actions -->
+                        <div style="background: rgba(139, 92, 246, 0.05); border: 1px dashed rgba(139, 92, 246, 0.3); border-radius: 16px; padding: 20px; margin-top: 20px; position: relative;">
+                            <div class="no-print" style="position: absolute; top: 12px; right: 15px; display: flex; gap: 8px;">
+                                <button type="button" id="btn-generate-geo-ai" class="btn btn-secondary btn-sm" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple); border-color: rgba(139, 92, 246, 0.25);">
+                                    <i class="fa-solid fa-brain"></i> Refresh GEO Plan with Gemini
+                                </button>
+                            </div>
+                            <h4 style="margin: 0 0 12px; font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--accent-purple); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-lightbulb"></i> Generative Engine Optimization (GEO) Strategy
+                            </h4>
+                            <div id="aeo-geo-insights-content" style="font-size: 13px; line-height: 1.6; color: var(--text-secondary);">
+                                Generating dynamic GEO strategies based on Otterly citation share...
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Sign off -->
                     <div class="report-footer-print">
                         <div class="footer-divider"></div>
