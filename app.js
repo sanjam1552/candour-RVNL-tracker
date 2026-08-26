@@ -12342,6 +12342,9 @@ async function updateAeoGeoAnalytics(selectedMonth) {
     const sectionEl = document.getElementById("report-sec-aeo-geo");
     if (!sectionEl) return;
     
+    // Only fetch if the Report Builder tab is active to save API pulls
+    if (state.activeTab !== "reports") return;
+    
     // RVNL client focus and monthly report only
     const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
     if (state.activeClient !== "RVNL" || periodType === "weekly") {
