@@ -12338,7 +12338,7 @@ function getMonthDateRange(monthStr) {
     };
 }
 
-async function updateAeoGeoAnalytics(selectedMonth) {
+async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
     const sectionEl = document.getElementById("report-sec-aeo-geo");
     if (!sectionEl) return;
     
@@ -12355,16 +12355,42 @@ async function updateAeoGeoAnalytics(selectedMonth) {
     sectionEl.style.display = "";
     
     const range = getMonthDateRange(selectedMonth);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const cacheKey = `otterly_cache_${range.start}_${range.end}_${todayStr}`;
+    
+    // UI elements references
+    const competitorBody = document.getElementById("aeo-competitor-table-body");
+    const citationsBody = document.getElementById("aeo-citations-table-body");
+    const insightsEl = document.getElementById("aeo-geo-insights-content");
+    
+    // Check local storage cache
+    if (forceRefresh !== true) {
+        const cachedRaw = localStorage.getItem(cacheKey);
+        if (cachedRaw) {
+            try {
+                const cache = JSON.parse(cachedRaw);
+                
+                // Render from cache
+                renderOtterlyUI(cache.stats, cache.citStats, cache.chartData);
+                
+                // Set AI insights directly
+                if (insightsEl && cache.geoInsightsHtml) {
+                    insightsEl.innerHTML = cache.geoInsightsHtml;
+                }
+                
+                console.log("Loaded Otterly data and GEO strategy from local cache.");
+                return;
+            } catch (err) {
+                console.warn("Failed to parse cached Otterly data:", err);
+            }
+        }
+    }
     
     // Set loading indicator
     document.getElementById("aeo-metric-sov").textContent = "...";
     document.getElementById("aeo-metric-mentions").textContent = "...";
     document.getElementById("aeo-metric-position").textContent = "...";
     document.getElementById("aeo-metric-sources").textContent = "...";
-    
-    const competitorBody = document.getElementById("aeo-competitor-table-body");
-    const citationsBody = document.getElementById("aeo-citations-table-body");
-    const insightsEl = document.getElementById("aeo-geo-insights-content");
     
     if (competitorBody) competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">Loading competitor visibility...</td></tr>`;
     if (citationsBody) citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">Loading citation metrics...</td></tr>`;
@@ -12381,67 +12407,7 @@ async function updateAeoGeoAnalytics(selectedMonth) {
         const citStatsRes = await fetch(`/api/otterly?endpoint=citations/stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in`);
         const citStats = await citStatsRes.json();
         
-        // 1. Render Metrics Grid
-        const summary = stats.summary || {};
-        document.getElementById("aeo-metric-sov").textContent = `${summary.shareOfVoice || 0}%`;
-        document.getElementById("aeo-metric-mentions").textContent = Number(summary.totalMentions || 0).toLocaleString();
-        document.getElementById("aeo-metric-position").textContent = Number(summary.averagePosition || 0).toFixed(2);
-        document.getElementById("aeo-metric-sources").textContent = summary.totalSources || 0;
-        
-        // 2. Render Competitors Table
-        if (competitorBody) {
-            competitorBody.innerHTML = "";
-            const allMentionsList = stats.allBrandsAnalysis?.brandMentions || [];
-            allMentionsList.forEach(item => {
-                const tr = document.createElement("tr");
-                const isMain = item.isMainBrand;
-                tr.innerHTML = `
-                    <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}">
-                        ${item.brand} ${isMain ? '(RVNL)' : ''}
-                    </td>
-                    <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${Number(item.mentions || 0).toLocaleString()}</td>
-                    <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${item.shareOfVoice || 0}%</td>
-                `;
-                competitorBody.appendChild(tr);
-            });
-            if (allMentionsList.length === 0) {
-                competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">No competitor stats found.</td></tr>`;
-            }
-        }
-        
-        // 3. Render Top Citation Sources Table
-        if (citationsBody) {
-            citationsBody.innerHTML = "";
-            const topCitations = citStats.citations || [];
-            topCitations.slice(0, 8).forEach((item, index) => {
-                const tr = document.createElement("tr");
-                let hostname = "link";
-                try {
-                    hostname = new URL(item.url).hostname;
-                } catch(err) {
-                    hostname = item.url || "source";
-                }
-                tr.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            ${item.logoUrl ? `<img src="${item.logoUrl}" style="width: 16px; height: 16px; object-fit: contain; border-radius: 2px;">` : '<i class="fa-solid fa-globe" style="font-size: 12px; color: var(--text-muted);"></i>'}
-                            <a href="${item.url}" target="_blank" style="color: var(--accent-blue); text-decoration: none; word-break: break-all;">
-                                ${hostname}
-                            </a>
-                        </div>
-                    </td>
-                    <td style="text-align: right;">${item.currentCitations || 0}</td>
-                    <td style="text-align: right;">${(item.citationShare || 0).toFixed(2)}%</td>
-                `;
-                citationsBody.appendChild(tr);
-            });
-            if (topCitations.length === 0) {
-                citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No citation sources recorded.</td></tr>`;
-            }
-        }
-        
-        // 4. Render Chart.js Donut for Engine Breakdown
+        // Fetch engine stats
         const engines = ['chatgpt', 'perplexity', 'copilot'];
         const enginePromises = engines.map(eng => 
             fetch(`/api/otterly?endpoint=stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in&engines=${eng}`)
@@ -12450,7 +12416,6 @@ async function updateAeoGeoAnalytics(selectedMonth) {
         );
         const engineResults = await Promise.all(enginePromises);
         
-        const chartLabels = ['ChatGPT', 'Perplexity', 'Copilot'];
         const chartData = engines.map((eng, idx) => {
             const res = engineResults[idx];
             let rvnlMentions = 0;
@@ -12462,80 +12427,20 @@ async function updateAeoGeoAnalytics(selectedMonth) {
             return rvnlMentions;
         });
         
-        const chartCanvas = document.getElementById('aeo-sov-chart');
-        if (chartCanvas) {
-            const ctx = chartCanvas.getContext('2d');
-            if (aeoSovChartInstance) {
-                aeoSovChartInstance.destroy();
-            }
-            
-            aeoSovChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        data: chartData,
-                        backgroundColor: [
-                            '#10b981',
-                            '#3b82f6',
-                            '#8b5cf6'
-                        ],
-                        borderWidth: 1,
-                        borderColor: 'rgba(255, 255, 255, 0.1)'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: '#94a3b8',
-                                font: {
-                                    family: 'Inter',
-                                    size: 11
-                                },
-                                boxWidth: 12
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        // Render UI
+        renderOtterlyUI(stats, citStats, chartData);
         
-        // Populate textual values legend
-        const legendContainer = document.getElementById("aeo-sov-values-legend");
-        if (legendContainer) {
-            legendContainer.innerHTML = "";
-            const totalEngineMentions = chartData.reduce((a, b) => a + b, 0);
-            const colors = ['#10b981', '#3b82f6', '#8b5cf6'];
-            
-            chartLabels.forEach((label, idx) => {
-                const count = chartData[idx];
-                const pct = totalEngineMentions > 0 ? ((count / totalEngineMentions) * 100).toFixed(1) : 0;
-                
-                const legendItem = document.createElement("div");
-                legendItem.style.display = "flex";
-                legendItem.style.alignItems = "center";
-                legendItem.style.justifyContent = "space-between";
-                legendItem.style.width = "100%";
-                
-                legendItem.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${colors[idx]};"></span>
-                        <span style="font-weight: 500;">${label}</span>
-                    </div>
-                    <div style="font-weight: 600; color: var(--text-primary);">
-                        ${Number(count).toLocaleString()} mentions (${pct}%)
-                    </div>
-                `;
-                legendContainer.appendChild(legendItem);
-            });
-        }
+        // Generate recommendations
+        await generateGeoRecommendations(stats.summary || {}, stats.allBrandsAnalysis?.brandMentions || [], citStats.citations || []);
         
-        // 5. Generate Recommendations using Gemini
-        await generateGeoRecommendations(summary, stats.allBrandsAnalysis?.brandMentions || [], citStats.citations || []);
+        // Cache the newly fetched datasets along with the generated AI content
+        const dataToCache = {
+            stats,
+            citStats,
+            chartData,
+            geoInsightsHtml: insightsEl ? insightsEl.innerHTML : ""
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(dataToCache));
         
     } catch (e) {
         console.error("Failed to load Otterly data:", e);
@@ -12546,6 +12451,143 @@ async function updateAeoGeoAnalytics(selectedMonth) {
                 </div>
             `;
         }
+    }
+}
+
+function renderOtterlyUI(stats, citStats, chartData) {
+    const summary = stats.summary || {};
+    document.getElementById("aeo-metric-sov").textContent = `${summary.shareOfVoice || 0}%`;
+    document.getElementById("aeo-metric-mentions").textContent = Number(summary.totalMentions || 0).toLocaleString();
+    document.getElementById("aeo-metric-position").textContent = Number(summary.averagePosition || 0).toFixed(2);
+    document.getElementById("aeo-metric-sources").textContent = summary.totalSources || 0;
+    
+    // Render Competitors Table
+    const competitorBody = document.getElementById("aeo-competitor-table-body");
+    if (competitorBody) {
+        competitorBody.innerHTML = "";
+        const allMentionsList = stats.allBrandsAnalysis?.brandMentions || [];
+        allMentionsList.forEach(item => {
+            const tr = document.createElement("tr");
+            const isMain = item.isMainBrand;
+            tr.innerHTML = `
+                <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}">
+                    ${item.brand} ${isMain ? '(RVNL)' : ''}
+                </td>
+                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${Number(item.mentions || 0).toLocaleString()}</td>
+                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${item.shareOfVoice || 0}%</td>
+            `;
+            competitorBody.appendChild(tr);
+        });
+        if (allMentionsList.length === 0) {
+            competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">No competitor stats found.</td></tr>`;
+        }
+    }
+    
+    // Render Top Citation Sources Table
+    const citationsBody = document.getElementById("aeo-citations-table-body");
+    if (citationsBody) {
+        citationsBody.innerHTML = "";
+        const topCitations = citStats.citations || [];
+        topCitations.slice(0, 8).forEach((item, index) => {
+            const tr = document.createElement("tr");
+            let hostname = "link";
+            try {
+                hostname = new URL(item.url).hostname;
+            } catch(err) {
+                hostname = item.url || "source";
+            }
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${item.logoUrl ? `<img src="${item.logoUrl}" style="width: 16px; height: 16px; object-fit: contain; border-radius: 2px;">` : '<i class="fa-solid fa-globe" style="font-size: 12px; color: var(--text-muted);"></i>'}
+                        <a href="${item.url}" target="_blank" style="color: var(--accent-blue); text-decoration: none; word-break: break-all;">
+                            ${hostname}
+                        </a>
+                    </div>
+                </td>
+                <td style="text-align: right;">${item.currentCitations || 0}</td>
+                <td style="text-align: right;">${(item.citationShare || 0).toFixed(2)}%</td>
+            `;
+            citationsBody.appendChild(tr);
+        });
+        if (topCitations.length === 0) {
+            citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">No citation sources recorded.</td></tr>`;
+        }
+    }
+    
+    // Render Doughnut Chart
+    const chartLabels = ['ChatGPT', 'Perplexity', 'Copilot'];
+    const chartCanvas = document.getElementById('aeo-sov-chart');
+    if (chartCanvas) {
+        const ctx = chartCanvas.getContext('2d');
+        if (aeoSovChartInstance) {
+            aeoSovChartInstance.destroy();
+        }
+        
+        aeoSovChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    data: chartData,
+                    backgroundColor: [
+                        '#10b981',
+                        '#3b82f6',
+                        '#8b5cf6'
+                    ],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#94a3b8',
+                            font: {
+                                family: 'Inter',
+                                size: 11
+                            },
+                            boxWidth: 12
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Populate textual values legend
+    const legendContainer = document.getElementById("aeo-sov-values-legend");
+    if (legendContainer) {
+        legendContainer.innerHTML = "";
+        const totalEngineMentions = chartData.reduce((a, b) => a + b, 0);
+        const colors = ['#10b981', '#3b82f6', '#8b5cf6'];
+        
+        chartLabels.forEach((label, idx) => {
+            const count = chartData[idx];
+            const pct = totalEngineMentions > 0 ? ((count / totalEngineMentions) * 100).toFixed(1) : 0;
+            
+            const legendItem = document.createElement("div");
+            legendItem.style.display = "flex";
+            legendItem.style.alignItems = "center";
+            legendItem.style.justifyContent = "space-between";
+            legendItem.style.width = "100%";
+            
+            legendItem.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${colors[idx]};"></span>
+                    <span style="font-weight: 500;">${label}</span>
+                </div>
+                <div style="font-weight: 600; color: var(--text-primary);">
+                    ${Number(count).toLocaleString()} mentions (${pct}%)
+                </div>
+            `;
+            legendContainer.appendChild(legendItem);
+        });
     }
 }
 
@@ -12607,8 +12649,7 @@ if (refreshGeoBtn) {
         const insightsEl = document.getElementById("aeo-geo-insights-content");
         if (insightsEl) insightsEl.textContent = "Regenerating GEO Strategy...";
         const selectedMonth = document.getElementById("report-month").value;
-        await updateAeoGeoAnalytics(selectedMonth);
-    });
+        await updateAeoGeoAnalytics(selectedMonth, true); // Force bypass local cache
 }
 
 
