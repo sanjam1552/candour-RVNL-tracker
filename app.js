@@ -12356,7 +12356,7 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
     
     const range = getMonthDateRange(selectedMonth);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const cacheKey = `otterly_cache_${range.start}_${range.end}_${todayStr}`;
+    const cacheKey = `otterly_cache_v2_${range.start}_${range.end}_${todayStr}`;
     
     // UI elements references
     const competitorBody = document.getElementById("aeo-competitor-table-body");
@@ -12465,21 +12465,64 @@ function renderOtterlyUI(stats, citStats, chartData) {
     const competitorBody = document.getElementById("aeo-competitor-table-body");
     if (competitorBody) {
         competitorBody.innerHTML = "";
-        const allMentionsList = stats.allBrandsAnalysis?.brandMentions || [];
+        const allMentionsList = stats.competitorBrandsAnalysis?.brandMentions || stats.allBrandsAnalysis?.brandMentions || [];
         allMentionsList.forEach(item => {
             const tr = document.createElement("tr");
             const isMain = item.isMainBrand;
+            
+            const sentiment = item.sentiment || {};
+            const pos = sentiment.positive || 0;
+            const neu = sentiment.neutral || 0;
+            const neg = sentiment.negative || 0;
+            const totalSent = pos + neu + neg;
+            
+            let nssText = "-";
+            if (sentiment.nss !== undefined && sentiment.nss !== null) {
+                nssText = `${sentiment.nss}%`;
+            } else if (totalSent > 0) {
+                nssText = `${Math.round(((pos - neg) / totalSent) * 100)}%`;
+            }
+            
+            let splitHtml = `
+                <div style="display: flex; justify-content: center; font-size: 11px; color: var(--text-muted);">
+                    No sentiment data
+                </div>
+            `;
+            
+            if (totalSent > 0) {
+                const posPct = ((pos / totalSent) * 100).toFixed(1);
+                const neuPct = ((neu / totalSent) * 100).toFixed(1);
+                const negPct = ((neg / totalSent) * 100).toFixed(1);
+                
+                splitHtml = `
+                    <div style="display: flex; flex-direction: column; gap: 3px; padding: 2px 0;">
+                        <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.05); width: 100%; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="background-color: #10b981; width: ${posPct}%;" title="Positive: ${posPct}% (${Number(pos).toLocaleString()})"></div>
+                            <div style="background-color: #94a3b8; width: ${neuPct}%;" title="Neutral: ${neuPct}% (${Number(neu).toLocaleString()})"></div>
+                            <div style="background-color: #ef4444; width: ${negPct}%;" title="Negative: ${negPct}% (${Number(neg).toLocaleString()})"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; width: 100%; font-size: 9px; color: var(--text-muted); line-height: 1;">
+                            <span>${Math.round(posPct)}% 🙂</span>
+                            <span>${Math.round(neuPct)}% 😐</span>
+                            <span>${Math.round(negPct)}% 🙁</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
             tr.innerHTML = `
-                <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}">
+                <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}; padding: 6px 8px;">
                     ${item.brand} ${isMain ? '(RVNL)' : ''}
                 </td>
-                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${Number(item.mentions || 0).toLocaleString()}</td>
-                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}">${item.shareOfVoice || 0}%</td>
+                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}; padding: 6px 8px;">${Number(item.mentions || 0).toLocaleString()}</td>
+                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}; padding: 6px 8px;">${item.shareOfVoice || 0}%</td>
+                <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}; color: ${sentiment.nss > 0 ? '#10b981' : (sentiment.nss < 0 ? '#ef4444' : 'var(--text-primary)')}; padding: 6px 8px;">${nssText}</td>
+                <td style="vertical-align: middle; padding: 6px 8px;">${splitHtml}</td>
             `;
             competitorBody.appendChild(tr);
         });
         if (allMentionsList.length === 0) {
-            competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">No competitor stats found.</td></tr>`;
+            competitorBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#6b7280;">No competitor stats found.</td></tr>`;
         }
     }
     

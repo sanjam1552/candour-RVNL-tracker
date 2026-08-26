@@ -719,9 +719,9 @@
                         <!-- Chart and Details Layout -->
                         <div style="display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap;">
                             <!-- Chart Container -->
-                            <div style="flex: 1; min-width: 280px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 20px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div style="flex: 1; min-width: 250px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                                 <h4 style="margin: 0 0 15px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; width: 100%; text-align: left; color: var(--text-primary);">AI Search Engine Share of Voice</h4>
-                                <div style="width: 200px; height: 200px; position: relative;">
+                                <div style="width: 180px; height: 180px; position: relative;">
                                     <canvas id="aeo-sov-chart"></canvas>
                                 </div>
                                 <!-- Textual values legend visible in PDF exports -->
@@ -731,15 +731,17 @@
                             </div>
                             
                             <!-- Competitor Comparison -->
-                            <div style="flex: 1.2; min-width: 320px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 20px; border-radius: 16px; box-sizing: border-box;">
+                            <div style="flex: 1.8; min-width: 480px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; box-sizing: border-box;">
                                 <h4 style="margin: 0 0 15px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--text-primary);">Share of Voice vs. Competitors</h4>
-                                <div class="table-responsive">
-                                    <table class="report-print-table" style="margin-top: 0;">
+                                <div class="table-responsive" style="overflow-x: visible;">
+                                    <table class="report-print-table" style="margin-top: 0; width: 100%;">
                                         <thead>
                                             <tr>
-                                                <th>Brand Domain</th>
-                                                <th style="width: 100px; text-align: right;">Citations</th>
-                                                <th style="width: 120px; text-align: right;">Share of Voice</th>
+                                                <th style="padding: 6px 8px;">Brand Domain</th>
+                                                <th style="width: 70px; text-align: right; padding: 6px 8px;">Mentions</th>
+                                                <th style="width: 80px; text-align: right; padding: 6px 8px;">Share of Voice</th>
+                                                <th style="width: 80px; text-align: right; padding: 6px 8px;">Net Sentiment</th>
+                                                <th style="width: 120px; text-align: center; padding: 6px 8px;">Sentiment Split</th>
                                             </tr>
                                         </thead>
                                         <tbody id="aeo-competitor-table-body">
