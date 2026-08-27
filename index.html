@@ -1521,16 +1521,20 @@
                         <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--accent-blue); font-family: var(--font-heading); font-weight: 600;">
                             <i class="fa-solid fa-clock" style="margin-right: 6px;"></i> Tracking & Deadlines
                         </h4>
-                        <div style="display: flex; gap: 16px; width: 100%;">
-                            <div style="flex: 1; min-width: 0;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%;">
+                            <div>
                                 <label for="task-target-completion-date" style="display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted);">Target Completion Date</label>
                                 <input type="date" id="task-target-completion-date" style="width: 100%; font-size: 12px; height: 32px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); outline: none;">
                             </div>
-                            <div style="flex: 1; min-width: 0;">
+                            <div>
+                                <label for="task-completion-date" style="display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted);">Actual Completion Date</label>
+                                <input type="date" id="task-completion-date" style="width: 100%; font-size: 12px; height: 32px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                            </div>
+                            <div>
                                 <label for="task-opportunity-deadline" style="display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted);">Opportunity Deadline</label>
                                 <input type="date" id="task-opportunity-deadline" style="width: 100%; font-size: 12px; height: 32px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); outline: none;">
                             </div>
-                            <div style="flex: 1; min-width: 0;">
+                            <div>
                                 <label for="task-priority" style="display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted);">Priority</label>
                                 <select id="task-priority" style="width: 100%; font-size: 12px; height: 32px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); outline: none;">
                                     <option value="Low">Low</option>
@@ -1665,7 +1669,7 @@
 
                 <div class="form-group">
                     <label for="task-date">Specific Date (if published)</label>
-                    <input type="text" id="task-date" placeholder="e.g. 5th June or 2026-06-05">
+                    <input type="date" id="task-date" style="width: 100%; font-size: 12px; height: 32px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); outline: none;">
                 </div>
 
                 <div class="form-group">

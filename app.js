@@ -2348,6 +2348,17 @@ function setupEventListeners() {
         }
     }
 
+    // Make native date picker trigger on click anywhere on date inputs
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        input.addEventListener('click', (e) => {
+            try {
+                if (typeof e.target.showPicker === 'function') {
+                    e.target.showPicker();
+                }
+            } catch(err) {}
+        });
+    });
+
     // User login event listeners (Email & Password sign-in + Email Link fallback)
     const emailLoginForm = document.getElementById("email-login-form");
     if (emailLoginForm) {
@@ -4594,9 +4605,11 @@ function openDrawer(taskId = null, prefillData = null) {
     const targetCompDateInput = document.getElementById("task-target-completion-date");
     const oppDeadlineInput = document.getElementById("task-opportunity-deadline");
     const prPrioritySelect = document.getElementById("task-priority");
+    const completionDateInput = document.getElementById("task-completion-date");
     if (targetCompDateInput) targetCompDateInput.value = "";
     if (oppDeadlineInput) oppDeadlineInput.value = "";
     if (prPrioritySelect) prPrioritySelect.value = "Medium";
+    if (completionDateInput) completionDateInput.value = "";
 
     // Reset WIP comment fields
     const wipWhoInput = document.getElementById("task-wip-who");
@@ -4610,6 +4623,7 @@ function openDrawer(taskId = null, prefillData = null) {
     // Default current month/week selection
     document.getElementById("task-month").value = getCurrentMonthStr();
     document.getElementById("task-week").value = getCurrentWeekStr();
+    document.getElementById("task-date").value = "";
     
     const statusSelect = document.getElementById("task-status");
     if (statusSelect) {
@@ -4774,9 +4788,11 @@ function openDrawer(taskId = null, prefillData = null) {
                 document.getElementById("task-publication").value = task.publication || "";
                 
                 // Prefill PR deadlines & priority
+                const completionDateInput = document.getElementById("task-completion-date");
                 if (targetCompDateInput) targetCompDateInput.value = task.targetCompletionDate || "";
                 if (oppDeadlineInput) oppDeadlineInput.value = task.opportunityDeadline || "";
                 if (prPrioritySelect) prPrioritySelect.value = task.priority || "Medium";
+                if (completionDateInput) completionDateInput.value = task.completionDate || "";
 
                 // Prefill checkboxes for PR campaign type (Organic / Paid)
                 const prCampaignTypes = Array.isArray(task.campaignType) 
@@ -5269,10 +5285,12 @@ async function handleFormSubmit(e) {
         const targetCompDateVal = document.getElementById("task-target-completion-date") ? document.getElementById("task-target-completion-date").value : "";
         const oppDeadlineVal = document.getElementById("task-opportunity-deadline") ? document.getElementById("task-opportunity-deadline").value : "";
         const priorityVal = document.getElementById("task-priority") ? document.getElementById("task-priority").value : "Medium";
+        const completionDateVal = document.getElementById("task-completion-date") ? document.getElementById("task-completion-date").value : "";
         
         taskData.targetCompletionDate = targetCompDateVal;
         taskData.opportunityDeadline = oppDeadlineVal;
         taskData.priority = priorityVal;
+        taskData.completionDate = completionDateVal;
 
         taskData.spokespersonsList = (state.currentTaskSpokespersons || []).map(sp => ({
             id: sp.id || generateUUID(),
@@ -7423,6 +7441,8 @@ function renderReportView() {
                     
                     // Group Header (Announcements / Topic Title)
                     const isWipTask = task.status !== "Published/Closed";
+                    const list = task.publicationsList || [];
+                    const hasPublications = task.status === "Published/Closed" && (list.length > 0 || task.publication || task.image || task.liveLink);
                     
                     let statusClass = "status-published";
                     if (task.status === "WIP") statusClass = "status-wip";
@@ -7452,13 +7472,14 @@ function renderReportView() {
                         displayStatus = "WIP";
                     }
 
-                    const printStatusHtml = isWipTask 
+                    const showStatusBadge = isWipTask || !hasPublications;
+                    const printStatusHtml = showStatusBadge 
                         ? `<span class="status-pill ${statusClass} only-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                         : "";
 
                     let screenStatusHtml = "";
                     if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
-                        screenStatusHtml = isWipTask 
+                        screenStatusHtml = showStatusBadge 
                             ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                             : "";
                     } else {
@@ -7467,7 +7488,7 @@ function renderReportView() {
 
                     const wipBadge = `${screenStatusHtml}${printStatusHtml}`;
 
-                    const headerBorder = isWipTask ? "none" : "1.5px solid #1e293b";
+                    const headerBorder = hasPublications ? "1.5px solid #1e293b" : "none";
                     const headerHtml = `
                         <div style="background: var(--bg-primary); border-bottom: ${headerBorder}; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
@@ -7479,9 +7500,9 @@ function renderReportView() {
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
                                 ${wipBadge}
-                                ${task.date ? `
+                                ${(task.completionDate || task.date) ? `
                                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569; white-space: nowrap;">
-                                    <i class="fa-regular fa-calendar-days"></i> ${task.date}
+                                    <i class="fa-regular fa-calendar-days"></i> ${task.completionDate || task.date}
                                 </div>` : ''}
                                 <button class="no-print report-exclude-btn-pr" data-id="${task.id}" style="background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
                             </div>
@@ -7489,7 +7510,6 @@ function renderReportView() {
                     `;
                     
                     // Publications Grid
-                    const list = task.publicationsList || [];
                     let publicationsHtml = "";
                     
                     if (task.status === "Published/Closed") {
@@ -7538,7 +7558,7 @@ function renderReportView() {
                                 `;
                             });
                             publicationsHtml += `</div>`;
-                        } else {
+                        } else if (task.publication || task.image || task.liveLink) {
                             // Fallback for old tasks that might only have task.image and task.publication
                             let imageBlock = "";
                             if (task.image) {
