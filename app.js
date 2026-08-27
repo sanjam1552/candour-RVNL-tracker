@@ -8677,10 +8677,14 @@ function getPrTodayDateStr() {
 
 function prClearOldLocalBackup(client, todayDate) {
     try {
+        let storageClient = client;
+        if (storageClient === "Greenshine Solar") {
+            storageClient = "Green Shine Solar";
+        }
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && (key.startsWith(`pr_approved_${client}_`) || key.startsWith(`pr_dismissed_${client}_`))) {
+            if (key && (key.startsWith(`pr_approved_${storageClient}_`) || key.startsWith(`pr_dismissed_${storageClient}_`))) {
                 const parts = key.split('_');
                 const keyDate = parts[parts.length - 1];
                 if (keyDate !== todayDate) {
@@ -8760,7 +8764,7 @@ async function initPrMonitorTab() {
     try {
         // One-time migration/fix: clear old seen links to allow fresh test fetch
         if (localStorage.getItem(`pr_seen_links_migration_v4`) !== 'done') {
-            localStorage.removeItem(`pr_seen_links_${state.activeClient}`);
+            localStorage.removeItem(`pr_seen_links_${storageClientKey}`);
             localStorage.setItem(`pr_seen_links_migration_v4`, 'done');
         }
         
