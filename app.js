@@ -7336,7 +7336,7 @@ function renderReportView() {
                 }
             }
 
-            const showRemarks = task.remarks && state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI";
+            const showRemarks = false;
             const activityDetailsHtml = reportThumbnailHtml
                 ? `<div class="report-item-flex">
                      ${reportThumbnailHtml}
@@ -7662,9 +7662,6 @@ function renderReportView() {
                     }
 
                     let statusBadge = `${screenStatusHtml}${printStatusHtml}`;
-                    if (task.remarks) {
-                        statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
-                    }
                     if (periodType !== "weekly" && (task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
                         statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
                             ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
