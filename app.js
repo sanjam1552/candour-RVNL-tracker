@@ -65,7 +65,7 @@ function getClientLogo(client) {
     if (client === "Kompact AI") return "inputs/logo kompact-text-shapes-2x.png";
     if (client === "BT Group") return "inputs/BT_Logo_Purple_RGB.png";
     if (client === "Candour") return "inputs/candour logo.png";
-    if (client === "Green Shine Solar") return "inputs/greenshine logo.png";
+    if (client === "Green Shine Solar") return "inputs/Greenshine logo_final.png";
     if (client === "Zoom") return "inputs/Zoom-Logo.png";
     if (client === "Databricks") return "inputs/data bricks.png";
     if (client === "DXC") return "inputs/DXC_tech_logo (2).png";
@@ -6930,7 +6930,11 @@ function generateReport(keepExclusions = false) {
     // Populate Report Meta text
     let periodText = "";
     if (periodType === "weekly") {
-        periodText = `${selectedWeek} of ${selectedMonth}`;
+        if (selectedWeek === "all") {
+            periodText = `All of ${selectedMonth}`;
+        } else {
+            periodText = `${selectedWeek} of ${selectedMonth}`;
+        }
     } else {
         if (state.activeClient === "Legrand") {
             if (selectedMonths.length === 0) {
@@ -7305,7 +7309,7 @@ function renderReportView() {
             `;
 
             let wipReportDetails = "";
-            if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI") {
+            if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI" && periodType !== "weekly") {
                 if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
                     wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
                         ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
@@ -7641,7 +7645,7 @@ function renderReportView() {
                     if (task.remarks) {
                         statusBadge += `<div style="font-size: 11px; color:#4b5563; margin-top: 4px;">${task.remarks}</div>`;
                     }
-                    if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                    if (periodType !== "weekly" && (task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
                         statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
                             ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
                             ${task.wipWhy ? `<div><strong>Status/Delay:</strong> ${task.wipWhy}</div>` : ''}
@@ -11791,7 +11795,7 @@ const MOCK_LOGOS = {
         { title: "RVNL Dark Monochrome Emblem", format: "SVG", url: "inputs/RVNL (R)logo_vector.png" }
     ],
     "Green Shine Solar": [
-        { title: "Green Shine Solar Primary Logo", format: "PNG", url: "inputs/greenshine logo.png" }
+        { title: "Green Shine Solar Primary Logo", format: "PNG", url: "inputs/Greenshine logo_final.png" }
     ],
     "default": [
         { title: "Candour Branding Badge (Light)", format: "PNG", url: "https://picsum.photos/100/100?random=1" },
