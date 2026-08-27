@@ -21,7 +21,7 @@ const PR_ONLY_CLIENTS = [
     "WSA", 
     "Tenarai"
 ];
-const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Green Shine Solar"];
+const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Greenshine Solar"];
 const ALL_CLIENTS = [...PR_ONLY_CLIENTS, ...SOCIAL_CREATIVE_CLIENTS];
 
 // Helper to get client full display name
@@ -34,7 +34,7 @@ function getClientFullName(client) {
         "Kompact AI": "Kompact AI",
         "BT Group": "BT Group",
         "Candour": "Candour Communications",
-        "Green Shine Solar": "Green Shine Solar",
+        "Greenshine Solar": "Greenshine Solar",
         "Databricks": "Databricks",
         "DXC": "DXC Technology",
         "Delinea": "Delinea",
@@ -65,7 +65,7 @@ function getClientLogo(client) {
     if (client === "Kompact AI") return "inputs/logo kompact-text-shapes-2x.png";
     if (client === "BT Group") return "inputs/BT_Logo_Purple_RGB.png";
     if (client === "Candour") return "inputs/candour logo.png";
-    if (client === "Green Shine Solar") return "inputs/Greenshine logo_final.png";
+    if (client === "Greenshine Solar") return "inputs/Greenshine logo_final.png";
     if (client === "Zoom") return "inputs/Zoom-Logo.png";
     if (client === "Databricks") return "inputs/data bricks.png";
     if (client === "DXC") return "inputs/DXC_tech_logo (2).png";
@@ -922,6 +922,9 @@ async function loadData() {
                 
                 // Normalize status and client schema
                 if (!task.client) task.client = "RVNL";
+                if (task.client === "Green Shine Solar") {
+                    task.client = "Greenshine Solar";
+                }
                 if (task.image && task.image.startsWith("blob:")) task.image = "";
                 
                 if (task.status === "In Progress" || task.status === "WIP") task.status = "WIP";
@@ -1266,10 +1269,17 @@ async function logActivity(action, details, client = null) {
 
 // Helper to extract client name from log entry
 function getClientFromLog(log) {
-    if (log.client) return log.client;
-    if (!log.details) return null;
-    const match = log.details.match(/\(([^)]+)\)$/);
-    return match ? match[1].trim() : null;
+    let clientVal = null;
+    if (log.client) {
+        clientVal = log.client;
+    } else if (log.details) {
+        const match = log.details.match(/\(([^)]+)\)$/);
+        clientVal = match ? match[1].trim() : null;
+    }
+    if (clientVal === "Green Shine Solar") {
+        clientVal = "Greenshine Solar";
+    }
+    return clientVal;
 }
 
 // Render the activity logs timeline inside the Settings tab
@@ -2695,7 +2705,11 @@ function getUserClientPermission(email, client) {
     
     // 1. Check if there is an explicit permission entry for this user first
     if (state.userPermissions && state.userPermissions[lowerEmail]) {
-        return state.userPermissions[lowerEmail][client] || "None";
+        let clientKey = client;
+        if (clientKey === "Greenshine Solar") {
+            clientKey = "Green Shine Solar";
+        }
+        return state.userPermissions[lowerEmail][clientKey] || "None";
     }
     
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
@@ -3830,7 +3844,7 @@ function togglePRFormFields(type) {
 
     const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
     if (greenshineCampaignGroup) {
-        if (state.activeClient !== "iCode" && type === "Digital Campaigns") {
+        if (state.activeClient === "Greenshine Solar" && type === "Digital Campaigns") {
             greenshineCampaignGroup.classList.remove("hidden");
         } else {
             greenshineCampaignGroup.classList.add("hidden");
@@ -4160,7 +4174,7 @@ function renderDrawerPublications() {
                 </div>
                 <div style="flex: 2; min-width: 0;">
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Headline</label>
-                    <input type="text" class="pub-headline-input" data-index="${idx}" value="${pub.headline || ''}" placeholder="e.g. Green Shine Solar Launches New Plant" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                    <input type="text" class="pub-headline-input" data-index="${idx}" value="${pub.headline || ''}" placeholder="e.g. Greenshine Solar Launches New Plant" style="width: 100%; font-size: 12px; padding: 8px 10px; height: 36px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
                 </div>
                 <div style="flex: 2; min-width: 0;">
                     <label style="font-size: 11px; margin-bottom: 4px; display: block; font-weight: 500;">Live / Verification Link</label>
@@ -4955,7 +4969,10 @@ function uploadImageToStorage(fileObject, client = "General", taskTitle = "", on
                     .replace(/[^a-zA-Z0-9\s-_]/g, '') // remove special characters
                     .replace(/\s+/g, '_');             // replace spaces with underscores
                 
-                const clientFolder = (client || "General").trim();
+                let clientFolder = (client || "General").trim();
+                if (clientFolder === "Greenshine Solar") {
+                    clientFolder = "Green Shine Solar";
+                }
                 const uniqueFilename = `${cleanTitle}_${Date.now()}.jpg`;
                 
                 const storageRef = firebase.storage().ref().child(`task_images/${clientFolder}/${uniqueFilename}`);
@@ -5248,8 +5265,13 @@ async function handleFormSubmit(e) {
         leadsConversionsClicks = document.getElementById("task-conversions") ? document.getElementById("task-conversions").value : "";
     }
 
+    let dbClient = taskClient;
+    if (dbClient === "Greenshine Solar") {
+        dbClient = "Green Shine Solar";
+    }
+
     const taskData = {
-        client: taskClient,
+        client: dbClient,
         type: finalType,
         campaignType: campaignType,
         centers: centers,
@@ -5484,17 +5506,17 @@ function updateDashboard() {
         if (smCardH3) smCardH3.textContent = "Social Outputs";
         if (smCardDesc) smCardDesc.textContent = "Published on LinkedIn/X";
         if (prCardH3) {
-            prCardH3.textContent = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") ? "PR Activities" : "PR Coverages";
+            prCardH3.textContent = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") ? "PR Activities" : "PR Coverages";
         }
         if (prCardDesc) {
-            prCardDesc.textContent = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") ? "PR activities tracked" : "Media coverages secured";
+            prCardDesc.textContent = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") ? "PR activities tracked" : "Media coverages secured";
         }
         if (wipCardH3) wipCardH3.textContent = "Work in Progress";
         if (wipCardDesc) wipCardDesc.textContent = "Currently active/review";
         
         const totalVal = clientTasks.length;
         const linkedinVal = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-        const prVal = (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar")
+        const prVal = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar")
             ? clientTasks.filter(t => t.type === 'PR Update').length
             : getPRPublicationsCount(clientTasks);
         const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold', 'Client Approval Pending'].includes(t.status)).length;
@@ -5748,7 +5770,7 @@ function renderShareChart() {
                 clientTasks.filter(t => t.type === 'Creative / Collateral' && t.status === 'Published/Closed').length
             ];
             bgColors = ['#10b981', '#f59e0b'];
-        } else if (state.activeClient === "Green Shine Solar") {
+        } else if (state.activeClient === "Greenshine Solar") {
             categories = ['Social Media', 'PR Update', 'Creative / Collateral', 'Digital Campaigns'];
             dataVals = [
                 clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
@@ -6097,7 +6119,7 @@ function renderTrackerTable() {
         
         // Type Badge
         let typeBadge = "";
-        if (state.activeClient === "Green Shine Solar" || task.client === "Green Shine Solar") {
+        if (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : []);
@@ -6603,7 +6625,7 @@ function renderTrackerKanban() {
         // Tag label
         let tagColor = "var(--accent-blue)";
         let tagLabel = task.subType === "Other" ? "Document" : (task.subType || task.type);
-        if (state.activeClient === "Green Shine Solar" || task.client === "Green Shine Solar") {
+        if (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : []);
@@ -7112,7 +7134,7 @@ function renderReportView() {
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
-        } else if ((state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") && periodType === "weekly") {
+        } else if ((state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") && periodType === "weekly") {
             // 1. Hide Press Coverage Items box (prBox)
             if (prBox) prBox.style.display = "none";
             
@@ -7155,7 +7177,7 @@ function renderReportView() {
             if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
             
             // Hide digital campaigns unless Green Shine Solar
-            if (state.activeClient !== "Green Shine Solar") {
+            if (state.activeClient !== "Greenshine Solar") {
                 if (reportSecDigital) reportSecDigital.style.display = "none";
             }
             
@@ -7233,7 +7255,7 @@ function renderReportView() {
             if (verificationLink === "Sent for internal approval") {
                 verificationLink = "WIP";
             }
-            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") && task.status !== "Published/Closed") {
+            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") && task.status !== "Published/Closed") {
                 verificationLink = "WIP";
             }
             if (task.liveLink && task.liveLink.startsWith("http")) {
@@ -7295,7 +7317,7 @@ function renderReportView() {
             }
 
             let screenStatusHtml = "";
-            if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
                 const screenText = task.status === "Published/Closed" ? timelineDisplay : displayStatus;
                 screenStatusHtml = `
                     <div class="no-print">
@@ -7478,7 +7500,7 @@ function renderReportView() {
                         : "";
 
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
                         screenStatusHtml = showStatusBadge 
                             ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                             : "";
@@ -7651,7 +7673,7 @@ function renderReportView() {
                     const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Green Shine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
                         screenStatusHtml = `
                             <div class="no-print">
                                 <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
@@ -7718,7 +7740,7 @@ function renderReportView() {
     const dcSec = document.getElementById("report-sec-digital-campaigns");
     if (dcBody && dcSec) {
         dcBody.innerHTML = "";
-        if (state.activeClient !== "Green Shine Solar") {
+        if (state.activeClient !== "Greenshine Solar") {
             dcSec.style.display = "none";
         } else {
             dcSec.style.display = "";
@@ -8227,9 +8249,14 @@ async function syncToGoogleSheet(action, task) {
     const syncUrl = state.googleSheetSyncUrl;
     if (!syncUrl) return; // Sync is disabled
 
+    let clientName = task.client || state.activeClient || "RVNL";
+    if (clientName === "Greenshine Solar") {
+        clientName = "Green Shine Solar";
+    }
+
     const payload = {
         action: action, // "save" | "delete"
-        client: task.client || state.activeClient || "RVNL",
+        client: clientName,
         user: state.currentUser || "Web Tool User",
         task: task
     };
@@ -8723,6 +8750,11 @@ async function initPrMonitorTab() {
     // Automatic Daily Garbage Collection & Load for active client
     const todayDate = getPrTodayDateStr();
     prClearOldLocalBackup(state.activeClient, todayDate);
+
+    let storageClientKey = state.activeClient;
+    if (storageClientKey === "Greenshine Solar") {
+        storageClientKey = "Green Shine Solar";
+    }
     
     // Load and clean rolling 7-day seen links memory
     try {
@@ -8732,18 +8764,23 @@ async function initPrMonitorTab() {
             localStorage.setItem(`pr_seen_links_migration_v4`, 'done');
         }
         
-        const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
-        let seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
+        const seenRaw = localStorage.getItem(`pr_seen_links_${storageClientKey}`);
+        state.prSeenLinks = seenRaw ? JSON.parse(seenRaw) : [];
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        seenLinks = seenLinks.filter(x => x.addedAt > sevenDaysAgo);
-        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+        state.prSeenLinks = state.prSeenLinks.filter(x => x.addedAt > sevenDaysAgo);
+        localStorage.setItem(`pr_seen_links_${storageClientKey}`, JSON.stringify(state.prSeenLinks));
     } catch(e) {
         console.error("Seen links collection error:", e);
     }
     
     // Load daily approved/dismissed coverage from LocalStorage
     try {
-        const approvedRaw = localStorage.getItem(`pr_approved_${state.activeClient}_${todayDate}`);
+        let storageClientKey = state.activeClient;
+        if (storageClientKey === "Greenshine Solar") {
+            storageClientKey = "Green Shine Solar";
+        }
+
+        const approvedRaw = localStorage.getItem(`pr_approved_${storageClientKey}_${todayDate}`);
         state.prCoverage = approvedRaw ? JSON.parse(approvedRaw) : [];
         
         // Keep articles from today or yesterday to prevent morning scan gaps
@@ -8752,9 +8789,9 @@ async function initPrMonitorTab() {
         const yesterdayDateStr = yesterday.toISOString().split('T')[0];
         
         state.prCoverage = state.prCoverage.filter(item => item.date === todayDate || item.date === yesterdayDateStr);
-        localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+        localStorage.setItem(`pr_approved_${storageClientKey}_${todayDate}`, JSON.stringify(state.prCoverage));
         
-        const dismissedRaw = localStorage.getItem(`pr_dismissed_${state.activeClient}_${todayDate}`);
+        const dismissedRaw = localStorage.getItem(`pr_dismissed_${storageClientKey}_${todayDate}`);
         state.prDismissed = dismissedRaw ? JSON.parse(dismissedRaw) : [];
     } catch(e) {
         state.prCoverage = [];
@@ -8795,15 +8832,20 @@ function saveManualPrMention() {
         createdAt: Date.now()
     };
     
+    let storageClientKey = state.activeClient;
+    if (storageClientKey === "Greenshine Solar") {
+        storageClientKey = "Green Shine Solar";
+    }
+
     state.prCoverage.push(item);
-    localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+    localStorage.setItem(`pr_approved_${storageClientKey}_${todayDate}`, JSON.stringify(state.prCoverage));
     
     // Save to rolling seen list
     try {
-        const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+        const seenRaw = localStorage.getItem(`pr_seen_links_${storageClientKey}`);
         const seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
         seenLinks.push({ url: link || title, addedAt: Date.now() });
-        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+        localStorage.setItem(`pr_seen_links_${storageClientKey}`, JSON.stringify(seenLinks));
     } catch(e){}
     
     showToast("✅ Logged", "Offline/Print mention logged successfully.", 3000);
@@ -9219,8 +9261,12 @@ async function fetchOnlineMentions() {
     });
     
     if (loggedCount > 0 || updatedCount > 0) {
-        localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
-        localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+        let storageClientKey = state.activeClient;
+        if (storageClientKey === "Greenshine Solar") {
+            storageClientKey = "Green Shine Solar";
+        }
+        localStorage.setItem(`pr_approved_${storageClientKey}_${todayDate}`, JSON.stringify(state.prCoverage));
+        localStorage.setItem(`pr_seen_links_${storageClientKey}`, JSON.stringify(seenLinks));
         showToast("✅ Scan Complete", `Automatically logged ${loggedCount} new mentions and updated ${updatedCount} publications.`, 4000);
     } else {
         showToast("ℹ️ Scan Complete", "No new mentions found since last scan.", 3000);
@@ -9328,17 +9374,22 @@ window.deletePrMention = function(id) {
     if (!confirm("Are you sure you want to delete this daily coverage entry?")) return;
     const todayDate = getPrTodayDateStr();
     
+    let storageClientKey = state.activeClient;
+    if (storageClientKey === "Greenshine Solar") {
+        storageClientKey = "Green Shine Solar";
+    }
+    
     const itemToDelete = state.prCoverage.find(x => x.id === id);
     state.prCoverage = state.prCoverage.filter(x => x.id !== id);
-    localStorage.setItem(`pr_approved_${state.activeClient}_${todayDate}`, JSON.stringify(state.prCoverage));
+    localStorage.setItem(`pr_approved_${storageClientKey}_${todayDate}`, JSON.stringify(state.prCoverage));
     
     if (itemToDelete) {
         try {
-            const seenRaw = localStorage.getItem(`pr_seen_links_${state.activeClient}`);
+            const seenRaw = localStorage.getItem(`pr_seen_links_${storageClientKey}`);
             let seenLinks = seenRaw ? JSON.parse(seenRaw) : [];
             const urlToRemove = itemToDelete.link || itemToDelete.title;
             seenLinks = seenLinks.filter(x => x.url !== urlToRemove);
-            localStorage.setItem(`pr_seen_links_${state.activeClient}`, JSON.stringify(seenLinks));
+            localStorage.setItem(`pr_seen_links_${storageClientKey}`, JSON.stringify(seenLinks));
         } catch(e){}
     }
     
@@ -11811,8 +11862,8 @@ const MOCK_LOGOS = {
         { title: "RVNL Main Vector Logo", format: "PNG", url: "inputs/RVNL (R)logo_vector.png" },
         { title: "RVNL Dark Monochrome Emblem", format: "SVG", url: "inputs/RVNL (R)logo_vector.png" }
     ],
-    "Green Shine Solar": [
-        { title: "Green Shine Solar Primary Logo", format: "PNG", url: "inputs/Greenshine logo_final.png" }
+    "Greenshine Solar": [
+        { title: "Greenshine Solar Primary Logo", format: "PNG", url: "inputs/Greenshine logo_final.png" }
     ],
     "default": [
         { title: "Candour Branding Badge (Light)", format: "PNG", url: "https://picsum.photos/100/100?random=1" },
