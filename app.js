@@ -843,6 +843,7 @@ async function loadData() {
             // Seed defaults so admin doesn't have to add them manually
             const seedEmails = [
                 "sanjam@candour.co.in",
+                "lovina@candour.co.in",
                 "komal@candour.co.in",
                 "stutio2465@gmail.com",
                 "eesha@candour.co.in",
@@ -1158,7 +1159,7 @@ function initUserSession() {
                 
                 // Developer check & personalization
                 if (displayNameEl) {
-                    const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+                    const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com", "lovina@candour.co.in"];
                     const briefingBtn = document.getElementById("nav-btn-briefing");
                     const resourceHubBtn = document.getElementById("nav-btn-resource-hub");
                     if (devEmails.includes(state.currentUserEmail)) {
@@ -2697,7 +2698,7 @@ function adjustClientSpecificOptions(client) {
     checkReadOnlyPermissions();
 }
 
-const ADMIN_EMAILS = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+const ADMIN_EMAILS = ["sanjam@candour.co.in", "stutio2465@gmail.com", "lovina@candour.co.in"];
 
 function getUserClientPermission(email, client) {
     if (!email) return "None";
@@ -3577,7 +3578,7 @@ function resetFilters() {
 // Switch between navigation tabs
 function switchTab(tabName) {
     if (tabName === 'briefing' || tabName === 'resource-hub') {
-        const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com"];
+        const devEmails = ["sanjam@candour.co.in", "stutio2465@gmail.com", "lovina@candour.co.in"];
         if (!devEmails.includes(state.currentUserEmail)) {
             tabName = 'dashboard';
         }
