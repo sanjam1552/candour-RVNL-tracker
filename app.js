@@ -2028,6 +2028,21 @@ function setupEventListeners() {
     document.getElementById("generate-report-btn").addEventListener("click", generateReport);
     document.getElementById("report-clipping-upload").addEventListener("change", handleReportClippingUpload);
     
+    const toggleRvnlCover = document.getElementById("toggle-rvnl-cover");
+    if (toggleRvnlCover) {
+        toggleRvnlCover.addEventListener("change", () => {
+            const coverPage = document.getElementById("report-rvnl-cover-page");
+            if (coverPage) {
+                const periodType = document.getElementById("report-period-type").value;
+                if (state.activeClient === "RVNL" && periodType === "monthly" && toggleRvnlCover.checked) {
+                    coverPage.style.display = "block";
+                } else {
+                    coverPage.style.display = "none";
+                }
+            }
+        });
+    }
+    
     // Real-time status update from Report Builder dropdowns
     document.addEventListener("change", async (e) => {
         if (e.target && e.target.classList.contains("report-status-select")) {
@@ -6824,6 +6839,29 @@ function generateReport(keepExclusions = false) {
     const periodType = document.getElementById("report-period-type").value;
     const selectedMonth = document.getElementById("report-month").value;
     const selectedWeek = document.getElementById("report-week").value;
+    
+    // Toggle RVNL Intro / Cover Page controls
+    const rvnlToggleContainer = document.getElementById("rvnl-cover-toggle-container");
+    const rvnlCoverPage = document.getElementById("report-rvnl-cover-page");
+    const toggleRvnlCover = document.getElementById("toggle-rvnl-cover");
+    const rvnlCoverTitle = document.getElementById("rvnl-cover-title");
+
+    if (state.activeClient === "RVNL" && periodType === "monthly") {
+        if (rvnlToggleContainer) rvnlToggleContainer.style.display = "inline-flex";
+        if (rvnlCoverTitle) {
+            rvnlCoverTitle.textContent = `${selectedMonth} - PR & SM Coverage Report`;
+        }
+        if (rvnlCoverPage) {
+            if (toggleRvnlCover && toggleRvnlCover.checked) {
+                rvnlCoverPage.style.display = "block";
+            } else {
+                rvnlCoverPage.style.display = "none";
+            }
+        }
+    } else {
+        if (rvnlToggleContainer) rvnlToggleContainer.style.display = "none";
+        if (rvnlCoverPage) rvnlCoverPage.style.display = "none";
+    }
     
     // Set client-specific default narrative text dynamically
     const editNarrativeEl = document.getElementById("edit-report-narrative");

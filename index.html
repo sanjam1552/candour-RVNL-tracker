@@ -458,6 +458,10 @@
                         <p>Generate highly polished, print-ready client reports for weekly or monthly review sessions.</p>
                     </div>
                     <div class="report-export-actions" style="display: flex; align-items: center; gap: 16px;">
+                        <label id="rvnl-cover-toggle-container" style="display: none; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary); margin: 0; user-select: none;">
+                            <input type="checkbox" id="toggle-rvnl-cover" checked style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-blue);">
+                            Include RVNL Cover Page
+                        </label>
                         <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary); margin: 0; user-select: none;">
                             <input type="checkbox" id="toggle-continuous-page" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-blue);">
                             Continuous Page PDF (No Page Breaks)
@@ -505,6 +509,18 @@
 
                 <!-- Printable Report Shell -->
                 <div class="print-report-canvas" id="printable-report-canvas">
+                    <!-- RVNL Cover Page Intro -->
+                    <div id="report-rvnl-cover-page" style="display: none; text-align: center; padding: 40px 20px; box-sizing: border-box; font-family: sans-serif; background: #ffffff; color: #000000; page-break-after: always; margin-bottom: 40px; border-bottom: 2px dashed #cbd5e1;">
+                        <div style="margin-top: 50px; margin-bottom: 70px;">
+                            <img src="inputs/RVNL logo.png" alt="RVNL Logo" style="height: 110px; width: auto; object-fit: contain;">
+                        </div>
+                        <h1 id="rvnl-cover-title" style="font-size: 28px; font-weight: 700; color: #000000; margin-bottom: 70px; letter-spacing: -0.5px;">July 2026 - PR & SM Coverage Report</h1>
+                        <div style="font-size: 19px; font-weight: 700; line-height: 1.8; color: #000000; margin: 0 auto; max-width: 650px;">
+                            <p style="margin-bottom: 30px;">The various media activities have been accomplished by us with active guidance<br>and support by the RVNL's PR Team:</p>
+                            <p style="margin-bottom: 25px;">1. Mr. Anil Kumar Saxena, Sr. Advisor<br>Media</p>
+                            <p style="margin-bottom: 20px;">2. Ms. Chetna Magu, Manager Public<br>Relations & Corporate Communication</p>
+                        </div>
+                    </div>
                     <!-- Report Header -->
                     <div class="report-print-header">
                         <div class="report-header-top">
