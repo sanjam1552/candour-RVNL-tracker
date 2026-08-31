@@ -7201,7 +7201,11 @@ function renderReportView() {
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
             if (prReleaseLabel) {
-                prReleaseLabel.textContent = "Press Releases Issued";
+                if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
+                    prReleaseLabel.textContent = "PR Activities";
+                } else {
+                    prReleaseLabel.textContent = "Press Releases Issued";
+                }
             }
             if (prTitleEl) {
                 if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
