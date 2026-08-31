@@ -2080,6 +2080,11 @@ function setupEventListeners() {
                         size: 210mm ${heightMm}mm;
                         margin: 10mm 15mm;
                     }
+                    #report-rvnl-cover-page {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
+                        margin-bottom: 20px !important;
+                    }
                     .page-break-before {
                         page-break-before: auto !important;
                         break-before: auto !important;
