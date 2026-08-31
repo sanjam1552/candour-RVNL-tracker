@@ -7280,7 +7280,7 @@ function renderReportView() {
             }
             
             // Format status badge or date
-            let timelineDisplay = task.date || task.week || 'Published';
+            let timelineDisplay = task.date ? standardizeDateString(task.date) : (task.week || 'Published');
             
             let statusClass = "status-published";
             if (task.status === "WIP") statusClass = "status-wip";
@@ -7529,7 +7529,7 @@ function renderReportView() {
                                 ${wipBadge}
                                 ${(task.completionDate || task.date) ? `
                                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; border: 1px solid #475569; white-space: nowrap;">
-                                    <i class="fa-regular fa-calendar-days"></i> ${task.completionDate || task.date}
+                                    <i class="fa-regular fa-calendar-days"></i> ${standardizeDateString(task.completionDate || task.date)}
                                 </div>` : ''}
                                 <button class="no-print report-exclude-btn-pr" data-id="${task.id}" style="background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
                             </div>
@@ -7578,7 +7578,7 @@ function renderReportView() {
                                                 <span class="no-print drag-handle-pub" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; margin-right: 4px; margin-top: 1px;"><i class="fa-solid fa-bars"></i></span>
                                                 <span style="word-break: break-word;">${pub.name || 'Unnamed Pub'}</span>
                                             </div>
-                                            ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${pub.date}</div>` : ''}
+                                            ${pub.date ? `<div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 4px;"><i class="fa-regular fa-calendar" style="font-size: 10px;"></i>${standardizeDateString(pub.date)}</div>` : ''}
                                             ${linkButtonHtml}
                                         </div>
                                     </div>
@@ -10572,6 +10572,44 @@ function getWeekFromDate(date) {
     if (day <= 21) return "Week 3";
     if (day <= 28) return "Week 4";
     return "Week 5";
+}
+
+function standardizeDateString(dateStr) {
+    if (!dateStr || dateStr === 'Published' || dateStr.toLowerCase().startsWith('week')) return dateStr;
+    
+    const cleanStr = dateStr.trim();
+    const d = new Date(cleanStr);
+    if (!isNaN(d.getTime()) && !/^\d+$/.test(cleanStr)) {
+        const day = d.getDate();
+        const month = d.toLocaleDateString('en-US', { month: 'long' });
+        let suffix = "th";
+        if (day === 1 || day === 21 || day === 31) suffix = "st";
+        else if (day === 2 || day === 22) suffix = "nd";
+        else if (day === 3 || day === 23) suffix = "rd";
+        return `${day}${suffix} ${month}`;
+    }
+    
+    const match = cleanStr.match(/(\d+)(?:st|nd|rd|th)?\s+([A-Za-z]+)/i);
+    if (match) {
+        const day = parseInt(match[1]);
+        let monthStr = match[2];
+        const monthNames = {
+            jan: "January", feb: "February", mar: "March", apr: "April", may: "May", jun: "June",
+            jul: "July", aug: "August", sep: "September", oct: "October", nov: "November", dec: "December",
+            january: "January", february: "February", march: "March", april: "April", june: "June",
+            july: "July", august: "August", september: "September", october: "October", november: "November", december: "December"
+        };
+        const key = monthStr.toLowerCase().substring(0, 3);
+        const fullMonth = monthNames[key] || monthStr;
+        
+        let suffix = "th";
+        if (day === 1 || day === 21 || day === 31) suffix = "st";
+        else if (day === 2 || day === 22) suffix = "nd";
+        else if (day === 3 || day === 23) suffix = "rd";
+        return `${day}${suffix} ${fullMonth}`;
+    }
+    
+    return dateStr;
 }
 
 function formatOrdinalDate(date) {
