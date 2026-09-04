@@ -6970,19 +6970,27 @@ function generateReport(keepExclusions = false) {
         reportItems = reportItems.filter(t => t.type !== "PR Update");
     }
 
-    // If monthly report is chosen, only keep items that are "Published/Closed" (uploaded/used/closed)
+    // If monthly report is chosen, only keep closed/terminal deliverables (Published/Closed, Not used by client, Coverage did not appear, Missed opportunity)
     // For Legrand (LDCS), include WIP, Sent for internal approval, and Sent to client as well
     if (periodType === "monthly") {
         if (state.activeClient === "Legrand") {
             reportItems = reportItems.filter(t => 
                 t.status === "Published/Closed" || 
+                t.status === "Not used by client" ||
+                t.status === "Coverage did not appear" ||
+                t.status === "Missed opportunity" ||
                 t.status === "WIP" || 
                 t.status === "Sent for internal approval" || 
                 t.status === "Sent to client" ||
                 t.status === "Client Approval Pending"
             );
         } else {
-            reportItems = reportItems.filter(t => t.status === "Published/Closed");
+            reportItems = reportItems.filter(t => 
+                t.status === "Published/Closed" || 
+                t.status === "Not used by client" ||
+                t.status === "Coverage did not appear" ||
+                t.status === "Missed opportunity"
+            );
         }
     }
 
