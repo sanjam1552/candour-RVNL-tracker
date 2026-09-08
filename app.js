@@ -21,13 +21,14 @@ const PR_ONLY_CLIENTS = [
     "WSA", 
     "Tenarai"
 ];
-const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Greenshine Solar"];
+const SOCIAL_CREATIVE_CLIENTS = ["RVNL", "Dynpro", "Legrand", "iCode", "Kompact AI", "BT Group", "Candour", "Greenshine Solar"];
 const ALL_CLIENTS = [...PR_ONLY_CLIENTS, ...SOCIAL_CREATIVE_CLIENTS];
 
 // Helper to get client full display name
 function getClientFullName(client) {
     const names = {
         "RVNL": "Rail Vikas Nigam Limited (RVNL)",
+        "Dynpro": "Dynpro",
         "Zoom": "Zoom Video Communications",
         "Legrand": "Sanjay Motwani Leadership Profiling",
         "iCode": "iCode",
@@ -60,6 +61,7 @@ function getClientFullName(client) {
 // Helper to get client logo path
 function getClientLogo(client) {
     if (client === "RVNL") return "inputs/RVNL (R)logo_vector.png";
+    if (client === "Dynpro") return "inputs/dynpro.png";
     if (client === "Legrand") return "inputs/ldcs logo.png";
     if (client === "iCode") return "inputs/icode black.png";
     if (client === "Kompact AI") return "inputs/logo kompact-text-shapes-2x.png";
@@ -884,6 +886,17 @@ async function loadData() {
                 });
                 needsSave = true;
             }
+            
+            // Ensure super admins have access to newly added clients
+            ALL_CLIENTS.forEach(client => {
+                ADMIN_EMAILS.forEach(adminEmail => {
+                    const lowerAdmin = adminEmail.toLowerCase();
+                    if (state.userPermissions[lowerAdmin] && !state.userPermissions[lowerAdmin][client]) {
+                        state.userPermissions[lowerAdmin][client] = "Full";
+                        needsSave = true;
+                    }
+                });
+            });
             
             if (needsSave) {
                 configRef.set({ userPermissions: state.userPermissions }, { merge: true })
@@ -1811,7 +1824,7 @@ function setupEventListeners() {
             }
 
             let finalFilterStatus = filterStatus;
-            if (state.activeClient === "RVNL" && filterType === "PR Update") {
+            if ((state.activeClient === "RVNL" || state.activeClient === "Dynpro") && filterType === "PR Update") {
                 finalFilterStatus = "all";
             }
 
@@ -2724,13 +2737,27 @@ function getUserClientPermission(email, client) {
     if (!email) return "None";
     const lowerEmail = email.toLowerCase();
     
+    // Super admins always have Full access to all clients
+    if (ADMIN_EMAILS.includes(lowerEmail)) {
+        if (state.userPermissions && state.userPermissions[lowerEmail] && state.userPermissions[lowerEmail][client]) {
+            return state.userPermissions[lowerEmail][client];
+        }
+        return "Full";
+    }
+
     // 1. Check if there is an explicit permission entry for this user first
     if (state.userPermissions && state.userPermissions[lowerEmail]) {
         let clientKey = client;
         if (clientKey === "Greenshine Solar") {
             clientKey = "Green Shine Solar";
         }
-        return state.userPermissions[lowerEmail][clientKey] || "None";
+        if (state.userPermissions[lowerEmail][clientKey] !== undefined) {
+            return state.userPermissions[lowerEmail][clientKey];
+        }
+        if (state.userPermissions[lowerEmail].isAdmin) {
+            return "Full";
+        }
+        return "None";
     }
     
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
@@ -3497,7 +3524,7 @@ function switchClient(client) {
     // Update filter-status dropdown options dynamically
     const filterStatusSelect = document.getElementById("filter-status");
     if (filterStatusSelect) {
-        if (targetClient === "RVNL") {
+        if (targetClient === "RVNL" || targetClient === "Dynpro") {
             filterStatusSelect.innerHTML = `
                 <option value="all">All Statuses</option>
                 <option value="In Progress">In Progress (Active)</option>
@@ -3834,7 +3861,7 @@ function togglePRFormFields(type) {
     const lblTargetCompDate = document.querySelector('label[for="task-target-completion-date"]');
     const lblOppDeadline = document.querySelector('label[for="task-opportunity-deadline"]');
     if (lblTargetCompDate && lblOppDeadline) {
-        if (state.activeClient === "RVNL") {
+        if (state.activeClient === "RVNL" || state.activeClient === "Dynpro") {
             lblTargetCompDate.textContent = "Activity initiated on";
             lblOppDeadline.textContent = "Activity closed";
         } else {
@@ -3946,7 +3973,7 @@ function togglePRFormFields(type) {
 
     if (type === "PR Update") {
         if (taskStatusSelect) {
-            if (state.activeClient === "RVNL") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Dynpro") {
                 taskStatusSelect.innerHTML = `
                     <option value="WIP">🟡 WIP</option>
                     <option value="Sent for internal approval">🟡 Sent for internal approval</option>
@@ -4662,7 +4689,7 @@ function openDrawer(taskId = null, prefillData = null) {
     
     const statusSelect = document.getElementById("task-status");
     if (statusSelect) {
-        if (state.activeClient === "RVNL") {
+        if (state.activeClient === "RVNL" || state.activeClient === "Dynpro") {
             statusSelect.innerHTML = `
                 <option value="WIP">🟡 WIP</option>
                 <option value="Sent for internal approval">🟡 Sent for internal approval</option>
@@ -5527,17 +5554,17 @@ function updateDashboard() {
         if (smCardH3) smCardH3.textContent = "Social Outputs";
         if (smCardDesc) smCardDesc.textContent = "Published on LinkedIn/X";
         if (prCardH3) {
-            prCardH3.textContent = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") ? "PR Activities" : "PR Coverages";
+            prCardH3.textContent = (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") ? "PR Activities" : "PR Coverages";
         }
         if (prCardDesc) {
-            prCardDesc.textContent = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") ? "PR activities tracked" : "Media coverages secured";
+            prCardDesc.textContent = (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") ? "PR activities tracked" : "Media coverages secured";
         }
         if (wipCardH3) wipCardH3.textContent = "Work in Progress";
         if (wipCardDesc) wipCardDesc.textContent = "Currently active/review";
         
         const totalVal = clientTasks.length;
         const linkedinVal = clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length;
-        const prVal = (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar")
+        const prVal = (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar")
             ? clientTasks.filter(t => t.type === 'PR Update').length
             : getPRPublicationsCount(clientTasks);
         const wipVal = clientTasks.filter(t => ['WIP', 'Sent for internal approval', 'Sent to client', 'Sent to journalist', 'On hold', 'Client Approval Pending'].includes(t.status)).length;
@@ -5975,7 +6002,7 @@ function renderTracker() {
     // Show or hide the RVNL tracker mode selector container
     const rvnlSelector = document.getElementById("rvnl-mode-selector-container");
     if (rvnlSelector) {
-        if (state.activeClient === "RVNL") {
+        if (state.activeClient === "RVNL" || state.activeClient === "Dynpro") {
             rvnlSelector.classList.remove("hidden");
         } else {
             rvnlSelector.classList.add("hidden");
@@ -5989,7 +6016,7 @@ function renderTracker() {
         if (!matchesClient) return false;
 
         // Apply RVNL Mode Filter (Unified, PR Mode, Creative Mode)
-        if (state.activeClient === "RVNL") {
+        if (state.activeClient === "RVNL" || state.activeClient === "Dynpro") {
             if (state.trackerMode === 'pr' && task.type !== "PR Update") return false;
             if (state.trackerMode === 'creative' && task.type === "PR Update") return false;
         }
@@ -6050,7 +6077,7 @@ function renderTracker() {
         "Not used by client": 7
     };
     state.filteredTasks.sort((a, b) => {
-        if (state.activeClient === "RVNL" && a.type === "PR Update" && b.type === "PR Update") {
+        if ((state.activeClient === "RVNL" || state.activeClient === "Dynpro") && a.type === "PR Update" && b.type === "PR Update") {
             const getPRColorPriority = (status) => {
                 const greenStatuses = ["Published/Closed", "Published directly by client"];
                 const redStatuses = ["On hold", "Missed opportunity", "Not used by client"];
@@ -6209,7 +6236,7 @@ function renderTrackerTable() {
 
         // Status Pill
         let statusClass = "status-wip";
-        if (state.activeClient === "RVNL" && task.type === "PR Update") {
+        if ((state.activeClient === "RVNL" || state.activeClient === "Dynpro") && task.type === "PR Update") {
             const greenStatuses = ["Published/Closed", "Published directly by client"];
             const redStatuses = ["On hold", "Missed opportunity", "Not used by client", "Coverage did not appear"];
             if (greenStatuses.includes(task.status)) {
@@ -7186,7 +7213,7 @@ function renderReportView() {
             document.getElementById("rep-stat-sm").textContent = smItems.length;
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
-        } else if ((state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") && periodType === "weekly") {
+        } else if ((state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") && periodType === "weekly") {
             // 1. Hide Press Coverage Items box (prBox)
             if (prBox) prBox.style.display = "none";
             
@@ -7252,7 +7279,7 @@ function renderReportView() {
             document.getElementById("rep-stat-collateral").textContent = creativeItems.length;
             
             if (prReleaseLabel) {
-                if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
+                if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") {
                     prReleaseLabel.textContent = "PR Activities";
                 } else {
                     prReleaseLabel.textContent = "Press Releases Issued";
@@ -7311,7 +7338,7 @@ function renderReportView() {
             if (verificationLink === "Sent for internal approval") {
                 verificationLink = "WIP";
             }
-            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") && task.status !== "Published/Closed") {
+            if ((state.activeClient === "Legrand" || state.activeClient === "Kompact AI" || state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") && task.status !== "Published/Closed") {
                 verificationLink = "WIP";
             }
             if (task.liveLink && task.liveLink.startsWith("http")) {
@@ -7373,7 +7400,7 @@ function renderReportView() {
             }
 
             let screenStatusHtml = "";
-            if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") {
                 const screenText = task.status === "Published/Closed" ? timelineDisplay : displayStatus;
                 screenStatusHtml = `
                     <div class="no-print">
@@ -7556,7 +7583,7 @@ function renderReportView() {
                         : "";
 
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") {
                         screenStatusHtml = showStatusBadge 
                             ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                             : "";
@@ -7591,7 +7618,7 @@ function renderReportView() {
                     let publicationsHtml = "";
                     
                     if (task.status === "Published/Closed") {
-                        const isRvnlWeekly = state.activeClient === "RVNL" && periodType === "weekly";
+                        const isRvnlWeekly = (state.activeClient === "RVNL" || state.activeClient === "Dynpro") && periodType === "weekly";
                         if (list.length > 0) {
                             publicationsHtml = `<div class="report-pub-grid" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 14px; box-sizing: border-box;">`;
                             list.forEach((pub, pubIdx) => {
@@ -7729,7 +7756,7 @@ function renderReportView() {
                     const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Greenshine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "Greenshine Solar") {
                         screenStatusHtml = `
                             <div class="no-print">
                                 <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
@@ -11959,6 +11986,9 @@ const MOCK_LOGOS = {
     "RVNL": [
         { title: "RVNL Main Vector Logo", format: "PNG", url: "inputs/RVNL (R)logo_vector.png" },
         { title: "RVNL Dark Monochrome Emblem", format: "SVG", url: "inputs/RVNL (R)logo_vector.png" }
+    ],
+    "Dynpro": [
+        { title: "Dynpro Main Logo", format: "PNG", url: "inputs/dynpro.png" }
     ],
     "Greenshine Solar": [
         { title: "Greenshine Solar Primary Logo", format: "PNG", url: "inputs/Greenshine logo_final.png" }
