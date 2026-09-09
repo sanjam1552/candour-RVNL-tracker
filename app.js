@@ -3894,7 +3894,7 @@ function togglePRFormFields(type) {
 
     const greenshineCampaignGroup = document.getElementById("greenshine-campaign-group");
     if (greenshineCampaignGroup) {
-        if (state.activeClient === "Greenshine Solar" && type === "Digital Campaigns") {
+        if (type === "Digital Campaigns") {
             greenshineCampaignGroup.classList.remove("hidden");
         } else {
             greenshineCampaignGroup.classList.add("hidden");
@@ -5812,13 +5812,21 @@ function renderShareChart() {
         if (titleEl) titleEl.textContent = "Category Share";
         if (subTitleEl) subTitleEl.textContent = "Distribution of assets";
         
-        if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+        if (state.activeClient === "Legrand") {
             categories = ['Social Media', 'PR Update'];
             dataVals = [
                 clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
                 getPRPublicationsCount(clientTasks)
             ];
             bgColors = ['#10b981', '#8b5cf6'];
+        } else if (state.activeClient === "Kompact AI") {
+            categories = ['Social Media', 'PR Update', 'Digital Campaigns'];
+            dataVals = [
+                clientTasks.filter(t => t.type === 'Social Media' && t.status === 'Published/Closed').length,
+                getPRPublicationsCount(clientTasks),
+                clientTasks.filter(t => t.type === 'Digital Campaigns' && t.status === 'Published/Closed').length
+            ];
+            bgColors = ['#10b981', '#8b5cf6', '#a855f7'];
         } else if (state.activeClient === "BT Group") {
             categories = ['Social Media', 'Creative / Collateral'];
             dataVals = [
@@ -6175,7 +6183,7 @@ function renderTrackerTable() {
         
         // Type Badge
         let typeBadge = "";
-        if (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
+        if (task.type === "Digital Campaigns" || state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : []);
@@ -6681,7 +6689,7 @@ function renderTrackerKanban() {
         // Tag label
         let tagColor = "var(--accent-blue)";
         let tagLabel = (task.subType === "Magazine Ad" || task.subType === "Print Ad") ? "Print Ad" : (task.subType === "Other" ? "Document" : (task.subType || task.type));
-        if (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
+        if (task.type === "Digital Campaigns" || state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
                 : (task.campaignType ? [task.campaignType] : []);
@@ -7263,8 +7271,8 @@ function renderReportView() {
             if (secondaryRow && prReleaseBox) secondaryRow.appendChild(prReleaseBox);
             if (secondaryRow && collateralBox) secondaryRow.appendChild(collateralBox);
             
-            // Hide digital campaigns unless Green Shine Solar
-            if (state.activeClient !== "Greenshine Solar") {
+            // Hide digital campaigns unless Green Shine Solar or digital campaigns exist
+            if (state.activeClient !== "Greenshine Solar" && dcItems.length === 0) {
                 if (reportSecDigital) reportSecDigital.style.display = "none";
             }
             
@@ -7834,7 +7842,7 @@ function renderReportView() {
     const dcSec = document.getElementById("report-sec-digital-campaigns");
     if (dcBody && dcSec) {
         dcBody.innerHTML = "";
-        if (state.activeClient !== "Greenshine Solar") {
+        if (state.activeClient !== "Greenshine Solar" && dcItems.length === 0) {
             dcSec.style.display = "none";
         } else {
             dcSec.style.display = "";
