@@ -2691,7 +2691,7 @@ function adjustClientSpecificOptions(client) {
             taskTypeSelect.innerHTML = `
                 <option value="Social Media">Social Media Post</option>
                 <option value="PR Update">PR Update (Press Release / Media)</option>
-                <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+                <option value="Creative / Collateral">Creative / Collateral (Print Ads, Newsletters, Collaterals)</option>
                 <option value="Digital Campaigns">Digital Campaigns</option>
             `;
             if (client === "Legrand" || client === "Kompact AI") {
@@ -4114,7 +4114,7 @@ function togglePRFormFields(type) {
         
         lblSubType.textContent = "Asset Sub-category";
         subTypeSelect.innerHTML = `
-            <option value="Magazine Ad">Magazine Ad</option>
+            <option value="Print Ad">Print Ad</option>
             <option value="Newsletter">Newsletter</option>
             <option value="Video">Video</option>
             <option value="Blog">Blog</option>
@@ -4745,7 +4745,7 @@ function openDrawer(taskId = null, prefillData = null) {
         taskTypeSelect.innerHTML = `
             <option value="Social Media">Social Media Post</option>
             <option value="PR Update">PR Update (Press Release / Media)</option>
-            <option value="Creative / Collateral">Creative / Collateral (Ads, Magazines, Newsletter)</option>
+            <option value="Creative / Collateral">Creative / Collateral (Print Ads, Newsletters, Collaterals)</option>
             <option value="Digital Campaigns">Digital Campaigns</option>
         `;
         if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
@@ -4826,7 +4826,9 @@ function openDrawer(taskId = null, prefillData = null) {
                 updateCplCpcCalculation();
             }
             
-            document.getElementById("task-sub-type").value = task.subType || "";
+            let currentSubType = task.subType || "";
+            if (currentSubType === "Magazine Ad") currentSubType = "Print Ad";
+            document.getElementById("task-sub-type").value = currentSubType;
             document.getElementById("task-title").value = task.title || "";
             document.getElementById("task-status").value = task.status || "WIP";
             document.getElementById("task-owner").value = task.owner || "Unassigned";
@@ -4904,7 +4906,11 @@ function openDrawer(taskId = null, prefillData = null) {
         document.getElementById("task-type").value = prefillData.type;
         togglePRFormFields(prefillData.type);
         
-        if (prefillData.subType) document.getElementById("task-sub-type").value = prefillData.subType;
+        if (prefillData.subType) {
+            let pfSubType = prefillData.subType;
+            if (pfSubType === "Magazine Ad") pfSubType = "Print Ad";
+            document.getElementById("task-sub-type").value = pfSubType;
+        }
         if (prefillData.title) document.getElementById("task-title").value = prefillData.title;
         if (prefillData.remarks) document.getElementById("task-remarks").value = prefillData.remarks;
         if (prefillData.status) {
@@ -6223,8 +6229,8 @@ function renderTrackerTable() {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-video"></i> Video</span>`;
             } else if (task.subType === "Newsletter") {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-envelope-open-text"></i> Newsletter</span>`;
-            } else if (task.subType === "Magazine Ad") {
-                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-rectangle-ad"></i> Ad</span>`;
+            } else if (task.subType === "Print Ad" || task.subType === "Magazine Ad") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-rectangle-ad"></i> Print Ad</span>`;
             } else if (task.subType === "Blog") {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-blog"></i> Blog</span>`;
             } else if (task.subType === "Website") {
@@ -6674,7 +6680,7 @@ function renderTrackerKanban() {
         // Tag label
         // Tag label
         let tagColor = "var(--accent-blue)";
-        let tagLabel = task.subType === "Other" ? "Document" : (task.subType || task.type);
+        let tagLabel = (task.subType === "Magazine Ad" || task.subType === "Print Ad") ? "Print Ad" : (task.subType === "Other" ? "Document" : (task.subType || task.type));
         if (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
@@ -7808,9 +7814,12 @@ function renderReportView() {
                              ${noPrintButtons}
                            </div>`;
 
+                    let displaySubType = task.subType || 'Design';
+                    if (displaySubType === "Magazine Ad") displaySubType = "Print Ad";
+                    if (displaySubType === "Other") displaySubType = "Document";
                     tr.innerHTML = `
                         <td style="text-align:center;">${idx + 1}</td>
-                        <td style="font-weight:600;">${task.subType === "Other" ? "Document" : (task.subType || 'Design')}</td>
+                        <td style="font-weight:600;">${displaySubType}</td>
                         <td>${titleAndImageHtml}</td>
                         <td>${statusBadge}</td>
                     `;
