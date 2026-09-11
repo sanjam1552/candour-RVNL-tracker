@@ -7848,7 +7848,7 @@ function renderReportView() {
             dcSec.style.display = "";
             if (dcItems.length === 0) {
                 dcSec.classList.add("no-print");
-                dcBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#6b7280;">No digital campaigns recorded.</td></tr>`;
+                dcBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#6b7280;">No digital campaigns recorded.</td></tr>`;
             } else {
                 dcSec.classList.remove("no-print");
                 dcItems.forEach((task, idx) => {
@@ -7865,9 +7865,52 @@ function renderReportView() {
                     const platformsHtml = task.platforms && task.platforms.length > 0 
                         ? task.platforms.join(", ") 
                         : "N/A";
-                    const budgetVal = task.campaignBudget ? Number(task.campaignBudget) : 0;
-                    const convVal = task.leadsConversionsClicks ? Number(task.leadsConversionsClicks) : 0;
-                    const cplVal = convVal > 0 ? (budgetVal / convVal).toFixed(2) : "0.00";
+
+                    // Format status badge or remarks (matching Creative Collaterals)
+                    let statusClass = "status-published";
+                    if (task.status === "WIP") statusClass = "status-wip";
+                    if (task.status === "Sent for internal approval") statusClass = "status-review";
+                    if (task.status === "Sent to client" || task.status === "Client Approval Pending") statusClass = "status-approval";
+                    if (task.status === "Not used by client") statusClass = "status-missed";
+                    
+                    let statusOptionsHtml = "";
+                    const availableStatuses = ["WIP", "Sent for internal approval", "Sent to client", "Client Approval Pending", "Published/Closed", "Not used by client"];
+                    availableStatuses.forEach(st => {
+                        statusOptionsHtml += `<option value="${st}" ${task.status === st ? 'selected' : ''} style="background: #1e293b; color: #f8fafc;">${st}</option>`;
+                    });
+                    
+                    const screenStatusSelect = `
+                        <div class="no-print">
+                            <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit;">
+                                ${statusOptionsHtml}
+                            </select>
+                        </div>
+                    `;
+                    
+                    let displayStatus = task.status || 'Published/Closed';
+                    if (displayStatus === "Sent for internal approval") {
+                        displayStatus = "WIP";
+                    }
+                    const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
+                    
+                    let screenStatusHtml = "";
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin" || state.activeClient === "Greenshine Solar") {
+                        screenStatusHtml = `
+                            <div class="no-print">
+                                <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
+                            </div>
+                        `;
+                    } else {
+                        screenStatusHtml = screenStatusSelect;
+                    }
+
+                    let statusBadge = `${screenStatusHtml}${printStatusHtml}`;
+                    if (periodType !== "weekly" && (task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
+                        statusBadge += `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; line-height: 1.3;">
+                            ${task.wipWho ? `<div><strong>Pending with:</strong> ${task.wipWho}</div>` : ''}
+                            ${task.wipWhy ? `<div><strong>Status/Delay:</strong> ${task.wipWhy}</div>` : ''}
+                        </div>`;
+                    }
 
                     let reportThumbnailHtml = "";
                     if (task.image) {
@@ -7900,27 +7943,12 @@ function renderReportView() {
                              ${noPrintButtons}
                            </div>`;
 
-                    let linksHtml = '<div class="links-flex" style="justify-content: center; gap: 8px;">';
-                    if (task.adCreativeLink && task.adCreativeLink.startsWith("http")) {
-                        linksHtml += `<a href="${task.adCreativeLink}" target="_blank" class="link-circle canva-link" title="Ad Creative Link" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-pen-nib"></i></a>`;
-                    }
-                    if (task.targetUrl && task.targetUrl.startsWith("http")) {
-                        linksHtml += `<a href="${task.targetUrl}" target="_blank" class="link-circle li-link" title="Target URL" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
-                    }
-                    if (task.image) {
-                        linksHtml += `<a href="#" class="link-circle img-link btn-view-image" data-id="${task.id}" title="View Media Clipping" style="width:24px; height:24px; font-size:11px; display:inline-flex; align-items:center; justify-content:center;"><i class="fa-solid fa-image"></i></a>`;
-                    }
-                    linksHtml += '</div>';
-
                     tr.innerHTML = `
                         <td style="text-align:center;">${idx + 1}</td>
                         <td style="font-weight:600; text-align:center;">${campaignTypeLabel}</td>
                         <td>${titleAndImageHtml}</td>
                         <td style="text-align:center;">${platformsHtml}</td>
-                        <td style="text-align:center;">₹${budgetVal.toLocaleString('en-IN')}</td>
-                        <td style="text-align:center;">${convVal.toLocaleString()}</td>
-                        <td style="text-align:center;">₹${cplVal}</td>
-                        <td>${linksHtml}</td>
+                        <td style="text-align:center;">${statusBadge}</td>
                     `;
                     dcBody.appendChild(tr);
                 });
