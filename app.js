@@ -877,16 +877,21 @@ async function loadData() {
             });
             
             // Auto register current user email if they just logged in and are missing from the list
-            if (state.currentUserEmail && !state.userPermissions[state.currentUserEmail]) {
-                const isSuper = ADMIN_EMAILS.includes(state.currentUserEmail);
-                state.userPermissions[state.currentUserEmail] = {
-                    isAdmin: isSuper
-                };
-                ALL_CLIENTS.forEach(client => {
-                    // Super admins get Full access automatically, others default to None (Access Pending)
-                    state.userPermissions[state.currentUserEmail][client] = isSuper ? "Full" : "None";
-                });
-                needsSave = true;
+            if (state.currentUserEmail) {
+                const currentLower = state.currentUserEmail.toLowerCase();
+                const matchedUserKey = Object.keys(state.userPermissions).find(k => k.toLowerCase() === currentLower);
+                if (!matchedUserKey) {
+                    const isSuper = ADMIN_EMAILS.includes(currentLower);
+                    state.userPermissions[currentLower] = {
+                        isAdmin: isSuper
+                    };
+                    ALL_CLIENTS.forEach(client => {
+                        // Super admins get Full access automatically, others default to None (Access Pending)
+                        state.userPermissions[currentLower][client] = isSuper ? "Full" : "None";
+                    });
+                    state.userPermissions[currentLower]["Green Shine Solar"] = isSuper ? "Full" : "None";
+                    needsSave = true;
+                }
             }
             
             // Ensure super admins have access to newly added clients
@@ -2247,10 +2252,19 @@ function setupEventListeners() {
     document.getElementById("save-permissions-drawer-btn")?.addEventListener("click", async () => {
         if (!state.editingPermissionUser) return;
         
-        state.userPermissions[state.editingPermissionUser] = {
-            ...state.userPermissions[state.editingPermissionUser],
+        const targetUser = state.editingPermissionUser;
+        const lowerTarget = targetUser.toLowerCase();
+        const matchedKey = Object.keys(state.userPermissions || {}).find(k => k.toLowerCase() === lowerTarget) || targetUser;
+        
+        state.userPermissions[matchedKey] = {
+            ...(state.userPermissions[matchedKey] || {}),
             ...state.editingPermissionsTemp
         };
+        
+        // Ensure Greenshine Solar and Green Shine Solar aliases stay in sync
+        if (state.editingPermissionsTemp["Greenshine Solar"]) {
+            state.userPermissions[matchedKey]["Green Shine Solar"] = state.editingPermissionsTemp["Greenshine Solar"];
+        }
         
         closePermissionsDrawer();
         await handleSavePermissions();
@@ -2741,25 +2755,54 @@ function getUserClientPermission(email, client) {
     
     // Super admins always have Full access to all clients
     if (ADMIN_EMAILS.includes(lowerEmail)) {
-        if (state.userPermissions && state.userPermissions[lowerEmail] && state.userPermissions[lowerEmail][client]) {
-            return state.userPermissions[lowerEmail][client];
+        if (state.userPermissions) {
+            const adminPerms = state.userPermissions[lowerEmail] || 
+                               state.userPermissions[email] ||
+                               Object.entries(state.userPermissions).find(([k]) => k.toLowerCase() === lowerEmail)?.[1];
+            if (adminPerms) {
+                if (adminPerms[client]) return adminPerms[client];
+                if (client === "Greenshine Solar" && adminPerms["Green Shine Solar"]) return adminPerms["Green Shine Solar"];
+                if (client === "Green Shine Solar" && adminPerms["Greenshine Solar"]) return adminPerms["Greenshine Solar"];
+            }
         }
         return "Full";
     }
 
     // 1. Check if there is an explicit permission entry for this user first
-    if (state.userPermissions && state.userPermissions[lowerEmail]) {
-        let clientKey = client;
-        if (clientKey === "Greenshine Solar") {
-            clientKey = "Green Shine Solar";
+    if (state.userPermissions) {
+        const userPerms = state.userPermissions[lowerEmail] || 
+                          state.userPermissions[email] ||
+                          Object.entries(state.userPermissions).find(([k]) => k.toLowerCase() === lowerEmail)?.[1];
+        
+        if (userPerms) {
+            // Check direct client key first (e.g. "Greenshine Solar")
+            if (userPerms[client] !== undefined && userPerms[client] !== "None") {
+                return userPerms[client];
+            }
+            // Check aliases for Greenshine Solar / Green Shine Solar
+            if (client === "Greenshine Solar" && userPerms["Green Shine Solar"] !== undefined && userPerms["Green Shine Solar"] !== "None") {
+                return userPerms["Green Shine Solar"];
+            }
+            if (client === "Green Shine Solar" && userPerms["Greenshine Solar"] !== undefined && userPerms["Greenshine Solar"] !== "None") {
+                return userPerms["Greenshine Solar"];
+            }
+            
+            // Explicit "None" checks
+            if (userPerms[client] !== undefined) {
+                return userPerms[client];
+            }
+            if (client === "Greenshine Solar" && userPerms["Green Shine Solar"] !== undefined) {
+                return userPerms["Green Shine Solar"];
+            }
+            if (client === "Green Shine Solar" && userPerms["Greenshine Solar"] !== undefined) {
+                return userPerms["Greenshine Solar"];
+            }
+
+            if (userPerms.isAdmin) {
+                return "Full";
+            }
+            return "None";
         }
-        if (state.userPermissions[lowerEmail][clientKey] !== undefined) {
-            return state.userPermissions[lowerEmail][clientKey];
-        }
-        if (state.userPermissions[lowerEmail].isAdmin) {
-            return "Full";
-        }
-        return "None";
     }
     
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
@@ -2935,9 +2978,13 @@ function checkUserIsAdmin(email) {
         return true;
     }
     
-    // 2. Read from database permissions
-    if (state.userPermissions && state.userPermissions[lowerEmail]) {
-        return state.userPermissions[lowerEmail].isAdmin === true;
+    // 2. Read from database permissions (case-insensitive)
+    if (state.userPermissions) {
+        const userPerms = state.userPermissions[lowerEmail] || 
+                          Object.entries(state.userPermissions).find(([k]) => k.toLowerCase() === lowerEmail)?.[1];
+        if (userPerms) {
+            return userPerms.isAdmin === true;
+        }
     }
     
     return false;
@@ -3022,9 +3069,9 @@ function renderPermissionsMatrix() {
         const userIsAdmin = checkUserIsAdmin(userEmail);
         const isSuperAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
         
-        // Count active client assignments (ReadOnly or Full)
+        // Count active client assignments (ReadOnly or Full), ignoring internal aliases
         const userPerms = state.userPermissions[userEmail] || {};
-        const activeCount = Object.keys(userPerms).filter(k => k !== "isAdmin" && (userPerms[k] === "Full" || userPerms[k] === "ReadOnly")).length;
+        const activeCount = Object.keys(userPerms).filter(k => k !== "isAdmin" && k !== "Green Shine Solar" && (userPerms[k] === "Full" || userPerms[k] === "ReadOnly")).length;
         const summaryText = `Access to ${activeCount} Client${activeCount === 1 ? '' : 's'}`;
 
         let rowHtml = `<td style="padding: 12px 16px; font-weight: 500;">${userEmail}</td>`;
@@ -3089,11 +3136,18 @@ function openPermissionsDrawer(userEmail) {
     state.editingPermissionUser = userEmail;
     
     // Copy existing user permissions to a temp state or initialize defaults
-    const existingPerms = state.userPermissions[userEmail] || {};
+    const lowerEmail = userEmail.toLowerCase();
+    const existingPerms = state.userPermissions[userEmail] || 
+                          state.userPermissions[lowerEmail] || 
+                          Object.entries(state.userPermissions || {}).find(([k]) => k.toLowerCase() === lowerEmail)?.[1] || {};
     state.editingPermissionsTemp = { isAdmin: existingPerms.isAdmin || false };
     
     getClientList().forEach(client => {
-        state.editingPermissionsTemp[client] = existingPerms[client] || "None";
+        let perm = existingPerms[client];
+        if ((!perm || perm === "None") && client === "Greenshine Solar" && existingPerms["Green Shine Solar"]) {
+            perm = existingPerms["Green Shine Solar"];
+        }
+        state.editingPermissionsTemp[client] = perm || "None";
     });
     
     const emailEl = document.getElementById("permissions-drawer-user-email");
@@ -3221,7 +3275,8 @@ function handleAddUserPermission() {
         return;
     }
     
-    if (state.userPermissions[email]) {
+    const exists = Object.keys(state.userPermissions || {}).some(k => k.toLowerCase() === email);
+    if (exists) {
         alert("This user already exists in the permissions matrix.");
         return;
     }
@@ -3233,6 +3288,7 @@ function handleAddUserPermission() {
     getClientList().forEach(client => {
         state.userPermissions[email][client] = "None";
     });
+    state.userPermissions[email]["Green Shine Solar"] = "None";
     
     emailInput.value = "";
     renderPermissionsMatrix();
