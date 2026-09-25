@@ -2301,6 +2301,10 @@ function setupEventListeners() {
             const keyInput = document.getElementById("gemini-api-key");
             const key = keyInput.value.trim();
             if (key) {
+                if (key.includes("•••")) {
+                    alert("Please enter a new API key or clear it. The masked dots cannot be saved.");
+                    return;
+                }
                 localStorage.setItem("rvnl_gemini_key", key);
                 alert("Gemini API Key saved successfully!");
                 updateApiKeyStatus();
@@ -8596,20 +8600,24 @@ Write ONLY the final paragraph. Do not write any greetings or explanations.
     }
 }
 async function callGemini(apiKey, prompt) {
-    // We try a list of model/version configurations in order of preference:
-    // 1. gemini-2.0-flash on v1beta  (current default free-tier model)
-    // 2. gemini-2.0-flash-lite on v1beta (lighter fallback)
-    // 3. gemini-2.5-flash on v1beta  (may require allowlist)
-    // 4. gemini-1.5-flash on v1      (stable endpoint, older but reliable)
-    
+    if (!apiKey) {
+        throw new Error("No Gemini API Key provided. Please enter and save your key in Settings.");
+    }
+    apiKey = apiKey.trim();
+    if (apiKey.includes("•••")) {
+        throw new Error("API key appears masked. Please re-enter your full Gemini API key in Settings.");
+    }
+
+    // Google AI Studio models available on v1beta
     const configs = [
+        { version: "v1beta", model: "gemini-1.5-flash" },
         { version: "v1beta", model: "gemini-2.0-flash" },
-        { version: "v1beta", model: "gemini-2.0-flash-lite" },
-        { version: "v1beta", model: "gemini-2.5-flash" },
-        { version: "v1",     model: "gemini-1.5-flash" },
+        { version: "v1beta", model: "gemini-1.5-flash-8b" },
+        { version: "v1beta", model: "gemini-1.5-pro" },
+        { version: "v1beta", model: "gemini-2.0-flash-lite-preview-02-05" }
     ];
     
-    let lastError = null;
+    let errors = [];
     
     for (const config of configs) {
         try {
@@ -8620,26 +8628,44 @@ async function callGemini(apiKey, prompt) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        maxOutputTokens: 500,
+                        temperature: 0.7
+                    }
                 })
             });
+
             if (response.ok) {
                 const data = await response.json();
-                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
                     return data.candidates[0].content.parts[0].text;
                 }
             } else {
                 const errText = await response.text();
-                console.warn(`Gemini call failed for ${config.model} (${config.version}):`, errText);
-                lastError = new Error(errText);
+                let cleanMsg = errText;
+                try {
+                    const parsed = JSON.parse(errText);
+                    if (parsed.error && parsed.error.message) {
+                        cleanMsg = `${config.model}: ${parsed.error.message}`;
+                    }
+                } catch (e) {}
+                console.warn(`Gemini call failed for ${config.model} (${config.version}):`, cleanMsg);
+                errors.push(cleanMsg);
             }
         } catch (err) {
             console.warn(`Gemini fetch error for ${config.model} (${config.version}):`, err);
-            lastError = err;
+            errors.push(`${config.model}: ${err.message}`);
         }
     }
     
-    throw lastError || new Error("All Gemini model configurations failed.");
+    // Check if the errors indicate billing or quota issues
+    const joinedErrors = errors.join("\n");
+    if (joinedErrors.toLowerCase().includes("quota") || joinedErrors.toLowerCase().includes("credit") || joinedErrors.toLowerCase().includes("billing")) {
+        throw new Error("Gemini account billing/credit issue: " + (errors[0] || "No credit balance on your Google account."));
+    }
+    
+    throw new Error(errors[0] || "All Gemini model configurations failed.");
 }
 
 // Scan and migrate any historical base64 images to Cloud Storage to reclaim database space
