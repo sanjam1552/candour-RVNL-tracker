@@ -565,17 +565,300 @@ const state = {
 };
 
 // Target Date helper for weekly mapping
-// Parses strings like "1st Jan", "3rd Feb", "11th Jan" to extract day number
+// Parses strings like "1st Jan", "3rd Feb", "11th Jan", or ISO "2026-09-15" to extract day number
 function getWeekFromDateStr(dateStr) {
     if (!dateStr) return "Week 1"; // Default fall back
-    const numMatch = dateStr.match(/(\d+)/);
-    if (!numMatch) return "Week 1";
-    const day = parseInt(numMatch[1], 10);
+    let day = 1;
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(dateStr)) {
+        const parts = dateStr.split('-');
+        day = parseInt(parts[2], 10);
+    } else {
+        const numMatch = dateStr.match(/(\d+)/);
+        if (!numMatch) return "Week 1";
+        day = parseInt(numMatch[1], 10);
+    }
     if (day <= 7) return "Week 1";
     if (day <= 14) return "Week 2";
     if (day <= 21) return "Week 3";
     if (day <= 28) return "Week 4";
     return "Week 5";
+}
+
+// Parse any date string (ISO, DD/MM/YYYY, "2nd June", "15th Sep 2026", etc.) into a valid Date object
+function parseAnyDateStringToDate(dStr, defaultMonthStr) {
+    if (!dStr) return null;
+    const str = String(dStr).trim();
+    if (!str) return null;
+
+    // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD
+    const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) {
+        const y = parseInt(isoMatch[1], 10);
+        const m = parseInt(isoMatch[2], 10) - 1;
+        const d = parseInt(isoMatch[3], 10);
+        return new Date(y, m, d);
+    }
+
+    // 2. DD-MM-YYYY or DD/MM/YYYY
+    const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmyMatch) {
+        const d = parseInt(dmyMatch[1], 10);
+        const m = parseInt(dmyMatch[2], 10) - 1;
+        const y = parseInt(dmyMatch[3], 10);
+        return new Date(y, m, d);
+    }
+
+    // 3. Day + MonthName (e.g. "2nd June", "15th September", "5th June 2026", "2nd june")
+    const dayMatch = str.match(/(\d{1,2})(?:st|nd|rd|th)?/i);
+    if (dayMatch) {
+        const day = parseInt(dayMatch[1], 10);
+        const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+        const shortMonthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+        
+        const lowerStr = str.toLowerCase();
+        let foundMonth = -1;
+        for (let i = 0; i < 12; i++) {
+            if (lowerStr.includes(monthNames[i]) || lowerStr.includes(shortMonthNames[i])) {
+                foundMonth = i;
+                break;
+            }
+        }
+        
+        const yearMatch = str.match(/\b(20\d\d)\b/);
+        let year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+        
+        if (defaultMonthStr) {
+            const defParsed = parseMonthStr(defaultMonthStr);
+            if (defParsed) {
+                if (foundMonth === -1) foundMonth = defParsed.month;
+                if (!year) year = defParsed.year;
+            }
+        }
+        
+        if (foundMonth !== -1 && year) {
+            return new Date(year, foundMonth, day);
+        }
+    }
+
+    // 4. Standard Date fallback
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+        return parsed;
+    }
+    return null;
+}
+
+// Extract exact date for a task if available
+function getTaskExactDate(task, selectedMonthStr) {
+    if (!task) return null;
+    const taskMonth = task.month || selectedMonthStr;
+    
+    // Check task.date
+    if (task.date) {
+        const d = parseAnyDateStringToDate(task.date, taskMonth);
+        if (d) return d;
+    }
+    
+    // Check publications if PR
+    if (task.publicationsList && task.publicationsList.length > 0) {
+        for (const pub of task.publicationsList) {
+            if (pub.date) {
+                const pd = parseAnyDateStringToDate(pub.date, taskMonth);
+                if (pd) return pd;
+            }
+        }
+    }
+    
+    // Check completionDate
+    if (task.completionDate) {
+        const cd = parseAnyDateStringToDate(task.completionDate, taskMonth);
+        if (cd) return cd;
+    }
+    
+    return null;
+}
+
+// Determine if task falls in [fromDateStr, toDateStr]
+function isTaskInDateRange(task, fromDateStr, toDateStr, selectedMonthStr) {
+    if (!fromDateStr || !toDateStr) return true;
+    
+    const fromD = new Date(fromDateStr + "T00:00:00");
+    const toD = new Date(toDateStr + "T23:59:59");
+    if (isNaN(fromD.getTime()) || isNaN(toD.getTime())) return true;
+    
+    const taskMonth = task.month || selectedMonthStr;
+
+    // 1. If PR update with publications list, check if ANY publication date falls in range
+    if (task.publicationsList && task.publicationsList.length > 0) {
+        let hasAnyPubDate = false;
+        for (const pub of task.publicationsList) {
+            if (pub.date) {
+                hasAnyPubDate = true;
+                const pd = parseAnyDateStringToDate(pub.date, taskMonth);
+                if (pd && pd >= fromD && pd <= toD) {
+                    return true;
+                }
+            }
+        }
+        // Also check task.date if present
+        if (task.date) {
+            const td = parseAnyDateStringToDate(task.date, taskMonth);
+            if (td && td >= fromD && td <= toD) {
+                return true;
+            }
+        }
+        if (hasAnyPubDate) {
+            return false;
+        }
+    }
+    
+    // 2. Check task.date
+    if (task.date) {
+        const td = parseAnyDateStringToDate(task.date, taskMonth);
+        if (td) {
+            return td >= fromD && td <= toD;
+        }
+    }
+
+    // 3. Check completionDate
+    if (task.completionDate) {
+        const cd = parseAnyDateStringToDate(task.completionDate, taskMonth);
+        if (cd) {
+            return cd >= fromD && cd <= toD;
+        }
+    }
+    
+    // 4. Fallback: If no exact date, check week overlap
+    const parsedMonth = parseMonthStr(taskMonth);
+    if (parsedMonth) {
+        const weekStr = task.week || "Week 1";
+        let startDay = 1, endDay = 7;
+        if (weekStr === "Week 2") { startDay = 8; endDay = 14; }
+        else if (weekStr === "Week 3") { startDay = 15; endDay = 21; }
+        else if (weekStr === "Week 4") { startDay = 22; endDay = 28; }
+        else if (weekStr === "Week 5") {
+            startDay = 29;
+            endDay = new Date(parsedMonth.year, parsedMonth.month + 1, 0).getDate();
+        } else if (weekStr === "all") {
+            startDay = 1;
+            endDay = new Date(parsedMonth.year, parsedMonth.month + 1, 0).getDate();
+        }
+        
+        const weekStartD = new Date(parsedMonth.year, parsedMonth.month, startDay, 0, 0, 0);
+        const weekEndD = new Date(parsedMonth.year, parsedMonth.month, endDay, 23, 59, 59);
+        return weekStartD <= toD && weekEndD >= fromD;
+    }
+    
+    return true;
+}
+
+// Format a date range nicely for report headers
+function formatDisplayDateRange(fromDateStr, toDateStr, label = "") {
+    if (!fromDateStr || !toDateStr) return "";
+    const p1 = fromDateStr.split('-');
+    const p2 = toDateStr.split('-');
+    if (p1.length !== 3 || p2.length !== 3) return `${fromDateStr} to ${toDateStr}`;
+    
+    const y1 = parseInt(p1[0], 10), m1 = parseInt(p1[1], 10) - 1, d1 = parseInt(p1[2], 10);
+    const y2 = parseInt(p2[0], 10), m2 = parseInt(p2[1], 10) - 1, d2 = parseInt(p2[2], 10);
+    const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    function ord(n) {
+        const j = n % 10, k = n % 100;
+        if (j === 1 && k !== 11) return `${n}st`;
+        if (j === 2 && k !== 12) return `${n}nd`;
+        if (j === 3 && k !== 13) return `${n}rd`;
+        return `${n}th`;
+    }
+    
+    let text = "";
+    if (y1 === y2 && m1 === m2) {
+        text = `${ord(d1)} - ${ord(d2)} ${shortMonths[m1]} ${y1}`;
+    } else if (y1 === y2) {
+        text = `${ord(d1)} ${shortMonths[m1]} - ${ord(d2)} ${shortMonths[m2]} ${y1}`;
+    } else {
+        text = `${ord(d1)} ${shortMonths[m1]} ${y1} - ${ord(d2)} ${shortMonths[m2]} ${y2}`;
+    }
+    
+    if (label) {
+        return `${text} (${label})`;
+    }
+    return text;
+}
+
+// Synchronize date pickers and week selector in Weekly Report
+function syncWeeklyDateInputs(source = "week") {
+    const reportMonthEl = document.getElementById("report-month");
+    const selectedMonth = reportMonthEl ? reportMonthEl.value : getCurrentMonthStr();
+    const parsed = parseMonthStr(selectedMonth);
+    if (!parsed) return;
+    
+    const year = parsed.year;
+    const month = parsed.month;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    
+    function toIso(y, m, d) {
+        const mm = String(m + 1).padStart(2, '0');
+        const dd = String(d).padStart(2, '0');
+        return `${y}-${mm}-${dd}`;
+    }
+    
+    const firstDayIso = toIso(year, month, 1);
+    const lastDayIso = toIso(year, month, lastDay);
+    
+    const now = new Date();
+    const todayIso = toIso(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const weekSelect = document.getElementById("report-week");
+    const fromInput = document.getElementById("report-date-from");
+    const toInput = document.getElementById("report-date-to");
+    if (!weekSelect || !fromInput || !toInput) return;
+    const dateRangeGroup = document.getElementById("report-date-range-group");
+    
+    if (source === "upToTodayBtn") {
+        weekSelect.value = "custom";
+        fromInput.value = firstDayIso;
+        toInput.value = todayIso;
+    } else if (source === "dateInput") {
+        weekSelect.value = "custom";
+    } else if (source === "week" || source === "month") {
+        const currentVal = weekSelect.value;
+        if (currentVal === "today") {
+            fromInput.value = firstDayIso;
+            if (todayIso >= firstDayIso && todayIso <= lastDayIso) {
+                toInput.value = todayIso;
+            } else if (todayIso > lastDayIso) {
+                toInput.value = lastDayIso;
+            } else {
+                toInput.value = firstDayIso;
+            }
+        } else if (currentVal === "all") {
+            fromInput.value = firstDayIso;
+            toInput.value = lastDayIso;
+        } else if (currentVal === "Week 1") {
+            fromInput.value = firstDayIso;
+            toInput.value = toIso(year, month, Math.min(7, lastDay));
+        } else if (currentVal === "Week 2") {
+            fromInput.value = toIso(year, month, Math.min(8, lastDay));
+            toInput.value = toIso(year, month, Math.min(14, lastDay));
+        } else if (currentVal === "Week 3") {
+            fromInput.value = toIso(year, month, Math.min(15, lastDay));
+            toInput.value = toIso(year, month, Math.min(21, lastDay));
+        } else if (currentVal === "Week 4") {
+            fromInput.value = toIso(year, month, Math.min(22, lastDay));
+            toInput.value = toIso(year, month, Math.min(28, lastDay));
+        } else if (currentVal === "Week 5") {
+            fromInput.value = toIso(year, month, Math.min(29, lastDay));
+            toInput.value = lastDayIso;
+        } else if (currentVal === "custom") {
+            if (!fromInput.value) fromInput.value = firstDayIso;
+            if (!toInput.value) toInput.value = lastDayIso;
+        }
+    }
+
+    if (dateRangeGroup) {
+        dateRangeGroup.style.display = (weekSelect.value === "custom") ? "flex" : "none";
+    }
 }
 
 // Calculate PR deadline status (overdue or remaining days)
@@ -703,6 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (filterMonthEl) filterMonthEl.value = currentMonth;
     const reportMonthEl = document.getElementById("report-month");
     if (reportMonthEl) reportMonthEl.value = currentMonth;
+    syncWeeklyDateInputs("week");
     // Initialize hero background waves animation
     initHeroCanvas();
 });
@@ -1563,6 +1847,7 @@ function populateMonthDropdowns() {
         } else {
             reportMonth.value = currentMonthStr;
         }
+        syncWeeklyDateInputs("month");
     }
 
     // Populate #report-month-checkboxes
@@ -2010,6 +2295,7 @@ function setupEventListeners() {
     // 9. Report Generation
     document.getElementById("report-period-type").addEventListener("change", (e) => {
         const weekGroup = document.getElementById("report-week-group");
+        const dateRangeGroup = document.getElementById("report-date-range-group");
         const monthSelectContainer = document.getElementById("report-month-select-container");
         const monthCheckboxesContainer = document.getElementById("report-month-checkboxes-container");
 
@@ -2017,8 +2303,10 @@ function setupEventListeners() {
             weekGroup.style.display = "flex";
             if (monthSelectContainer) monthSelectContainer.style.display = "";
             if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "none";
+            syncWeeklyDateInputs("week");
         } else {
             weekGroup.style.display = "none";
+            if (dateRangeGroup) dateRangeGroup.style.display = "none";
             if (state.activeClient === "Legrand") {
                 if (monthSelectContainer) monthSelectContainer.style.display = "none";
                 if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "";
@@ -2031,12 +2319,41 @@ function setupEventListeners() {
     });
 
     document.getElementById("report-month").addEventListener("change", () => {
+        const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
+        if (periodType === "weekly") {
+            syncWeeklyDateInputs("month");
+        }
         generateReport();
     });
 
     document.getElementById("report-week").addEventListener("change", () => {
+        syncWeeklyDateInputs("week");
         generateReport();
     });
+
+    const reportDateFrom = document.getElementById("report-date-from");
+    if (reportDateFrom) {
+        reportDateFrom.addEventListener("change", () => {
+            syncWeeklyDateInputs("dateInput");
+            generateReport();
+        });
+    }
+
+    const reportDateTo = document.getElementById("report-date-to");
+    if (reportDateTo) {
+        reportDateTo.addEventListener("change", () => {
+            syncWeeklyDateInputs("dateInput");
+            generateReport();
+        });
+    }
+
+    const reportBtnUpToToday = document.getElementById("report-btn-up-to-today");
+    if (reportBtnUpToToday) {
+        reportBtnUpToToday.addEventListener("click", () => {
+            syncWeeklyDateInputs("upToTodayBtn");
+            generateReport();
+        });
+    }
 
     const monthCheckboxes = document.getElementById("report-month-checkboxes");
     if (monthCheckboxes) {
@@ -2072,11 +2389,60 @@ function setupEventListeners() {
             if (task) {
                 task.status = newStatus;
                 await saveData(task);
+                showToast(`Status updated to "${newStatus}"`, "success");
                 // Re-render report keeping manual row exclusions intact
                 generateReport(true);
+                // Also sync tracker
+                renderTracker();
             }
         }
     });
+
+    // Inline task title editing on report preview
+    document.addEventListener("keydown", (e) => {
+        const el = e.target;
+        if (el && el.classList && el.classList.contains("report-task-title-editable")) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                el.blur(); // Blur triggers the save logic below
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                const taskId = el.getAttribute("data-id");
+                const task = state.tasks.find(t => t.id === taskId);
+                if (task) {
+                    el.innerText = task.title || "";
+                }
+                el.blur();
+            }
+        }
+    });
+
+    document.addEventListener("focusout", async (e) => {
+        const el = e.target;
+        if (el && el.classList && el.classList.contains("report-task-title-editable")) {
+            const taskId = el.getAttribute("data-id");
+            const newTitle = el.innerText.trim();
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task && newTitle && task.title !== newTitle) {
+                task.title = newTitle;
+                await saveData(task);
+                showToast("Task title updated", "success");
+                // Keep tracker table/cards in sync
+                renderTracker();
+            } else if (task && !newTitle) {
+                // Revert if cleared completely
+                el.innerText = task.title || "";
+            }
+        }
+    });
+
+    const btnRestoreExclusions = document.getElementById("btn-restore-exclusions");
+    if (btnRestoreExclusions) {
+        btnRestoreExclusions.addEventListener("click", () => {
+            clearReportExclusions();
+            showToast("Restored all removed tasks to the report", "info");
+        });
+    }
 
     document.getElementById("print-report-btn").addEventListener("click", () => {
         const checkbox = document.getElementById("toggle-continuous-page");
@@ -3507,6 +3873,7 @@ function switchClient(client) {
 
     state.activeClient = targetClient;
     localStorage.setItem("activeClient", targetClient);
+    loadReportExclusions();
     state.filters.type = "all";
     state.filters.center = "all";
     const filterTypeEl = document.getElementById("filter-type");
@@ -4173,6 +4540,8 @@ function togglePRFormFields(type) {
         }
         
         lblSubType.textContent = "Asset Sub-category";
+        const isGreenshine = (state.activeClient === "Greenshine Solar");
+        const otherOptionLabel = isGreenshine ? "BTL Activity (Other / Misc)" : "Other / Misc";
         subTypeSelect.innerHTML = `
             <option value="Print Ad">Print Ad</option>
             <option value="Newsletter">Newsletter</option>
@@ -4181,7 +4550,7 @@ function togglePRFormFields(type) {
             <option value="Website">Website</option>
             <option value="Brochure">Brochure</option>
             <option value="Banner">Banner / Standee</option>
-            <option value="Other">Other / Misc</option>
+            <option value="Other">${otherOptionLabel}</option>
         `;
     }
 }
@@ -6303,8 +6672,11 @@ function renderTrackerTable() {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-blog"></i> Blog</span>`;
             } else if (task.subType === "Website") {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-globe"></i> Website</span>`;
-            } else if (task.subType === "Other") {
-                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-file-lines"></i> Document</span>`;
+            } else if (task.subType === "Other" || task.subType === "Other / Misc" || task.subType === "Document") {
+                const isGreenshine = (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar");
+                const label = isGreenshine ? "BTL Activity" : "Document";
+                const icon = isGreenshine ? "fa-bullhorn" : "fa-file-lines";
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid ${icon}"></i> ${label}</span>`;
             } else {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-palette"></i> Design</span>`;
             }
@@ -6748,7 +7120,9 @@ function renderTrackerKanban() {
         // Tag label
         // Tag label
         let tagColor = "var(--accent-blue)";
-        let tagLabel = (task.subType === "Magazine Ad" || task.subType === "Print Ad") ? "Print Ad" : (task.subType === "Other" ? "Document" : (task.subType || task.type));
+        const isGreenshineCard = (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar");
+        let otherLabel = isGreenshineCard ? "BTL Activity" : "Document";
+        let tagLabel = (task.subType === "Magazine Ad" || task.subType === "Print Ad") ? "Print Ad" : ((task.subType === "Other" || task.subType === "Other / Misc" || task.subType === "Document") ? otherLabel : (task.subType || task.type));
         if (task.type === "Digital Campaigns" || state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar") {
             const campaignTypes = Array.isArray(task.campaignType) 
                 ? task.campaignType 
@@ -6940,13 +7314,87 @@ function renderTrackerKanban() {
 // REPORT BUILDER VIEW ENGINE
 // ====================================================
 
-function generateReport(keepExclusions = false) {
+// Exclusions persistence helpers
+function getExclusionStorageKey() {
+    return `candour_report_exclusions_${state.activeClient || 'RVNL'}`;
+}
+
+function loadReportExclusions() {
+    try {
+        const stored = localStorage.getItem(getExclusionStorageKey());
+        if (stored) {
+            const arr = JSON.parse(stored);
+            if (Array.isArray(arr)) {
+                state.excludedReportTaskIds = new Set(arr);
+                updateRestoreExclusionsButton();
+                return;
+            }
+        }
+    } catch (e) {
+        console.error("Error loading report exclusions:", e);
+    }
+    state.excludedReportTaskIds = new Set();
+    updateRestoreExclusionsButton();
+}
+
+function saveReportExclusions() {
+    try {
+        const arr = Array.from(state.excludedReportTaskIds || []);
+        localStorage.setItem(getExclusionStorageKey(), JSON.stringify(arr));
+    } catch (e) {
+        console.error("Error saving report exclusions:", e);
+    }
+    updateRestoreExclusionsButton();
+}
+
+function clearReportExclusions() {
+    if (state.excludedReportTaskIds) {
+        state.excludedReportTaskIds.clear();
+    }
+    saveReportExclusions();
+    generateReport(true);
+}
+
+function updateRestoreExclusionsButton() {
+    const btn = document.getElementById("btn-restore-exclusions");
+    const countBadge = document.getElementById("excluded-count-badge");
+    const count = (state.excludedReportTaskIds && state.excludedReportTaskIds.size) ? state.excludedReportTaskIds.size : 0;
+    if (btn) {
+        if (count > 0) {
+            btn.style.display = "inline-flex";
+            if (countBadge) countBadge.textContent = count;
+        } else {
+            btn.style.display = "none";
+        }
+    }
+}
+
+function escapeReportHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function generateReport(keepExclusions = true) {
     if (keepExclusions !== true) {
         state.excludedReportTaskIds.clear();
+        saveReportExclusions();
+    } else {
+        if (!state.excludedReportTaskIds || state.excludedReportTaskIds.size === 0) {
+            loadReportExclusions();
+        }
     }
     const periodType = document.getElementById("report-period-type").value;
     const selectedMonth = document.getElementById("report-month").value;
-    const selectedWeek = document.getElementById("report-week").value;
+    const selectedWeek = document.getElementById("report-week") ? document.getElementById("report-week").value : "all";
+    const dateFromEl = document.getElementById("report-date-from");
+    const dateToEl = document.getElementById("report-date-to");
+    const customFromDate = (periodType === "weekly" && dateFromEl) ? dateFromEl.value : "";
+    const customToDate = (periodType === "weekly" && dateToEl) ? dateToEl.value : "";
     
     // Toggle RVNL Intro / Cover Page controls
     const rvnlToggleContainer = document.getElementById("rvnl-cover-toggle-container");
@@ -7060,6 +7508,11 @@ function generateReport(keepExclusions = false) {
         
         if (state.activeClient === "Legrand" && periodType === "monthly") {
             return selectedMonths.some(m => isTaskActiveInMonth(t, m));
+        } else if (periodType === "weekly" && (selectedWeek === "custom" || selectedWeek === "today")) {
+            if (customFromDate && customToDate) {
+                return isTaskInDateRange(t, customFromDate, customToDate, selectedMonth);
+            }
+            return isTaskActiveInMonth(t, selectedMonth);
         } else {
             return isTaskActiveInMonth(t, selectedMonth);
         }
@@ -7097,15 +7550,21 @@ function generateReport(keepExclusions = false) {
         }
     }
 
-    // If weekly report is chosen, filter by specific week (include all statuses)
-    if (periodType === "weekly" && selectedWeek !== "all") {
-        reportItems = reportItems.filter(t => {
-            if (t.week === selectedWeek) return true;
-            if (t.date) {
-                return getWeekFromDateStr(t.date) === selectedWeek;
+    // If weekly report is chosen, filter by specific week or custom date range (include all statuses)
+    if (periodType === "weekly") {
+        if (selectedWeek === "custom" || selectedWeek === "today") {
+            if (customFromDate && customToDate) {
+                reportItems = reportItems.filter(t => isTaskInDateRange(t, customFromDate, customToDate, selectedMonth));
             }
-            return false;
-        });
+        } else if (selectedWeek !== "all") {
+            reportItems = reportItems.filter(t => {
+                if (t.week === selectedWeek) return true;
+                if (t.date) {
+                    return getWeekFromDateStr(t.date) === selectedWeek;
+                }
+                return false;
+            });
+        }
     }
 
     // Sort report items: Published at the top, then WIP/planned items below
@@ -7127,6 +7586,10 @@ function generateReport(keepExclusions = false) {
     if (periodType === "weekly") {
         if (selectedWeek === "all") {
             periodText = `All of ${selectedMonth}`;
+        } else if (selectedWeek === "today") {
+            periodText = formatDisplayDateRange(customFromDate, customToDate, "Up to Today") || `Up to Today (${selectedMonth})`;
+        } else if (selectedWeek === "custom") {
+            periodText = formatDisplayDateRange(customFromDate, customToDate) || `Custom Range (${selectedMonth})`;
         } else {
             periodText = `${selectedWeek} of ${selectedMonth}`;
         }
@@ -7163,6 +7626,7 @@ function generateReport(keepExclusions = false) {
 }
 
 function renderReportView() {
+    updateRestoreExclusionsButton();
     const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
     // Filter active items (excluding removed ones)
     const smItems = state.currentReportSmItems.filter(t => !state.excludedReportTaskIds.has(t.id));
@@ -7449,10 +7913,11 @@ function renderReportView() {
             });
 
             const screenStatusSelect = `
-                <div class="no-print">
-                    <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit;">
+                <div class="no-print" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                    <select class="report-status-select status-pill ${statusClass}" data-id="${task.id}" style="font-size:10px; padding:3px 8px; border:none; outline:none; font-weight:600; cursor:pointer; background:inherit; color:inherit; appearance: auto;">
                         ${statusOptionsHtml}
                     </select>
+                    ${task.status === "Published/Closed" && task.date ? `<span style="font-size: 10px; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar-days"></i> ${standardizeDateString(task.date)}</span>` : ''}
                 </div>
             `;
 
@@ -7476,7 +7941,7 @@ function renderReportView() {
             }
 
             let screenStatusHtml = "";
-            if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin" || state.activeClient === "Greenshine Solar") {
+            if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin") {
                 const screenText = task.status === "Published/Closed" ? timelineDisplay : displayStatus;
                 screenStatusHtml = `
                     <div class="no-print">
@@ -7523,14 +7988,14 @@ function renderReportView() {
                      ${reportThumbnailHtml}
                      <div class="report-item-details">
                           <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                          <strong>${task.title}</strong>
+                          <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                           ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
                           ${wipReportDetails}
                       </div>
                     </div>`
                 : `<div class="report-item-details">
                      <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                     <strong>${task.title}</strong>
+                     <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                      ${showRemarks ? '<br><span style="font-size:11px;color:#4b5563;">' + task.remarks + '</span>' : ''}
                      ${wipReportDetails}
                      ${noPrintButtons}
@@ -7659,7 +8124,7 @@ function renderReportView() {
                         : "";
 
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin" || state.activeClient === "Greenshine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin") {
                         screenStatusHtml = showStatusBadge 
                             ? `<span class="status-pill ${statusClass} no-print" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;">${displayStatus}</span>`
                             : "";
@@ -7675,8 +8140,8 @@ function renderReportView() {
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
                                 <span class="no-print drag-handle-pr" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; flex-shrink: 0;"><i class="fa-solid fa-bars"></i></span>
                                 <span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;">${task.subType || 'Press Release'}</span>
-                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; word-break: break-word;">
-                                    ${task.title}
+                                <h4 class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly" style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.4; word-break: break-word;">
+                                    ${escapeReportHtml(task.title || '')}
                                 </h4>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
@@ -7832,7 +8297,7 @@ function renderReportView() {
                     const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin" || state.activeClient === "Greenshine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin") {
                         screenStatusHtml = `
                             <div class="no-print">
                                 <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
@@ -7873,18 +8338,21 @@ function renderReportView() {
                              ${reportThumbnailHtml}
                              <div class="report-item-details">
                                  <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                                 <strong>${task.title}</strong>
+                                 <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                              </div>
                            </div>`
                         : `<div class="report-item-details">
                              <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                             <strong>${task.title}</strong>
+                             <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                              ${noPrintButtons}
                            </div>`;
 
                     let displaySubType = task.subType || 'Design';
                     if (displaySubType === "Magazine Ad") displaySubType = "Print Ad";
-                    if (displaySubType === "Other") displaySubType = "Document";
+                    const isGreenshine = (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar");
+                    if (displaySubType === "Other" || displaySubType === "Other / Misc" || displaySubType === "Document") {
+                        displaySubType = isGreenshine ? "BTL Activity" : "Document";
+                    }
                     tr.innerHTML = `
                         <td style="text-align:center;">${idx + 1}</td>
                         <td style="font-weight:600;">${displaySubType}</td>
@@ -7954,7 +8422,7 @@ function renderReportView() {
                     const printStatusHtml = `<span class="status-pill ${statusClass} only-print" style="font-size:10px; padding:3px 8px; display: inline-block;">${displayStatus}</span>`;
                     
                     let screenStatusHtml = "";
-                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin" || state.activeClient === "Greenshine Solar") {
+                    if (state.activeClient === "RVNL" || state.activeClient === "Dynpro" || state.activeClient === "8th Sin") {
                         screenStatusHtml = `
                             <div class="no-print">
                                 <span class="status-pill ${statusClass}" style="font-size:10px; padding:3px 8px;">${displayStatus}</span>
@@ -7994,12 +8462,12 @@ function renderReportView() {
                              ${reportThumbnailHtml}
                              <div class="report-item-details">
                                  <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                                 <strong>${task.title}</strong>
+                                 <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                              </div>
                            </div>`
                         : `<div class="report-item-details">
                              <button class="no-print report-exclude-btn" data-id="${task.id}" style="float: right; background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 2px 6px; font-size: 14px;" title="Exclude from Report"><i class="fa-solid fa-xmark"></i></button>
-                             <strong>${task.title}</strong>
+                             <strong class="report-task-title-editable" contenteditable="true" data-id="${task.id}" spellcheck="false" title="Click to edit task title directly">${escapeReportHtml(task.title || '')}</strong>
                              ${noPrintButtons}
                            </div>`;
 
@@ -8044,6 +8512,7 @@ function renderReportView() {
         btn.addEventListener("click", () => {
             const id = btn.getAttribute("data-id");
             state.excludedReportTaskIds.add(id);
+            saveReportExclusions();
             renderReportView();
         });
     });
@@ -8053,6 +8522,7 @@ function renderReportView() {
         btn.addEventListener("click", () => {
             const id = btn.getAttribute("data-id");
             state.excludedReportTaskIds.add(id);
+            saveReportExclusions();
             renderReportView();
         });
     });
@@ -8061,6 +8531,10 @@ function renderReportView() {
     let dragSrcRow = null;
     smBody.querySelectorAll("tr.draggable-row").forEach(row => {
         row.addEventListener("dragstart", (e) => {
+            if (e.target && (e.target.classList.contains("report-task-title-editable") || e.target.closest(".report-task-title-editable"))) {
+                e.preventDefault();
+                return;
+            }
             dragSrcRow = row;
             e.dataTransfer.effectAllowed = "move";
             e.dataTransfer.setData("text/plain", row.getAttribute("data-id"));

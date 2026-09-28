@@ -492,9 +492,11 @@
                         </div>
                     </div>
                     <div class="filter-group" id="report-week-group" style="display: none;">
-                        <label for="report-week">Select Week</label>
+                        <label for="report-week">Select Week / Range</label>
                         <select id="report-week">
                             <option value="all">All Weeks</option>
+                            <option value="today">Up to Today</option>
+                            <option value="custom">Custom Date Range (From - To)</option>
                             <option value="Week 1">Week 1 (1st - 7th)</option>
                             <option value="Week 2">Week 2 (8th - 14th)</option>
                             <option value="Week 3">Week 3 (15th - 21st)</option>
@@ -502,8 +504,22 @@
                             <option value="Week 5">Week 5 (29th - 31st)</option>
                         </select>
                     </div>
+                    <div class="filter-group" id="report-date-range-group" style="display: none;">
+                        <label>Date Range (From &amp; To)</label>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap;">
+                            <input type="date" id="report-date-from" style="flex: 1; min-width: 125px; box-sizing: border-box;" title="Report Start Date">
+                            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">to</span>
+                            <input type="date" id="report-date-to" style="flex: 1; min-width: 125px; box-sizing: border-box;" title="Report End Date">
+                            <button type="button" id="report-btn-up-to-today" class="btn btn-secondary" style="height: 38px; padding: 0 12px; font-size: 12px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; border-radius: 10px;" title="Set date range up to today">
+                                <i class="fa-solid fa-calendar-day"></i> Up to Today
+                            </button>
+                        </div>
+                    </div>
                     <button id="generate-report-btn" class="btn btn-primary" style="margin-top: 20px;">
                         <i class="fa-solid fa-sync"></i> Generate Preview
+                    </button>
+                    <button type="button" id="btn-restore-exclusions" class="btn btn-secondary" style="margin-top: 20px; display: none;" title="Restore all removed tasks back to the report">
+                        <i class="fa-solid fa-rotate-left"></i> Restore Removed Items (<span id="excluded-count-badge">0</span>)
                     </button>
                 </div>
 

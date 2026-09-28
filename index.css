@@ -800,6 +800,22 @@ h1, h2, h3, h4, h5, h6 {
     border-color: var(--accent-blue);
 }
 
+.filter-group input[type="date"] {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 10px;
+    outline: none;
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color var(--transition-fast);
+}
+
+.filter-group input[type="date"]:focus {
+    border-color: var(--accent-blue);
+}
+
 /* Modern Tables */
 .table-responsive {
     overflow-x: auto;
@@ -3456,6 +3472,52 @@ img[src*="neo4j.png"] {
         break-inside: auto !important;
     }
 }
+/* Inline Editable Task Title on Report Preview */
+.report-task-title-editable {
+    outline: none;
+    cursor: text;
+    border-radius: 4px;
+    padding: 1px 3px;
+    margin: -1px -3px;
+    display: inline-block;
+    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    border-bottom: 1px dashed transparent;
+}
+.report-task-title-editable:hover {
+    background: rgba(59, 130, 246, 0.08);
+    border-bottom-color: var(--accent-blue, #3b82f6);
+}
+.report-task-title-editable:focus {
+    background: var(--bg-primary, #ffffff);
+    box-shadow: 0 0 0 2px var(--accent-blue, #3b82f6);
+    border-bottom-color: transparent;
+}
 
+/* Interactive Report Status Select */
+select.report-status-select {
+    cursor: pointer;
+    border: 1px solid transparent;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    appearance: auto;
+    -webkit-appearance: auto;
+}
+select.report-status-select:hover {
+    filter: brightness(1.1);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+select.report-status-select:focus {
+    box-shadow: 0 0 0 2px var(--accent-blue, #3b82f6);
+}
 
-
+@media print {
+    .report-task-title-editable {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: default !important;
+    }
+}
