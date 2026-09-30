@@ -4549,6 +4549,7 @@ function togglePRFormFields(type) {
             <option value="Blog">Blog</option>
             <option value="Website">Website</option>
             <option value="Brochure">Brochure</option>
+            <option value="Reports">Reports</option>
             <option value="Banner">Banner / Standee</option>
             <option value="Other">${otherOptionLabel}</option>
         `;
@@ -6472,6 +6473,7 @@ function renderTracker() {
             return task.title.toLowerCase().includes(query) || 
                 (task.remarks && task.remarks.toLowerCase().includes(query)) || 
                 (task.owner && task.owner.toLowerCase().includes(query)) ||
+                (task.subType && task.subType.toLowerCase().includes(query)) ||
                 (task.publication && task.publication.toLowerCase().includes(query));
         }
 
@@ -6672,6 +6674,12 @@ function renderTrackerTable() {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-blog"></i> Blog</span>`;
             } else if (task.subType === "Website") {
                 typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-globe"></i> Website</span>`;
+            } else if (task.subType === "Brochure") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-book-open"></i> Brochure</span>`;
+            } else if (task.subType === "Reports" || task.subType === "Report") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-chart-pie"></i> Reports</span>`;
+            } else if (task.subType === "Banner") {
+                typeBadge = `<span class="badge badge-creative"><i class="fa-solid fa-image"></i> Banner / Standee</span>`;
             } else if (task.subType === "Other" || task.subType === "Other / Misc" || task.subType === "Document") {
                 const isGreenshine = (state.activeClient === "Greenshine Solar" || task.client === "Greenshine Solar");
                 const label = isGreenshine ? "BTL Activity" : "Document";
