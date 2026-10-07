@@ -389,21 +389,12 @@ function setupFilters() {
     if (cardTotal) cardTotal.onclick = () => syncFiltersAndScroll("all", "all");
     if (cardPublished) cardPublished.onclick = () => syncFiltersAndScroll("all", "Published/Closed");
     if (cardProgress) cardProgress.onclick = () => syncFiltersAndScroll("all", "In Progress");
-    if (cardPr) cardPr.onclick = () => syncFiltersAndScroll("all", "all");
+    if (cardPr) cardPr.onclick = () => syncFiltersAndScroll("PR Update", "all");
 }
 
-function getPRPublicationsCount(tasks) {
-    let count = 0;
-    tasks.forEach(t => {
-        if (t.type === 'PR Update' && t.status === 'Published/Closed') {
-            if (t.publicationsList && t.publicationsList.length > 0) {
-                count += t.publicationsList.length;
-            } else if (t.publication) {
-                count += t.publication.split(',').map(s => s.trim()).filter(Boolean).length || 1;
-            }
-        }
-    });
-    return count;
+function getPRActivitiesCount(tasks) {
+    // Count the actual PR activity tasks from that month, not the individual links
+    return tasks.filter(t => t.type === 'PR Update').length;
 }
 
 // Update UI & Table
@@ -447,7 +438,7 @@ function updateDashboard() {
     const total = state.filteredTasks.length;
     const published = state.filteredTasks.filter(t => t.status === "Published/Closed").length;
     const progress = state.filteredTasks.filter(t => ["WIP", "Sent for internal approval", "Sent to client"].includes(t.status)).length;
-    const prCount = getPRPublicationsCount(state.filteredTasks);
+    const prCount = getPRActivitiesCount(state.filteredTasks);
 
     document.getElementById("kpi-total").textContent = total;
     document.getElementById("kpi-published").textContent = published;
