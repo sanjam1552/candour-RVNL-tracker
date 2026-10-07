@@ -1,6 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /rvnl_tracker/tasks_store/items/{itemId} {
+      allow read: if resource.data.client == 'Greenshine Solar' || 
+                     resource.data.client == 'Green Shine Solar' || 
+                     (request.auth != null && (
+                       request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
+                       request.auth.token.email.lower() == 'stutio2465@gmail.com' ||
+                       request.auth.token.email.lower() == 'advisor.media.rail@gmail.com' ||
+                       request.auth.token.email.lower() == 'prteamrvnl@gmail.com' ||
+                       request.auth.token.email.lower() == 'prrvnl1@gmail.com' ||
+                       request.auth.token.email.lower() == 'sanjamcreatives@gmail.com'
+                     ));
+    }
     match /rvnl_tracker/{document=**} {
       allow read: if request.auth != null && (
         request.auth.token.email.lower().matches('.*@candour\\.co\\.in$') || 
@@ -35,6 +47,3 @@ service cloud.firestore {
     }
   }
 }
-
-
-

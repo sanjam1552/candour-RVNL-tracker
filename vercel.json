@@ -1,3 +1,9 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/greenshine", "destination": "/greenshine-portal.html" },
+    { "source": "/greenshine-portal", "destination": "/greenshine-portal.html" },
+    { "source": "/rvnl", "destination": "/rvnl-portal.html" },
+    { "source": "/rvnl-portal", "destination": "/rvnl-portal.html" }
+  ]
 }
