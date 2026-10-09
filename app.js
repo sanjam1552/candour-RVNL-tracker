@@ -2500,6 +2500,11 @@ function setupEventListeners() {
         window.print();
     });
 
+    const exportPptBtn = document.getElementById("export-ppt-btn");
+    if (exportPptBtn) {
+        exportPptBtn.addEventListener("click", exportReportToPPT);
+    }
+
     // 10. Backup & Settings Tab Handlers
     document.getElementById("export-db-btn").addEventListener("click", exportDatabase);
     
@@ -8775,6 +8780,1195 @@ function renderReportView() {
         state.draggingPub = false;
         activeCard = null;
         lastTargetCard = null;
+    }
+}
+
+// ====================================================
+// POWERPOINT (.PPTX) REPORT EXPORT ENGINE
+// ====================================================
+
+// Known logo dimensions dictionary for instant, mathematically exact aspect-ratio scaling
+const KNOWN_LOGO_DIMS = {
+    "inputs/RVNL logo.png": { width: 2130, height: 400 },
+    "inputs/RVNL (R)logo_vector.png": { width: 1934, height: 1007 },
+    "inputs/candour logo.png": { width: 1063, height: 307 },
+    "inputs/icode black.png": { width: 844, height: 220 },
+    "inputs/ldcs logo.png": { width: 332, height: 84 },
+    "inputs/logo kompact-text-shapes-2x.png": { width: 2016, height: 446 },
+    "inputs/1920_bt-group-logo-png.png": { width: 1200, height: 600 },
+    "inputs/BT_Logo_Purple_RGB.png": { width: 788, height: 788 },
+    "inputs/greenshine logo.png": { width: 1024, height: 1024 },
+    "inputs/Greenshine logo_final.png": { width: 2015, height: 797 },
+    "inputs/dynpro.png": { width: 800, height: 226 },
+    "inputs/8th sin.png": { width: 2172, height: 724 },
+    "inputs/candour C.png": { width: 301, height: 300 }
+};
+
+// Helper: Load local or remote image, extract natural dimensions and return base64/path
+async function getImageInfo(src) {
+    if (!src || typeof src !== 'string') return null;
+    src = src.trim();
+    if (!src) return null;
+
+    // 1. Data URLs (already base64)
+    if (src.startsWith('data:image/')) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                resolve({
+                    data: src,
+                    isBase64: true,
+                    width: img.naturalWidth || 400,
+                    height: img.naturalHeight || 300
+                });
+            };
+            img.onerror = () => {
+                resolve({
+                    data: src,
+                    isBase64: true,
+                    width: 400,
+                    height: 300
+                });
+            };
+            img.src = src;
+        });
+    }
+
+    const known = KNOWN_LOGO_DIMS[src];
+
+    // 2. Blob URLs (e.g. freshly uploaded preview thumbnails)
+    if (src.startsWith('blob:')) {
+        try {
+            const res = await fetch(src);
+            const blob = await res.blob();
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    resolve({
+                        data: base64,
+                        isBase64: true,
+                        width: img.naturalWidth || (known ? known.width : 400),
+                        height: img.naturalHeight || (known ? known.height : 300)
+                    });
+                };
+                img.onerror = () => resolve({
+                    data: base64,
+                    isBase64: true,
+                    width: known ? known.width : 400,
+                    height: known ? known.height : 300
+                });
+                img.src = base64;
+            });
+        } catch (e) {
+            console.warn("Failed to load blob image as base64:", e);
+        }
+    }
+
+    // 3. Remote or local URLs: convert to Base64 via direct fetch or backend proxy
+    // Converting to Base64 ensures PptxGenJS never fails with CORS or XHR errors
+    try {
+        let res = null;
+        const isRemote = src.startsWith('http://') || src.startsWith('https://');
+        const isFirebase = src.includes('firebasestorage.googleapis.com') || src.includes('firebasestorage.app');
+
+        if (isFirebase) {
+            // Firebase storage URLs block cross-origin requests; route immediately through proxy
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(src)}`;
+            res = await fetch(proxyUrl);
+        } else if (isRemote) {
+            try {
+                res = await fetch(src);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            } catch (fetchErr) {
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(src)}`;
+                res = await fetch(proxyUrl);
+            }
+        } else {
+            res = await fetch(src);
+        }
+
+        if (res && res.ok) {
+            const blob = await res.blob();
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            if (base64 && base64.startsWith('data:image/')) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        resolve({
+                            data: base64,
+                            isBase64: true,
+                            width: img.naturalWidth || (known ? known.width : 400),
+                            height: img.naturalHeight || (known ? known.height : 300)
+                        });
+                    };
+                    img.onerror = () => resolve({
+                        data: base64,
+                        isBase64: true,
+                        width: known ? known.width : 400,
+                        height: known ? known.height : 300
+                    });
+                    img.src = base64;
+                });
+            }
+        }
+    } catch (e) {
+        console.warn("Proxy/fetch image conversion failed for:", src, e);
+    }
+
+    // 4. Fallback: Image object with CORS and canvas conversion
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+
+        const timeout = setTimeout(() => {
+            resolveFallback(src);
+        }, 3000);
+
+        function resolveFallback(url) {
+            clearTimeout(timeout);
+            const img2 = new Image();
+            img2.onload = () => {
+                resolve({
+                    data: url,
+                    isBase64: false,
+                    width: img2.naturalWidth || (known ? known.width : 400),
+                    height: img2.naturalHeight || (known ? known.height : 300)
+                });
+            };
+            img2.onerror = () => {
+                resolve(known ? {
+                    data: url,
+                    isBase64: false,
+                    width: known.width,
+                    height: known.height
+                } : null);
+            };
+            img2.src = url;
+        }
+
+        img.onload = () => {
+            clearTimeout(timeout);
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width || (known ? known.width : 300);
+                canvas.height = img.naturalHeight || img.height || (known ? known.height : 200);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataUrl = canvas.toDataURL('image/png');
+                resolve({
+                    data: dataUrl,
+                    isBase64: true,
+                    width: img.naturalWidth || canvas.width,
+                    height: img.naturalHeight || canvas.height
+                });
+            } catch (err) {
+                resolve({
+                    data: src,
+                    isBase64: false,
+                    width: img.naturalWidth || (known ? known.width : 400),
+                    height: img.naturalHeight || (known ? known.height : 300)
+                });
+            }
+        };
+
+        img.onerror = () => {
+            clearTimeout(timeout);
+            resolveFallback(src);
+        };
+
+        try {
+            img.src = encodeURI(src);
+        } catch (e) {
+            img.src = src;
+        }
+    });
+}
+
+// Calculate proportional width and height preserving aspect ratio
+function fitImageDimensions(imgWidth, imgHeight, maxW, maxH) {
+    if (!imgWidth || !imgHeight || imgWidth <= 0 || imgHeight <= 0) {
+        return { w: maxW, h: maxH };
+    }
+    const ar = imgWidth / imgHeight;
+    let w = maxW;
+    let h = maxW / ar;
+    if (h > maxH) {
+        h = maxH;
+        w = maxH * ar;
+    }
+    return { w, h };
+}
+
+// Add an image to a slide preserving aspect ratio and centered inside bounding box
+function addImageSafe(slide, imgInfo, { x, y, maxW, maxH }) {
+    if (!imgInfo || !imgInfo.data) return false;
+    // CRITICAL: In browser environments, PptxGenJS aborts the presentation download
+    // if an external non-base64 image path fails via XMLHttpRequest.
+    // If imgInfo is not base64, skip passing to slide.addImage to prevent fatal download crashes.
+    if (!imgInfo.isBase64) {
+        console.warn("Skipping non-base64 image to prevent PPT crash:", imgInfo.data);
+        return false;
+    }
+    try {
+        const { w, h } = fitImageDimensions(imgInfo.width, imgInfo.height, maxW, maxH);
+        const offsetX = x + (maxW - w) / 2;
+        const offsetY = y + (maxH - h) / 2;
+
+        const imgOpt = {
+            x: offsetX,
+            y: offsetY,
+            w: w,
+            h: h,
+            data: imgInfo.data
+        };
+        slide.addImage(imgOpt);
+        return true;
+    } catch (e) {
+        console.warn("Failed to add image safe:", e);
+        return false;
+    }
+}
+
+// Clean HTML entities for text inside PPT slides
+function cleanPptText(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+}
+
+// Main function to compile and download PowerPoint presentation
+async function exportReportToPPT() {
+    const btn = document.getElementById("export-ppt-btn");
+    const originalBtnHtml = btn ? btn.innerHTML : "";
+
+    try {
+        if (typeof PptxGenJS === 'undefined') {
+            showToast("Loading PowerPoint generator engine...", "info");
+            await new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
+                script.onload = resolve;
+                script.onerror = () => reject(new Error("Unable to load PptxGenJS library."));
+                document.head.appendChild(script);
+            });
+        }
+
+        if (btn) {
+            btn.setAttribute("disabled", "true");
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating PPT...`;
+        }
+        showToast("Compiling presentation slides & embedding creatives...", "info");
+
+        // 1. Gather active client & report settings
+        const activeClient = state.activeClient || "RVNL";
+        const clientFullName = getClientFullName(activeClient);
+        const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
+        const selectedMonth = document.getElementById("report-month") ? document.getElementById("report-month").value : getCurrentMonthStr();
+        const periodText = document.getElementById("report-meta-period") ? document.getElementById("report-meta-period").textContent : `${selectedMonth} Report`;
+        const dateGenerated = document.getElementById("report-meta-date") ? document.getElementById("report-meta-date").textContent : new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const reportSubtitle = document.getElementById("report-client-subtitle") ? document.getElementById("report-client-subtitle").textContent : "PR, Social Media & Creative Marketing Report";
+
+        let narrativeText = "";
+        const narrativeEl = document.getElementById("report-narrative-text");
+        const editNarrativeEl = document.getElementById("edit-report-narrative");
+        if (narrativeEl && narrativeEl.textContent.trim()) {
+            narrativeText = narrativeEl.textContent.trim();
+        } else if (editNarrativeEl && editNarrativeEl.value.trim()) {
+            narrativeText = editNarrativeEl.value.trim();
+        }
+
+        // Active filtered report items (excluding excluded items)
+        const smItems = (state.currentReportSmItems || []).filter(t => !state.excludedReportTaskIds.has(t.id));
+        const prItems = (state.currentReportPrItems || []).filter(t => !state.excludedReportTaskIds.has(t.id));
+        const creativeItems = (state.currentReportCreativeItems || []).filter(t => !state.excludedReportTaskIds.has(t.id));
+        const dcItems = (state.currentReportDcItems || []).filter(t => !state.excludedReportTaskIds.has(t.id));
+
+        // Preload logos with natural dimensions
+        const rawClientLogo = (activeClient === "RVNL") ? "inputs/RVNL logo.png" : getClientLogo(activeClient);
+        const [clientLogoInfo, candourLogoInfo, rvnlCoverLogoInfo] = await Promise.all([
+            getImageInfo(rawClientLogo),
+            getImageInfo("inputs/candour logo.png"),
+            getImageInfo("inputs/RVNL logo.png")
+        ]);
+
+        // 2. Initialize presentation
+        const pptx = new PptxGenJS();
+        pptx.layout = 'LAYOUT_16x9'; // 10" x 5.625"
+        pptx.author = 'Candour Communications';
+        pptx.company = 'Candour Communications';
+        pptx.revision = '1';
+        pptx.subject = `${clientFullName} - Review Report`;
+        pptx.title = `${clientFullName} - ${periodText}`;
+
+        let slideNumber = 0;
+
+        // Brand colors
+        let brandAccent = '2563EB'; // Candour Royal Blue
+        if (activeClient === 'RVNL') brandAccent = 'C2410C';
+        else if (activeClient === 'BT Group') brandAccent = '7C3AED';
+        else if (activeClient === 'Legrand') brandAccent = 'DC2626';
+
+        // Slide Header Helper
+        function addSlideHeader(slide, titleText) {
+            slide.addShape(pptx.ShapeType.rect, {
+                x: 0, y: 0, w: 10, h: 0.08,
+                fill: { color: brandAccent },
+                line: { color: brandAccent, width: 0 }
+            });
+            slide.addText(titleText, {
+                x: 0.6, y: 0.22, w: 6.8, h: 0.45,
+                fontSize: 18, bold: true, color: '0F172A',
+                fontFace: 'Segoe UI'
+            });
+            if (clientLogoInfo) {
+                addImageSafe(slide, clientLogoInfo, {
+                    x: 7.6, y: 0.18, maxW: 1.8, maxH: 0.45
+                });
+            } else {
+                slide.addText(activeClient, {
+                    x: 7.4, y: 0.22, w: 2.0, h: 0.4,
+                    fontSize: 12, bold: true, color: '64748B', align: 'right',
+                    fontFace: 'Segoe UI'
+                });
+            }
+            slide.addShape(pptx.ShapeType.line, {
+                x: 0.6, y: 0.72, w: 8.8, h: 0,
+                line: { color: 'E2E8F0', width: 1 }
+            });
+        }
+
+        // Slide Footer Helper
+        function addSlideFooter(slide) {
+            slideNumber++;
+            slide.addShape(pptx.ShapeType.line, {
+                x: 0.6, y: 5.15, w: 8.8, h: 0,
+                line: { color: 'E2E8F0', width: 1 }
+            });
+            slide.addText(`Candour Communications  |  ${clientFullName} - ${periodText}`, {
+                x: 0.6, y: 5.2, w: 7.4, h: 0.35,
+                fontSize: 8.5, color: '94A3B8',
+                fontFace: 'Segoe UI'
+            });
+            slide.addText(`${slideNumber}`, {
+                x: 8.2, y: 5.2, w: 1.2, h: 0.35,
+                fontSize: 8.5, color: '94A3B8', align: 'right',
+                fontFace: 'Segoe UI'
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 1: COVER PAGE
+        // ----------------------------------------------------
+        const toggleRvnlCover = document.getElementById("toggle-rvnl-cover");
+        const isRvnlMonthlyCover = activeClient === "RVNL" && periodType === "monthly" && (!toggleRvnlCover || toggleRvnlCover.checked);
+
+        if (isRvnlMonthlyCover) {
+            const coverSlide = pptx.addSlide();
+            coverSlide.background = { color: 'FFFFFF' };
+            slideNumber++;
+
+            coverSlide.addShape(pptx.ShapeType.rect, {
+                x: 0, y: 0, w: 10, h: 0.1,
+                fill: { color: 'C2410C' }
+            });
+
+            // RVNL Logo with strict aspect-ratio preservation (Native 5.325:1)
+            if (rvnlCoverLogoInfo) {
+                addImageSafe(coverSlide, rvnlCoverLogoInfo, {
+                    x: 2.5, y: 0.55, maxW: 5.0, maxH: 0.94
+                });
+            }
+
+            coverSlide.addText(`${selectedMonth} - PR & SM Coverage Report`, {
+                x: 0.8, y: 1.75, w: 8.4, h: 0.6,
+                fontSize: 22, bold: true, color: '000000', align: 'center',
+                fontFace: 'Segoe UI'
+            });
+
+            coverSlide.addShape(pptx.ShapeType.rect, {
+                x: 1.2, y: 2.5, w: 7.6, h: 2.2,
+                fill: { color: 'F8FAFC' },
+                line: { color: 'CBD5E1', width: 1 }
+            });
+
+            coverSlide.addText([
+                { text: "The various media activities have been accomplished by us with active guidance\nand support by the RVNL's PR Team:\n\n", options: { bold: true, fontSize: 13, color: '1E293B' } },
+                { text: "1. Mr. Anil Kumar Saxena, Sr. Advisor Media\n\n", options: { bold: true, fontSize: 13, color: '0F172A' } },
+                { text: "2. Ms. Chetna Magu, Manager Public Relations & Corporate Communication", options: { bold: true, fontSize: 13, color: '0F172A' } }
+            ], {
+                x: 1.4, y: 2.65, w: 7.2, h: 1.9,
+                align: 'center', fontFace: 'Segoe UI'
+            });
+
+            coverSlide.addText("Agency Partner: Candour Communications  |  candour.co.in", {
+                x: 0.8, y: 5.0, w: 8.4, h: 0.4,
+                fontSize: 10, color: '64748B', align: 'center', bold: true,
+                fontFace: 'Segoe UI'
+            });
+        } else {
+            const coverSlide = pptx.addSlide();
+            coverSlide.background = { color: 'FFFFFF' };
+            slideNumber++;
+
+            coverSlide.addShape(pptx.ShapeType.rect, {
+                x: 0, y: 0, w: 10, h: 0.15,
+                fill: { color: brandAccent }
+            });
+            coverSlide.addShape(pptx.ShapeType.rect, {
+                x: 9.85, y: 0.15, w: 0.15, h: 5.475,
+                fill: { color: '3B82F6' }
+            });
+
+            // Client Logo with aspect-ratio preservation
+            if (clientLogoInfo) {
+                addImageSafe(coverSlide, clientLogoInfo, {
+                    x: 0.8, y: 0.65, maxW: 3.2, maxH: 0.95
+                });
+            }
+
+            coverSlide.addText(clientFullName, {
+                x: 0.8, y: 1.8, w: 8.4, h: 0.7,
+                fontSize: 26, bold: true, color: '0F172A',
+                fontFace: 'Segoe UI'
+            });
+
+            coverSlide.addText(reportSubtitle, {
+                x: 0.8, y: 2.55, w: 8.4, h: 0.4,
+                fontSize: 15, color: brandAccent, bold: true,
+                fontFace: 'Segoe UI'
+            });
+
+            coverSlide.addShape(pptx.ShapeType.rect, {
+                x: 0.8, y: 3.25, w: 8.4, h: 1.65,
+                fill: { color: 'F8FAFC' },
+                line: { color: 'E2E8F0', width: 1 }
+            });
+
+            coverSlide.addText([
+                { text: "REPORT PERIOD\n", options: { fontSize: 9, bold: true, color: '64748B' } },
+                { text: `${periodText}\n\n`, options: { fontSize: 13, bold: true, color: '0F172A' } },
+                { text: "AGENCY PARTNER\n", options: { fontSize: 9, bold: true, color: '64748B' } },
+                { text: "Candour Communications", options: { fontSize: 13, bold: true, color: '0F172A' } }
+            ], {
+                x: 1.1, y: 3.45, w: 3.9, h: 1.3,
+                fontFace: 'Segoe UI'
+            });
+
+            coverSlide.addText([
+                { text: "DATE GENERATED\n", options: { fontSize: 9, bold: true, color: '64748B' } },
+                { text: `${dateGenerated}\n\n`, options: { fontSize: 13, bold: true, color: '0F172A' } },
+                { text: "DOCUMENT TYPE\n", options: { fontSize: 9, bold: true, color: '64748B' } },
+                { text: "Executive Deliverables & Coverage Review", options: { fontSize: 13, bold: true, color: '0F172A' } }
+            ], {
+                x: 5.1, y: 3.45, w: 3.9, h: 1.3,
+                fontFace: 'Segoe UI'
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 2: EXECUTIVE SUMMARY & KPIS
+        // ----------------------------------------------------
+        const summarySlide = pptx.addSlide();
+        summarySlide.background = { color: 'FFFFFF' };
+        addSlideHeader(summarySlide, "1. Executive Activity Summary");
+        addSlideFooter(summarySlide);
+
+        const statCards = [];
+        if (activeClient === "iCode") {
+            let organicCount = 0, paidCount = 0, planoCount = 0, murphyCount = 0, redmondCount = 0;
+            [...smItems, ...prItems, ...creativeItems].forEach(t => {
+                const cTypes = Array.isArray(t.campaignType) ? t.campaignType : (t.campaignType ? [t.campaignType] : []);
+                if (cTypes.includes("Organic")) organicCount++;
+                if (cTypes.includes("Paid")) paidCount++;
+                const centers = t.centers || [];
+                if (centers.includes("Plano")) planoCount++;
+                if (centers.includes("Murphy")) murphyCount++;
+                if (centers.includes("Redmond")) redmondCount++;
+            });
+            statCards.push({ num: organicCount, label: "ORGANIC CAMPAIGNS" });
+            statCards.push({ num: paidCount, label: "PAID CAMPAIGNS" });
+            statCards.push({ num: planoCount, label: "PLANO CENTER" });
+            statCards.push({ num: murphyCount, label: "MURPHY CENTER" });
+            statCards.push({ num: redmondCount, label: "REDMOND CENTER" });
+        } else if (isPROnlyClient(activeClient)) {
+            const totalPrPubs = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
+            statCards.push({ num: totalPrPubs, label: "PRESS COVERAGE ITEMS" });
+            statCards.push({ num: prItems.length, label: "PR ACTIVITIES" });
+        } else if (activeClient === "BT Group") {
+            statCards.push({ num: smItems.length, label: "SOCIAL MEDIA POSTS" });
+            statCards.push({ num: creativeItems.length, label: "COLLATERALS & DESIGNS" });
+        } else if (activeClient === "Legrand" || activeClient === "Kompact AI") {
+            const totalPrPubs = getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
+            const pubSmCount = smItems.filter(t => t.status === "Published/Closed").length;
+            statCards.push({ num: pubSmCount, label: "SOCIAL MEDIA POSTS" });
+            statCards.push({ num: totalPrPubs, label: "PRESS COVERAGE ITEMS" });
+            statCards.push({ num: prItems.length, label: "PR ACTIVITIES" });
+        } else {
+            const totalPrPubs = (periodType === "weekly") ? 0 : getPRPublicationsCount([...smItems, ...prItems, ...creativeItems]);
+            const prActivitiesLabel = (activeClient === "RVNL" || activeClient === "Dynpro" || activeClient === "8th Sin" || activeClient === "Greenshine Solar") ? "PR ACTIVITIES" : "PRESS RELEASES ISSUED";
+            statCards.push({ num: smItems.length, label: "SOCIAL MEDIA POSTS" });
+            if (periodType !== "weekly") {
+                statCards.push({ num: totalPrPubs, label: "PRESS COVERAGE ITEMS" });
+            }
+            statCards.push({ num: prItems.length, label: prActivitiesLabel });
+            statCards.push({ num: creativeItems.length, label: "COLLATERALS & DESIGNS" });
+        }
+
+        const cardCount = statCards.length;
+        const totalW = 8.8;
+        const cardGap = cardCount > 4 ? 0.15 : 0.25;
+        const cardW = (totalW - (cardGap * (cardCount - 1))) / cardCount;
+
+        statCards.forEach((c, idx) => {
+            const cx = 0.6 + idx * (cardW + cardGap);
+            summarySlide.addShape(pptx.ShapeType.rect, {
+                x: cx, y: 1.0, w: cardW, h: 1.05,
+                fill: { color: 'F8FAFC' },
+                line: { color: 'E2E8F0', width: 1 }
+            });
+            summarySlide.addText(`${c.num}`, {
+                x: cx, y: 1.08, w: cardW, h: 0.55,
+                fontSize: cardCount > 4 ? 22 : 26, bold: true, color: brandAccent, align: 'center',
+                fontFace: 'Segoe UI'
+            });
+            summarySlide.addText(c.label, {
+                x: cx, y: 1.62, w: cardW, h: 0.35,
+                fontSize: cardCount > 4 ? 7.5 : 8.5, bold: true, color: '64748B', align: 'center',
+                fontFace: 'Segoe UI'
+            });
+        });
+
+        // Narrative box
+        summarySlide.addShape(pptx.ShapeType.rect, {
+            x: 0.6, y: 2.25, w: 8.8, h: 2.7,
+            fill: { color: 'F8FAFC' },
+            line: { color: 'E2E8F0', width: 1 }
+        });
+        summarySlide.addShape(pptx.ShapeType.rect, {
+            x: 0.6, y: 2.25, w: 0.08, h: 2.7,
+            fill: { color: brandAccent },
+            line: { color: brandAccent, width: 0 }
+        });
+        summarySlide.addText("Executive Highlights & Strategic Summary", {
+            x: 0.85, y: 2.4, w: 8.3, h: 0.35,
+            fontSize: 12, bold: true, color: '0F172A',
+            fontFace: 'Segoe UI'
+        });
+        summarySlide.addText(cleanPptText(narrativeText) || "During this period, Candour Communications spearheaded media relations, digital communication strategies, and client outreach deliverables.", {
+            x: 0.85, y: 2.8, w: 8.3, h: 2.0,
+            fontSize: 10.5, color: '334155', fontFace: 'Segoe UI', lineSpacing: 16
+        });
+
+        // ----------------------------------------------------
+        // SLIDE 3+: SOCIAL MEDIA ACTIVITIES (WITH CREATIVE THUMBNAILS)
+        // ----------------------------------------------------
+        if (!isPROnlyClient(activeClient) && smItems.length > 0) {
+            // Preload all thumbnail images
+            const smImages = await Promise.all(
+                smItems.map(item => item.image ? getImageInfo(item.image) : Promise.resolve(null))
+            );
+            const hasAnyImages = smImages.some(img => !!img);
+
+            const rowsPerPage = hasAnyImages ? 3 : 6;
+            const chunks = [];
+            for (let i = 0; i < smItems.length; i += rowsPerPage) {
+                chunks.push({
+                    items: smItems.slice(i, i + rowsPerPage),
+                    images: smImages.slice(i, i + rowsPerPage)
+                });
+            }
+
+            chunks.forEach((chunk, chunkIdx) => {
+                const smSlide = pptx.addSlide();
+                smSlide.background = { color: 'FFFFFF' };
+                const titleStr = chunks.length > 1
+                    ? `2. Social Media Activities (${chunkIdx + 1}/${chunks.length})`
+                    : `2. Social Media Activities`;
+                addSlideHeader(smSlide, titleStr);
+                addSlideFooter(smSlide);
+
+                const tableRows = [];
+                const colWidths = hasAnyImages
+                    ? [0.5, 1.1, 1.6, 3.1, 1.25, 1.25]
+                    : [0.5, 1.3, 4.4, 1.4, 1.2];
+
+                if (hasAnyImages) {
+                    tableRows.push([
+                        { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: (activeClient === "iCode" ? "Campaign" : "Platform"), options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Creative Preview", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: "Activity Details", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Status / Date", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Verification Link", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                    ]);
+                } else {
+                    tableRows.push([
+                        { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: (activeClient === "iCode" ? "Campaign" : "Platform"), options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Activity Details", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Status / Date", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Verification Link", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                    ]);
+                }
+
+                chunk.items.forEach((item, itemIdx) => {
+                    const globalIdx = chunkIdx * rowsPerPage + itemIdx + 1;
+                    const rowBg = (itemIdx % 2 === 0) ? 'FFFFFF' : 'F8FAFC';
+                    const imgInfo = chunk.images[itemIdx];
+
+                    let dateDisplay = item.date ? standardizeDateString(item.date) : (item.week || item.status || 'Published');
+                    let displayStatus = item.status || 'Published';
+                    if (displayStatus === 'Sent for internal approval') displayStatus = 'WIP';
+
+                    let linkCell = { text: displayStatus, options: { fontSize: 9, color: '64748B', fill: rowBg } };
+                    if (item.liveLink && item.liveLink.startsWith('http')) {
+                        linkCell = {
+                            text: "View Link",
+                            options: {
+                                hyperlink: { url: item.liveLink },
+                                fontSize: 9,
+                                color: '2563EB',
+                                underline: true,
+                                fill: rowBg
+                            }
+                        };
+                    } else if (item.liveLink) {
+                        linkCell = { text: cleanPptText(item.liveLink), options: { fontSize: 9, color: '64748B', fill: rowBg } };
+                    }
+
+                    if (hasAnyImages) {
+                        tableRows.push([
+                            { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.platform || item.subType || "Social"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                            { text: imgInfo ? "" : "-", options: { align: 'center', fontSize: 9, color: '94A3B8', fill: rowBg } },
+                            { text: cleanPptText(item.topic || item.title || ""), options: { fontSize: 9.5, fill: rowBg } },
+                            { text: `${displayStatus}${item.date ? '\n(' + dateDisplay + ')' : ''}`, options: { fontSize: 9, fill: rowBg } },
+                            linkCell
+                        ]);
+                    } else {
+                        tableRows.push([
+                            { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.platform || item.subType || "Social"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.topic || item.title || ""), options: { fontSize: 9, fill: rowBg } },
+                            { text: `${displayStatus}${item.date ? ' (' + dateDisplay + ')' : ''}`, options: { fontSize: 9, fill: rowBg } },
+                            linkCell
+                        ]);
+                    }
+                });
+
+                const tableY = 0.88;
+                const headerRowH = 0.38;
+                const dataRowH = hasAnyImages ? 1.18 : 0.58;
+                const rowHeights = [headerRowH, ...chunk.items.map(() => dataRowH)];
+
+                smSlide.addTable(tableRows, {
+                    x: 0.6, y: tableY, w: 8.8,
+                    colW: colWidths,
+                    rowH: rowHeights,
+                    border: { pt: 0.5, color: 'CBD5E1' }
+                });
+
+                // Embed creative images inside the table rows
+                if (hasAnyImages) {
+                    const previewCellX = 0.6 + colWidths[0] + colWidths[1]; // 0.6 + 0.5 + 1.1 = 2.2
+                    const previewCellW = colWidths[2]; // 1.6
+
+                    chunk.items.forEach((item, itemIdx) => {
+                        const imgInfo = chunk.images[itemIdx];
+                        if (imgInfo) {
+                            const rowY = tableY + headerRowH + (itemIdx * dataRowH);
+                            addImageSafe(smSlide, imgInfo, {
+                                x: previewCellX + 0.08,
+                                y: rowY + 0.08,
+                                maxW: previewCellW - 0.16,
+                                maxH: dataRowH - 0.16
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 4+: PR DELIVERABLES & MEDIA COVERAGE
+        // ----------------------------------------------------
+        if (activeClient !== "BT Group" && activeClient !== "iCode" && prItems.length > 0) {
+            const prSectionNum = isPROnlyClient(activeClient) ? "2" : "3";
+            const prSectionName = isPROnlyClient(activeClient) ? `${prSectionNum}. PR Activities & Media Coverage` : `${prSectionNum}. Press Releases & Media Coverage`;
+
+            // A. PR Summary Table Slides
+            const rowsPerPage = 6;
+            const chunks = [];
+            for (let i = 0; i < prItems.length; i += rowsPerPage) {
+                chunks.push(prItems.slice(i, i + rowsPerPage));
+            }
+
+            chunks.forEach((chunk, chunkIdx) => {
+                const prSlide = pptx.addSlide();
+                prSlide.background = { color: 'FFFFFF' };
+                const titleStr = chunks.length > 1
+                    ? `${prSectionName} (${chunkIdx + 1}/${chunks.length})`
+                    : prSectionName;
+                addSlideHeader(prSlide, titleStr);
+                addSlideFooter(prSlide);
+
+                const tableRows = [];
+                tableRows.push([
+                    { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                    { text: "Category", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Topics / Announcements", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Publications", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Spokesperson", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Status", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                ]);
+
+                chunk.forEach((item, itemIdx) => {
+                    const globalIdx = chunkIdx * rowsPerPage + itemIdx + 1;
+                    const rowBg = (itemIdx % 2 === 0) ? 'FFFFFF' : 'F8FAFC';
+
+                    let pubListStr = "";
+                    if (item.publicationsList && item.publicationsList.length > 0) {
+                        pubListStr = item.publicationsList.map(p => p.name).filter(Boolean).join(", ");
+                    } else if (item.publication) {
+                        pubListStr = item.publication;
+                    } else {
+                        pubListStr = "-";
+                    }
+
+                    tableRows.push([
+                        { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.subType || "Press Release"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.topic || item.title || ""), options: { fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(pubListStr), options: { fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.spokesperson || "-"), options: { fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.status || "Published"), options: { fontSize: 9, fill: rowBg } }
+                    ]);
+                });
+
+                prSlide.addTable(tableRows, {
+                    x: 0.6, y: 0.95, w: 8.8,
+                    colW: [0.5, 1.3, 3.4, 1.8, 0.9, 0.9],
+                    rowH: [0.38, ...chunk.map(() => 0.58)],
+                    border: { pt: 0.5, color: 'CBD5E1' }
+                });
+            });
+
+            // B. Visual Press Clippings Slides
+            const coverageCards = [];
+            prItems.forEach(t => {
+                const list = t.publicationsList || [];
+                if (list.length > 0) {
+                    list.forEach(pub => {
+                        coverageCards.push({
+                            topic: t.topic || t.title || "Press Release",
+                            pubName: pub.name || "Publication",
+                            date: pub.date ? standardizeDateString(pub.date) : (t.date || ""),
+                            link: pub.link || "",
+                            image: pub.clipping || pub.image || ""
+                        });
+                    });
+                } else if (t.publication || t.image || t.liveLink) {
+                    coverageCards.push({
+                        topic: t.topic || t.title || "Press Release",
+                        pubName: t.publication || "Publication",
+                        date: t.date ? standardizeDateString(t.date) : "",
+                        link: t.liveLink || "",
+                        image: t.image || ""
+                    });
+                }
+            });
+
+            if (coverageCards.length > 0) {
+                const cardsWithImages = await Promise.all(coverageCards.map(async card => {
+                    let imgInfo = null;
+                    if (card.image) {
+                        try {
+                            imgInfo = await getImageInfo(card.image);
+                        } catch (e) {}
+                    }
+                    return { ...card, imgInfo };
+                }));
+
+                const cardsPerSlide = 2;
+                const cardChunks = [];
+                for (let i = 0; i < cardsWithImages.length; i += cardsPerSlide) {
+                    cardChunks.push(cardsWithImages.slice(i, i + cardsPerSlide));
+                }
+
+                cardChunks.forEach((cChunk, cIdx) => {
+                    const clipSlide = pptx.addSlide();
+                    clipSlide.background = { color: 'FFFFFF' };
+                    addSlideHeader(clipSlide, `Media Coverage Clippings (${cIdx + 1}/${cardChunks.length})`);
+                    addSlideFooter(clipSlide);
+
+                    cChunk.forEach((card, pos) => {
+                        const cx = pos === 0 ? 0.6 : 5.15;
+                        const cy = 0.95;
+                        const cw = 4.25;
+                        const ch = 4.0;
+
+                        // Card background
+                        clipSlide.addShape(pptx.ShapeType.rect, {
+                            x: cx, y: cy, w: cw, h: ch,
+                            fill: { color: 'F8FAFC' },
+                            line: { color: 'CBD5E1', width: 1 }
+                        });
+
+                        // Publication Name
+                        clipSlide.addText(cleanPptText(card.pubName), {
+                            x: cx + 0.2, y: cy + 0.15, w: cw - 0.4, h: 0.35,
+                            fontSize: 12, bold: true, color: '0F172A',
+                            fontFace: 'Segoe UI'
+                        });
+
+                        // Date and link
+                        const dateAndLink = [
+                            { text: card.date ? `${card.date}  •  ` : '', options: { fontSize: 8.5, color: '64748B' } }
+                        ];
+                        if (card.link && card.link.startsWith('http')) {
+                            dateAndLink.push({
+                                text: "View Online Article",
+                                options: { hyperlink: { url: card.link }, fontSize: 8.5, color: '2563EB', underline: true }
+                            });
+                        }
+                        clipSlide.addText(dateAndLink, {
+                            x: cx + 0.2, y: cy + 0.45, w: cw - 0.4, h: 0.25,
+                            fontFace: 'Segoe UI'
+                        });
+
+                        // Topic headline snippet
+                        clipSlide.addText(cleanPptText(card.topic), {
+                            x: cx + 0.2, y: cy + 0.72, w: cw - 0.4, h: 0.45,
+                            fontSize: 9.5, color: '334155', fontFace: 'Segoe UI'
+                        });
+
+                        // Image box
+                        const imgBoxY = cy + 1.25;
+                        const imgBoxH = ch - 1.45;
+                        const imgBoxW = cw - 0.4;
+                        if (card.imgInfo) {
+                            const added = addImageSafe(clipSlide, card.imgInfo, {
+                                x: cx + 0.2,
+                                y: imgBoxY,
+                                maxW: imgBoxW,
+                                maxH: imgBoxH
+                            });
+                            if (!added) {
+                                clipSlide.addShape(pptx.ShapeType.rect, {
+                                    x: cx + 0.2, y: imgBoxY, w: imgBoxW, h: imgBoxH,
+                                    fill: { color: 'F1F5F9' },
+                                    line: { color: 'E2E8F0', width: 1 }
+                                });
+                                clipSlide.addText("Clipping Archived", {
+                                    x: cx + 0.2, y: imgBoxY + (imgBoxH / 2) - 0.2, w: imgBoxW, h: 0.4,
+                                    align: 'center', fontSize: 10, color: '94A3B8'
+                                });
+                            }
+                        } else {
+                            clipSlide.addShape(pptx.ShapeType.rect, {
+                                x: cx + 0.2, y: imgBoxY, w: imgBoxW, h: imgBoxH,
+                                fill: { color: 'F1F5F9' },
+                                line: { color: 'E2E8F0', width: 1 }
+                            });
+                            clipSlide.addText("Published Article Record", {
+                                x: cx + 0.2, y: imgBoxY + (imgBoxH / 2) - 0.2, w: imgBoxW, h: 0.4,
+                                align: 'center', fontSize: 10, color: '94A3B8'
+                            });
+                        }
+                    });
+                });
+            }
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 5+: CREATIVE COLLATERALS (WITH PREVIEW THUMBNAILS)
+        // ----------------------------------------------------
+        if (!isPROnlyClient(activeClient) && creativeItems.length > 0) {
+            const sectionNum = activeClient === "BT Group" ? "3" : "4";
+
+            // Preload creative images
+            const creativeImages = await Promise.all(
+                creativeItems.map(item => item.image ? getImageInfo(item.image) : Promise.resolve(null))
+            );
+            const hasAnyCrImages = creativeImages.some(img => !!img);
+
+            const rowsPerPage = hasAnyCrImages ? 3 : 6;
+            const chunks = [];
+            for (let i = 0; i < creativeItems.length; i += rowsPerPage) {
+                chunks.push({
+                    items: creativeItems.slice(i, i + rowsPerPage),
+                    images: creativeImages.slice(i, i + rowsPerPage)
+                });
+            }
+
+            chunks.forEach((chunk, chunkIdx) => {
+                const crSlide = pptx.addSlide();
+                crSlide.background = { color: 'FFFFFF' };
+                const titleStr = chunks.length > 1
+                    ? `${sectionNum}. Creative Collaterals (${chunkIdx + 1}/${chunks.length})`
+                    : `${sectionNum}. Creative Collaterals & Graphic Designs`;
+                addSlideHeader(crSlide, titleStr);
+                addSlideFooter(crSlide);
+
+                const tableRows = [];
+                const colWidths = hasAnyCrImages
+                    ? [0.5, 1.3, 1.6, 3.8, 1.6]
+                    : [0.6, 1.8, 4.6, 1.8];
+
+                if (hasAnyCrImages) {
+                    tableRows.push([
+                        { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: "Category", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Creative Preview", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: "Deliverable / Asset Description", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Status / Remarks", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                    ]);
+                } else {
+                    tableRows.push([
+                        { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                        { text: "Category", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Deliverable / Asset Description", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                        { text: "Status / Remarks", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                    ]);
+                }
+
+                chunk.items.forEach((item, itemIdx) => {
+                    const globalIdx = chunkIdx * rowsPerPage + itemIdx + 1;
+                    const rowBg = (itemIdx % 2 === 0) ? 'FFFFFF' : 'F8FAFC';
+                    const imgInfo = chunk.images[itemIdx];
+
+                    if (hasAnyCrImages) {
+                        tableRows.push([
+                            { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.category || item.subCategory || "Creative Asset"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                            { text: imgInfo ? "" : "-", options: { align: 'center', fontSize: 9, color: '94A3B8', fill: rowBg } },
+                            { text: cleanPptText(item.title || item.topic || ""), options: { fontSize: 9.5, fill: rowBg } },
+                            { text: cleanPptText(item.status || "Published"), options: { fontSize: 9, fill: rowBg } }
+                        ]);
+                    } else {
+                        tableRows.push([
+                            { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.category || item.subCategory || "Creative Asset"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.title || item.topic || ""), options: { fontSize: 9, fill: rowBg } },
+                            { text: cleanPptText(item.status || "Published"), options: { fontSize: 9, fill: rowBg } }
+                        ]);
+                    }
+                });
+
+                const tableY = 0.88;
+                const headerRowH = 0.38;
+                const dataRowH = hasAnyCrImages ? 1.18 : 0.58;
+                const rowHeights = [headerRowH, ...chunk.items.map(() => dataRowH)];
+
+                crSlide.addTable(tableRows, {
+                    x: 0.6, y: tableY, w: 8.8,
+                    colW: colWidths,
+                    rowH: rowHeights,
+                    border: { pt: 0.5, color: 'CBD5E1' }
+                });
+
+                if (hasAnyCrImages) {
+                    const previewCellX = 0.6 + colWidths[0] + colWidths[1]; // 0.6 + 0.5 + 1.3 = 2.4
+                    const previewCellW = colWidths[2]; // 1.6
+
+                    chunk.items.forEach((item, itemIdx) => {
+                        const imgInfo = chunk.images[itemIdx];
+                        if (imgInfo) {
+                            const rowY = tableY + headerRowH + (itemIdx * dataRowH);
+                            addImageSafe(crSlide, imgInfo, {
+                                x: previewCellX + 0.08,
+                                y: rowY + 0.08,
+                                maxW: previewCellW - 0.16,
+                                maxH: dataRowH - 0.16
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 6+: DIGITAL CAMPAIGNS
+        // ----------------------------------------------------
+        if (!isPROnlyClient(activeClient) && dcItems.length > 0) {
+            const rowsPerPage = 6;
+            const chunks = [];
+            for (let i = 0; i < dcItems.length; i += rowsPerPage) {
+                chunks.push(dcItems.slice(i, i + rowsPerPage));
+            }
+
+            chunks.forEach((chunk, chunkIdx) => {
+                const dcSlide = pptx.addSlide();
+                dcSlide.background = { color: 'FFFFFF' };
+                addSlideHeader(dcSlide, `Digital Campaigns (${chunkIdx + 1}/${chunks.length})`);
+                addSlideFooter(dcSlide);
+
+                const tableRows = [];
+                tableRows.push([
+                    { text: "Sl.", options: { bold: true, fill: '1E293B', color: 'FFFFFF', align: 'center', fontSize: 10 } },
+                    { text: "Campaign Type", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Campaign Name", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Platforms", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } },
+                    { text: "Status / Remarks", options: { bold: true, fill: '1E293B', color: 'FFFFFF', fontSize: 10 } }
+                ]);
+
+                chunk.forEach((item, itemIdx) => {
+                    const globalIdx = chunkIdx * rowsPerPage + itemIdx + 1;
+                    const rowBg = (itemIdx % 2 === 0) ? 'FFFFFF' : 'F8FAFC';
+                    tableRows.push([
+                        { text: `${globalIdx}`, options: { align: 'center', fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.campaignType || "Campaign"), options: { bold: true, fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.title || item.name || ""), options: { fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.platforms || item.platform || "-"), options: { fontSize: 9, fill: rowBg } },
+                        { text: cleanPptText(item.status || "Active"), options: { fontSize: 9, fill: rowBg } }
+                    ]);
+                });
+
+                dcSlide.addTable(tableRows, {
+                    x: 0.6, y: 0.95, w: 8.8,
+                    colW: [0.6, 1.6, 3.6, 1.6, 1.4],
+                    border: { pt: 0.5, color: 'CBD5E1' }
+                });
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 7: AEO & GEO VISIBILITY (IF ACTIVE)
+        // ----------------------------------------------------
+        const aeoSec = document.getElementById("report-sec-aeo-geo");
+        if (aeoSec && aeoSec.style.display !== "none") {
+            const aeoSlide = pptx.addSlide();
+            aeoSlide.background = { color: 'FFFFFF' };
+            addSlideHeader(aeoSlide, "AEO & GEO Search Engine Visibility");
+            addSlideFooter(aeoSlide);
+
+            const sovVal = document.getElementById("aeo-metric-sov")?.textContent || "0%";
+            const mentionsVal = document.getElementById("aeo-metric-mentions")?.textContent || "0";
+            const posVal = document.getElementById("aeo-metric-position")?.textContent || "0.0";
+            const sourcesVal = document.getElementById("aeo-metric-sources")?.textContent || "0";
+
+            const aeoMetrics = [
+                { num: sovVal, label: "SHARE OF VOICE" },
+                { num: mentionsVal, label: "BRAND MENTIONS" },
+                { num: posVal, label: "AVERAGE POSITION" },
+                { num: sourcesVal, label: "TOTAL CITATIONS" }
+            ];
+
+            aeoMetrics.forEach((m, idx) => {
+                const cx = 0.6 + idx * (2.05 + 0.2);
+                aeoSlide.addShape(pptx.ShapeType.rect, {
+                    x: cx, y: 1.0, w: 2.05, h: 1.05,
+                    fill: { color: 'F8FAFC' },
+                    line: { color: 'E2E8F0', width: 1 }
+                });
+                aeoSlide.addText(m.num, {
+                    x: cx, y: 1.08, w: 2.05, h: 0.55,
+                    fontSize: 24, bold: true, color: '7C3AED', align: 'center',
+                    fontFace: 'Segoe UI'
+                });
+                aeoSlide.addText(m.label, {
+                    x: cx, y: 1.62, w: 2.05, h: 0.35,
+                    fontSize: 8, bold: true, color: '64748B', align: 'center',
+                    fontFace: 'Segoe UI'
+                });
+            });
+
+            // Strategy takeaways card
+            const geoInsights = document.getElementById("aeo-geo-insights-content")?.textContent || "";
+            aeoSlide.addShape(pptx.ShapeType.rect, {
+                x: 0.6, y: 2.3, w: 8.8, h: 2.65,
+                fill: { color: 'F8FAFC' },
+                line: { color: 'E2E8F0', width: 1 }
+            });
+            aeoSlide.addShape(pptx.ShapeType.rect, {
+                x: 0.6, y: 2.3, w: 0.08, h: 2.65,
+                fill: { color: '7C3AED' },
+                line: { color: '7C3AED', width: 0 }
+            });
+            aeoSlide.addText("Generative Engine Optimization (GEO) Takeaways", {
+                x: 0.85, y: 2.45, w: 8.3, h: 0.35,
+                fontSize: 12, bold: true, color: '0F172A',
+                fontFace: 'Segoe UI'
+            });
+            aeoSlide.addText(cleanPptText(geoInsights) || "Continuous optimization of authoritative brand narratives across generative AI search engines.", {
+                x: 0.85, y: 2.85, w: 8.3, h: 1.95,
+                fontSize: 10, color: '334155', fontFace: 'Segoe UI', lineSpacing: 16
+            });
+        }
+
+        // ----------------------------------------------------
+        // SLIDE 8: CLOSING / SIGN-OFF SLIDE
+        // ----------------------------------------------------
+        const endSlide = pptx.addSlide();
+        endSlide.background = { color: 'FFFFFF' };
+        slideNumber++;
+
+        endSlide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: 10, h: 0.12,
+            fill: { color: brandAccent }
+        });
+        endSlide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 5.5, w: 10, h: 0.125,
+            fill: { color: '1E293B' }
+        });
+
+        if (candourLogoInfo) {
+            addImageSafe(endSlide, candourLogoInfo, {
+                x: 3.7, y: 1.25, maxW: 2.6, maxH: 0.85
+            });
+        }
+
+        endSlide.addText("Thank You", {
+            x: 1.0, y: 2.35, w: 8.0, h: 0.6,
+            fontSize: 28, bold: true, color: '0F172A', align: 'center',
+            fontFace: 'Segoe UI'
+        });
+
+        endSlide.addText("Candour Communications Team", {
+            x: 1.0, y: 3.05, w: 8.0, h: 0.35,
+            fontSize: 14, bold: true, color: brandAccent, align: 'center',
+            fontFace: 'Segoe UI'
+        });
+
+        endSlide.addText("Strategic Communications, Media PR & Social Management Partner", {
+            x: 1.0, y: 3.45, w: 8.0, h: 0.3,
+            fontSize: 10.5, color: '64748B', align: 'center',
+            fontFace: 'Segoe UI'
+        });
+
+        // ----------------------------------------------------
+        // SAVE PRESENTATION FILE
+        // ----------------------------------------------------
+        const clientSafe = activeClient.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const periodSafe = periodText.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `${clientSafe}_Report_${periodSafe}.pptx`;
+
+        await pptx.writeFile({ fileName: fileName });
+        showToast("PowerPoint report downloaded successfully!", "success");
+    } catch (err) {
+        console.error("Error generating PowerPoint presentation:", err);
+        showToast(`Failed to generate PowerPoint: ${err.message}`, "error");
+    } finally {
+        if (btn) {
+            btn.removeAttribute("disabled");
+            btn.innerHTML = originalBtnHtml || `<i class="fa-solid fa-file-powerpoint"></i> Export to PPT (.pptx)`;
+        }
     }
 }
 

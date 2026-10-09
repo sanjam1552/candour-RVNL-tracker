@@ -11,6 +11,9 @@ class ThreadingHTTPServer(ThreadingMixIn, http.server.HTTPServer):
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', '*')
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
@@ -28,12 +31,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             
             try:
-                decoded_url = urllib.parse.unquote(target_url)
+                decoded_url = target_url
                 req = urllib.request.Request(
                     decoded_url,
                     headers={
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/xml, text/xml, */*'
+                        'Accept': '*/*'
                     }
                 )
                 # Fetch directly from target URL on the local Python backend

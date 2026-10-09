@@ -1415,6 +1415,37 @@ h1, h2, h3, h4, h5, h6 {
 /* REPORT BUILDER PREVIEW AND PRINT STYLING             */
 /* ==================================================== */
 
+/* Export to PPT Button */
+.btn-export-ppt {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.12), rgba(194, 65, 12, 0.08));
+    border: 1px solid rgba(234, 88, 12, 0.35);
+    color: #ea580c;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all var(--transition-fast);
+}
+
+.btn-export-ppt:hover {
+    background: linear-gradient(135deg, #ea580c, #c2410c);
+    color: #ffffff;
+    border-color: #c2410c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.28);
+}
+
+.btn-export-ppt:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 .print-report-canvas {
     background-color: #ffffff;
     color: #1f2937;
