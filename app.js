@@ -12,6 +12,7 @@ const PR_ONLY_CLIENTS = [
     "IIIT Hyd", 
     "NIIT University", 
     "NIIT MTS", 
+    "NIIT", 
     "Atlassian", 
     "OutSystems", 
     "OVHcloud", 
@@ -46,6 +47,7 @@ function getClientFullName(client) {
         "LDCS": "Legrand Data Center Solutions (LDCS)",
         "NIIT University": "NIIT University",
         "NIIT MTS": "NIIT MTS",
+        "NIIT": "NIIT",
         "Atlassian": "Atlassian",
         "OutSystems": "OutSystems",
         "Ziroh Labs": "Ziroh Labs",
@@ -79,7 +81,7 @@ function getClientLogo(client) {
     if (client === "IIIT Hyd") return "inputs/IIIT Hyderabad.png";
     if (client === "LDCS") return "inputs/ldcs logo.png";
     if (client === "NIIT University") return "inputs/NIIT_Uni_logo(1).png";
-    if (client === "NIIT MTS") return "inputs/NIIT_MTS_logo.png";
+    if (client === "NIIT MTS" || client === "NIIT") return "inputs/NIIT REVISED.png";
     if (client === "Atlassian") return "inputs/Atlassian_logo.png";
     if (client === "OutSystems") return "inputs/Outsystems_logo.png";
     if (client === "Ziroh Labs") return "inputs/Zirohlabs_logo.png";
@@ -8801,7 +8803,9 @@ const KNOWN_LOGO_DIMS = {
     "inputs/Greenshine logo_final.png": { width: 2015, height: 797 },
     "inputs/dynpro.png": { width: 800, height: 226 },
     "inputs/8th sin.png": { width: 2172, height: 724 },
-    "inputs/candour C.png": { width: 301, height: 300 }
+    "inputs/candour C.png": { width: 301, height: 300 },
+    "inputs/NIIT REVISED.png": { width: 988, height: 881 },
+    "inputs/NIIT_MTS_logo.png": { width: 988, height: 881 }
 };
 
 // Helper: Load local or remote image, extract natural dimensions and return base64/path
