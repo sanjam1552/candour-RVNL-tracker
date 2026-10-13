@@ -7509,10 +7509,23 @@ function generateReport(keepExclusions = true) {
     }
     
     if (reportLogo) {
+        const isCompactLogo = (state.activeClient === "NIIT MTS" || state.activeClient === "NIIT" || state.activeClient === "BT Group");
         if (state.activeClient === "RVNL") {
             reportLogo.src = "inputs/RVNL logo.png";
+            reportLogo.classList.remove("compact-logo");
+            reportLogo.style.height = "44px";
+            reportLogo.style.width = "auto";
         } else {
             reportLogo.src = getClientLogo(state.activeClient);
+            if (isCompactLogo) {
+                reportLogo.classList.add("compact-logo");
+                reportLogo.style.height = "64px";
+                reportLogo.style.width = "64px";
+            } else {
+                reportLogo.classList.remove("compact-logo");
+                reportLogo.style.height = "46px";
+                reportLogo.style.width = "auto";
+            }
         }
     }
 
@@ -8804,8 +8817,8 @@ const KNOWN_LOGO_DIMS = {
     "inputs/dynpro.png": { width: 800, height: 226 },
     "inputs/8th sin.png": { width: 2172, height: 724 },
     "inputs/candour C.png": { width: 301, height: 300 },
-    "inputs/NIIT REVISED.png": { width: 988, height: 881 },
-    "inputs/NIIT_MTS_logo.png": { width: 988, height: 881 }
+    "inputs/NIIT REVISED.png": { width: 870, height: 870 },
+    "inputs/NIIT_MTS_logo.png": { width: 870, height: 870 }
 };
 
 // Helper: Load local or remote image, extract natural dimensions and return base64/path
