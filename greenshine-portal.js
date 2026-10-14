@@ -1,5 +1,10 @@
-// Greenshine Solar Client Portal - View-Only Logic
-const APP_VERSION = "1.0.0";
+// Greenshine Solar Client Portal - Logic
+const clientEmails = [
+    "bkt@greenshinesolar.in",
+    "rishabh.singh@greenshinesolar.in",
+    "sanjamanand03@gmail.com"
+];
+const APP_VERSION = "1.1.0";
 
 // Toast notifications
 function initToastStyles() {
@@ -112,6 +117,7 @@ function showToast(title, body, duration = 4000, actionCallback = null, actionTe
 
 // State
 const state = {
+    currentUser: "",
     tasks: [],
     filteredTasks: [],
     selectedMonth: "",
@@ -215,6 +221,14 @@ function sendTelegramAlert(email = "Greenshine Client", context = "Greenshine So
 
 // UI Elements
 const preloader = document.getElementById("preloader");
+const loginOverlay = document.getElementById("login-modal-overlay");
+const loginForm = document.getElementById("client-login-form");
+const loginEmailInput = document.getElementById("login-email-input");
+const loginInfoMsg = document.getElementById("login-info-msg");
+const loginErrorMsg = document.getElementById("login-error-msg");
+const clientUserDisplay = document.getElementById("client-user-display");
+const adminSwitchPlaceholder = document.getElementById("admin-switch-placeholder");
+const logoutBtn = document.getElementById("logout-btn");
 const monthFilter = document.getElementById("month-filter");
 const typeFilter = document.getElementById("type-filter");
 const statusFilter = document.getElementById("status-filter");
@@ -223,7 +237,6 @@ const taskTableBody = document.getElementById("task-table-body");
 const tasksTableCard = document.getElementById("tasks-table-card");
 const prPublicationsCard = document.getElementById("pr-publications-card");
 const prPublicationsContainer = document.getElementById("pr-publications-container");
-const adminSwitchPlaceholder = document.getElementById("admin-switch-placeholder");
 
 // Lightbox Modal
 const lightboxModal = document.getElementById("lightbox-modal");
@@ -249,28 +262,272 @@ function openLightbox(url) {
     lightboxModal.style.display = "flex";
 }
 
-// Load Data from Firestore (Zero Login Barrier)
-async function loadDashboardData() {
-    try {
-        sendTelegramAlert();
+// Initialize Auth listener
+function initAuth() {
+    // Check for Firebase passwordless sign-in link
+    if (firebase.auth().isSignInWithEmailLink(window.location.href)) {
+        let email = window.localStorage.getItem('emailForSignIn');
+        if (!email) {
+            email = window.prompt('Please confirm your email address to complete sign in:');
+        }
+        if (email) {
+            if (loginInfoMsg) {
+                loginInfoMsg.textContent = "Verifying email link and logging in...";
+                loginInfoMsg.style.display = "block";
+            }
+            
+            firebase.auth().signInWithEmailLink(email, window.location.href)
+                .then(() => {
+                    window.localStorage.removeItem('emailForSignIn');
+                    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+                })
+                .catch((error) => {
+                    console.error("Error signing in:", error);
+                    if (loginInfoMsg) loginInfoMsg.style.display = "none";
+                    if (loginErrorMsg) {
+                        loginErrorMsg.textContent = `Sign-in link failed or expired: ${error.message}`;
+                        loginErrorMsg.style.display = "block";
+                    }
+                });
+        }
+    }
 
-        // Optional: Check if a Candour Admin is logged in via Firebase
-        if (firebase.auth()) {
-            firebase.auth().onAuthStateChanged(user => {
-                if (user && user.email) {
-                    const email = user.email.toLowerCase();
-                    if (email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com") {
-                        if (adminSwitchPlaceholder) {
-                            adminSwitchPlaceholder.innerHTML = `
-                                <a href="index.html" class="btn btn-secondary" style="border-color: var(--accent-purple); color: var(--accent-purple);">
-                                    <i class="fa-solid fa-user-gear"></i> Admin Panel
-                                </a>
-                            `;
-                        }
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+            const email = (user.email || "").trim().toLowerCase();
+            const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+            const isClient = clientEmails.includes(email);
+
+            if (isCandourAdmin || isClient) {
+                // Authorized
+                state.currentUser = email;
+                if (clientUserDisplay) {
+                    clientUserDisplay.innerHTML = `<i class="fa-regular fa-user" style="margin-right: 5px;"></i> ${email.split("@")[0]}`;
+                }
+                if (loginOverlay) loginOverlay.style.display = "none";
+                
+                // Send Telegram Notification
+                sendTelegramAlert(email, "Greenshine Solar Portal");
+                
+                // Show Admin switch button if logged in as Candour admin
+                if (adminSwitchPlaceholder) {
+                    if (isCandourAdmin) {
+                        adminSwitchPlaceholder.innerHTML = `
+                            <a href="index.html" class="btn btn-secondary" style="border-color: var(--accent-purple); color: var(--accent-purple);">
+                                <i class="fa-solid fa-user-gear"></i> Admin Panel
+                            </a>
+                        `;
+                    } else {
+                        adminSwitchPlaceholder.innerHTML = "";
                     }
                 }
-            });
+
+                loadDashboardData();
+            } else {
+                // Unauthorized
+                firebase.auth().signOut().then(() => {
+                    showLoginError(`Access Denied: ${email} is not authorized to view this dashboard.`);
+                });
+            }
+        } else {
+            // Not logged in
+            if (loginOverlay) loginOverlay.style.display = "flex";
+            if (preloader) preloader.style.display = "none";
         }
+    });
+}
+
+function showLoginError(msg) {
+    state.currentUser = "";
+    if (loginOverlay) loginOverlay.style.display = "flex";
+    if (loginErrorMsg) {
+        loginErrorMsg.textContent = msg;
+        loginErrorMsg.style.display = "block";
+    }
+    if (loginInfoMsg) loginInfoMsg.style.display = "none";
+    if (preloader) preloader.style.display = "none";
+}
+
+// Login Form Submission (Password sign-in)
+if (loginForm) {
+    loginForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value.trim().toLowerCase();
+        const passwordInput = document.getElementById("login-password-input");
+        const password = passwordInput ? passwordInput.value : "";
+
+        // Validate if the email entered is one of the authorized client/admin emails
+        const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+        const isClient = clientEmails.includes(email);
+
+        if (!isCandourAdmin && !isClient) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Access Denied: This email address is not authorized.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        if (!password) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Please enter your password. If you don't have a password yet, request a login link below.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        if (loginInfoMsg) {
+            loginInfoMsg.textContent = "Signing in...";
+            loginInfoMsg.style.display = "block";
+        }
+        if (loginErrorMsg) loginErrorMsg.style.display = "none";
+
+        const rememberMeInput = document.getElementById("login-remember-me");
+        const persistence = (rememberMeInput && rememberMeInput.checked) 
+            ? firebase.auth.Auth.Persistence.LOCAL 
+            : firebase.auth.Auth.Persistence.SESSION;
+
+        firebase.auth().setPersistence(persistence)
+            .then(() => {
+                return firebase.auth().signInWithEmailAndPassword(email, password);
+            })
+            .then(() => {
+                if (loginInfoMsg) loginInfoMsg.style.display = "none";
+                if (passwordInput) passwordInput.value = "";
+            })
+            .catch((error) => {
+                console.error("Error signing in with password:", error);
+                if (loginInfoMsg) loginInfoMsg.style.display = "none";
+                if (loginErrorMsg) {
+                    loginErrorMsg.textContent = `Error: ${error.message}`;
+                    loginErrorMsg.style.display = "block";
+                }
+            });
+    });
+}
+
+// Sign-in with link click handler
+const sendLinkBtn = document.getElementById("login-send-link-btn");
+if (sendLinkBtn) {
+    sendLinkBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value.trim().toLowerCase();
+
+        if (!email) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Please enter your email address first.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+        const isClient = clientEmails.includes(email);
+
+        if (!isCandourAdmin && !isClient) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Access Denied: This email address is not authorized.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        if (loginInfoMsg) {
+            loginInfoMsg.textContent = "Sending login link to your email...";
+            loginInfoMsg.style.display = "block";
+        }
+        if (loginErrorMsg) loginErrorMsg.style.display = "none";
+
+        const actionCodeSettings = {
+            url: window.location.href,
+            handleCodeInApp: true
+        };
+
+        firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+            .then(() => {
+                window.localStorage.setItem('emailForSignIn', email);
+                if (loginInfoMsg) {
+                    loginInfoMsg.textContent = "Login link sent! Please check your email inbox (and spam folder) to complete sign-in.";
+                }
+            })
+            .catch((error) => {
+                console.error("Error sending email link:", error);
+                if (loginInfoMsg) loginInfoMsg.style.display = "none";
+                if (loginErrorMsg) {
+                    loginErrorMsg.textContent = `Error: ${error.message}`;
+                    loginErrorMsg.style.display = "block";
+                }
+            });
+    });
+}
+
+// Reset/Setup password click handler
+const forgotPwBtn = document.getElementById("login-forgot-pw-btn");
+if (forgotPwBtn) {
+    forgotPwBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value.trim().toLowerCase();
+
+        if (!email) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Please enter your email address first.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        const isCandourAdmin = email.endsWith("@candour.co.in") || email === "stutio2465@gmail.com";
+        const isClient = clientEmails.includes(email);
+
+        if (!isCandourAdmin && !isClient) {
+            if (loginErrorMsg) {
+                loginErrorMsg.textContent = "Access Denied: This email address is not authorized.";
+                loginErrorMsg.style.display = "block";
+            }
+            if (loginInfoMsg) loginInfoMsg.style.display = "none";
+            return;
+        }
+
+        if (loginInfoMsg) {
+            loginInfoMsg.textContent = "Sending password setup/reset link...";
+            loginInfoMsg.style.display = "block";
+        }
+        if (loginErrorMsg) loginErrorMsg.style.display = "none";
+
+        firebase.auth().sendPasswordResetEmail(email)
+            .then(() => {
+                if (loginInfoMsg) {
+                    loginInfoMsg.textContent = `Success! A password reset/setup link has been sent to ${email}. Please check your inbox and follow instructions to set your password.`;
+                }
+            })
+            .catch((error) => {
+                console.error("Error sending password reset email:", error);
+                if (loginInfoMsg) loginInfoMsg.style.display = "none";
+                if (loginErrorMsg) {
+                    loginErrorMsg.textContent = `Error: ${error.message}`;
+                    loginErrorMsg.style.display = "block";
+                }
+            });
+    });
+}
+
+// Logout Handler
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+        firebase.auth().signOut().then(() => {
+            window.location.reload();
+        });
+    });
+}
+
+// Load Data from Firestore
+async function loadDashboardData() {
+    try {
 
         const itemsRef = db.collection('rvnl_tracker').doc('tasks_store').collection('items');
         
@@ -686,7 +943,7 @@ async function downloadImage(url, filename) {
     }
 }
 
-// Start immediately on load
+// Start authentication listener on load
 document.addEventListener("DOMContentLoaded", () => {
-    loadDashboardData();
+    initAuth();
 });

@@ -1456,6 +1456,7 @@ function initUserSession() {
             // Verify email domain constraint (case-insensitive)
             const email = user.email || "";
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
+            const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
             if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
                 state.currentUser = user.displayName || email.split("@")[0];
                 state.currentUserEmail = email.toLowerCase();
@@ -1494,6 +1495,9 @@ function initUserSession() {
             } else if (clientEmails.includes(email.toLowerCase())) {
                 // Redirect RVNL client to RVNL Portal dashboard
                 window.location.replace("rvnl-portal.html");
+            } else if (greenshineEmails.includes(email.toLowerCase())) {
+                // Redirect Greenshine client to Greenshine Portal dashboard
+                window.location.replace("greenshine-portal.html");
             } else {
                 // Denied domain
                 firebase.auth().signOut().then(() => {
@@ -2810,7 +2814,9 @@ function setupEventListeners() {
             const submitBtn = document.getElementById("login-submit-btn");
 
             const lowerEmail = email.toLowerCase();
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
+            const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
+            const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
@@ -2881,7 +2887,9 @@ function setupEventListeners() {
             }
 
             const lowerEmail = email.toLowerCase();
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
+            const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
+            const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
@@ -2940,7 +2948,9 @@ function setupEventListeners() {
             }
 
             const lowerEmail = email.toLowerCase();
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com") {
+            const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
+            const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
