@@ -4478,6 +4478,7 @@ function togglePRFormFields(type) {
             <option value="Speaking Opportunity">Speaking Opportunity</option>
             <option value="Reactive Statement/Industry Story">Reactive Statement/Industry Story</option>
             <option value="Event coverage">Event Coverage</option>
+            <option value="Podcasts">Podcasts</option>
             <option value="Documents">Documents</option>
             <option value="Other">Other</option>
         `;
@@ -6673,7 +6674,11 @@ function renderTrackerTable() {
         } else if (task.type === "Social Media") {
             typeBadge = `<span class="badge badge-social"><i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> Social</span>`;
         } else if (task.type === "PR Update") {
-            typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>`;
+            let podcastBadge = "";
+            if (task.subType === "Podcasts" || task.subType === "Podcast") {
+                podcastBadge = `<div style="margin-top: 4px;"><span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 10px; padding: 2px 6px;"><i class="fa-solid fa-podcast"></i> Podcast</span></div>`;
+            }
+            typeBadge = `<span class="badge badge-pr"><i class="fa-solid fa-bullhorn"></i> PR</span>${podcastBadge}`;
             if (task.priority) {
                 const prioClass = task.priority.toLowerCase();
                 typeBadge += `<div style="margin-top: 4px;"><span class="pr-priority-badge pr-priority-${prioClass}"><i class="fa-solid fa-circle" style="font-size: 5px; vertical-align: middle; margin-right: 3px;"></i>${task.priority}</span></div>`;
