@@ -12,7 +12,6 @@ const PR_ONLY_CLIENTS = [
     "IIIT Hyd", 
     "NIIT University", 
     "NIIT MTS", 
-    "NIIT", 
     "Atlassian", 
     "OutSystems", 
     "OVHcloud", 
@@ -47,7 +46,6 @@ function getClientFullName(client) {
         "LDCS": "Legrand Data Center Solutions (LDCS)",
         "NIIT University": "NIIT University",
         "NIIT MTS": "NIIT MTS",
-        "NIIT": "NIIT",
         "Atlassian": "Atlassian",
         "OutSystems": "OutSystems",
         "Ziroh Labs": "Ziroh Labs",
@@ -81,7 +79,7 @@ function getClientLogo(client) {
     if (client === "IIIT Hyd") return "inputs/IIIT Hyderabad.png";
     if (client === "LDCS") return "inputs/ldcs logo.png";
     if (client === "NIIT University") return "inputs/NIIT_Uni_logo(1).png";
-    if (client === "NIIT MTS" || client === "NIIT") return "inputs/NIIT REVISED.png";
+    if (client === "NIIT MTS") return "inputs/NIIT REVISED.png";
     if (client === "Atlassian") return "inputs/Atlassian_logo.png";
     if (client === "OutSystems") return "inputs/Outsystems_logo.png";
     if (client === "Ziroh Labs") return "inputs/Zirohlabs_logo.png";
@@ -7519,7 +7517,7 @@ function generateReport(keepExclusions = true) {
     }
     
     if (reportLogo) {
-        const isCompactLogo = (state.activeClient === "NIIT MTS" || state.activeClient === "NIIT" || state.activeClient === "BT Group");
+        const isCompactLogo = (state.activeClient === "NIIT MTS" || state.activeClient === "BT Group");
         if (state.activeClient === "RVNL") {
             reportLogo.src = "inputs/RVNL logo.png";
             reportLogo.classList.remove("compact-logo");
