@@ -2311,7 +2311,7 @@ function setupEventListeners() {
         } else {
             weekGroup.style.display = "none";
             if (dateRangeGroup) dateRangeGroup.style.display = "none";
-            if (state.activeClient === "Legrand") {
+            if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
                 if (monthSelectContainer) monthSelectContainer.style.display = "none";
                 if (monthCheckboxesContainer) monthCheckboxesContainer.style.display = "";
             } else {
@@ -3121,7 +3121,7 @@ function adjustClientSpecificOptions(client) {
 
     if (monthSelectContainer && monthCheckboxesContainer) {
         const periodType = reportPeriodType ? reportPeriodType.value : "monthly";
-        if (client === "Legrand" && periodType === "monthly") {
+        if ((client === "Legrand" || client === "LDCS") && periodType === "monthly") {
             monthSelectContainer.style.display = "none";
             monthCheckboxesContainer.style.display = "";
         } else {
@@ -7457,7 +7457,7 @@ function generateReport(keepExclusions = true) {
         } else if (state.activeClient === "iCode") {
             defaultNarrative = `During this period, Candour Communications actively spearheaded educational campaigns and localized marketing strategies for iCode. Campaigns drove sign-ups and student engagements across Plano, Murphy, and Redmond centers.`;
         } else {
-            const clientName = state.activeClient === "Legrand" ? "Sanjay Motwani" : state.activeClient;
+            const clientName = (state.activeClient === "Legrand" || state.activeClient === "LDCS") ? "Sanjay Motwani" : state.activeClient;
             defaultNarrative = `During this period, Candour Communications actively spearheaded media coverage, press communications, and social content strategies for ${clientName}. Social media accounts saw consistent growth driven by key event updates, corporate milestones, and brand announcements.`;
         }
         
@@ -7470,7 +7470,7 @@ function generateReport(keepExclusions = true) {
     }
     
     let selectedMonths = [];
-    if (state.activeClient === "Legrand" && periodType === "monthly") {
+    if ((state.activeClient === "Legrand" || state.activeClient === "LDCS") && periodType === "monthly") {
         const checkboxes = document.querySelectorAll(".report-month-chk:checked");
         checkboxes.forEach(chk => selectedMonths.push(chk.value));
     } else {
@@ -7494,7 +7494,7 @@ function generateReport(keepExclusions = true) {
     }
 
     let nextMonthStr = "";
-    if (state.activeClient === "Legrand" && periodType === "monthly" && selectedMonths.length > 0) {
+    if ((state.activeClient === "Legrand" || state.activeClient === "LDCS") && periodType === "monthly" && selectedMonths.length > 0) {
         const sortedSelected = [...selectedMonths].sort((a, b) => getMonthValue(a) - getMonthValue(b));
         const latestMonth = sortedSelected[sortedSelected.length - 1];
         nextMonthStr = getNextMonthStr(latestMonth);
@@ -7544,10 +7544,11 @@ function generateReport(keepExclusions = true) {
 
     // Filter database for items in selected month and active client
     let reportItems = state.tasks.filter(t => {
-        const isClient = (t.client || "RVNL") === state.activeClient;
+        const isClient = (t.client || "RVNL") === state.activeClient || 
+            ((state.activeClient === "Legrand" || state.activeClient === "LDCS") && (t.client === "Legrand" || t.client === "LDCS"));
         if (!isClient) return false;
         
-        if (state.activeClient === "Legrand" && periodType === "monthly") {
+        if ((state.activeClient === "Legrand" || state.activeClient === "LDCS") && periodType === "monthly") {
             return selectedMonths.some(m => isTaskActiveInMonth(t, m));
         } else if (periodType === "weekly" && (selectedWeek === "custom" || selectedWeek === "today")) {
             if (customFromDate && customToDate) {
@@ -7559,7 +7560,7 @@ function generateReport(keepExclusions = true) {
         }
     });
 
-    if (state.activeClient === "Legrand") {
+    if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
         reportItems = reportItems.filter(t => t.type !== "Creative / Collateral");
     } else if (state.activeClient === "iCode") {
         reportItems = reportItems.filter(t => t.type === "Social Media");
@@ -7568,9 +7569,9 @@ function generateReport(keepExclusions = true) {
     }
 
     // If monthly report is chosen, only keep closed/terminal deliverables (Published/Closed, Not used by client, Coverage did not appear, Missed opportunity)
-    // For Legrand (LDCS), include WIP, Sent for internal approval, and Sent to client as well
+    // For Legrand (LDCS), include WIP, Sent for internal approval, Sent to client, Sent to journalist, On hold, etc.
     if (periodType === "monthly") {
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
             reportItems = reportItems.filter(t => 
                 t.status === "Published/Closed" || 
                 t.status === "Not used by client" ||
@@ -7579,7 +7580,10 @@ function generateReport(keepExclusions = true) {
                 t.status === "WIP" || 
                 t.status === "Sent for internal approval" || 
                 t.status === "Sent to client" ||
-                t.status === "Client Approval Pending"
+                t.status === "Client Approval Pending" ||
+                t.status === "Sent to journalist" ||
+                t.status === "On hold" ||
+                t.status === "Pending coverage"
             );
         } else {
             reportItems = reportItems.filter(t => 
@@ -7610,7 +7614,7 @@ function generateReport(keepExclusions = true) {
 
     // Sort report items: Published at the top, then WIP/planned items below
     reportItems.sort((a,b) => {
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
             const isPubA = a.status === "Published/Closed" ? 1 : 0;
             const isPubB = b.status === "Published/Closed" ? 1 : 0;
             if (isPubA !== isPubB) {
@@ -7635,7 +7639,7 @@ function generateReport(keepExclusions = true) {
             periodText = `${selectedWeek} of ${selectedMonth}`;
         }
     } else {
-        if (state.activeClient === "Legrand") {
+        if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
             if (selectedMonths.length === 0) {
                 periodText = "No Months Selected";
             } else if (selectedMonths.length === 1) {
@@ -7843,7 +7847,7 @@ function renderReportView() {
             
             if (creativeTitleEl) creativeTitleEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 4. Creative Collaterals & Graphic Designs`;
             
-            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+            if (state.activeClient === "Legrand" || state.activeClient === "LDCS" || state.activeClient === "Kompact AI") {
                 if (collateralBox) collateralBox.style.display = "none";
                 if (secondaryRow) secondaryRow.style.display = "none";
             }
@@ -7852,7 +7856,7 @@ function renderReportView() {
             if (document.getElementById("rep-stat-pr")) document.getElementById("rep-stat-pr").textContent = totalPrPublications;
             if (document.getElementById("rep-stat-pr-releases")) document.getElementById("rep-stat-pr-releases").textContent = prItems.length;
             
-            if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+            if (state.activeClient === "Legrand" || state.activeClient === "LDCS" || state.activeClient === "Kompact AI") {
                 document.getElementById("rep-stat-sm").textContent = smItems.filter(t => t.status === "Published/Closed").length;
             } else {
                 document.getElementById("rep-stat-sm").textContent = smItems.length;
@@ -7867,7 +7871,7 @@ function renderReportView() {
                 }
             }
             if (prTitleEl) {
-                if (state.activeClient === "Legrand" || state.activeClient === "Kompact AI") {
+                if (state.activeClient === "Legrand" || state.activeClient === "LDCS" || state.activeClient === "Kompact AI") {
                     prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Media Coverage`;
                 } else {
                     prTitleEl.innerHTML = `<i class="fa-solid fa-bullhorn"></i> 3. Press Releases & Media Coverage`;
@@ -8014,7 +8018,7 @@ function renderReportView() {
             `;
 
             let wipReportDetails = "";
-            if (state.activeClient !== "Legrand" && state.activeClient !== "Kompact AI" && periodType !== "weekly") {
+            if (state.activeClient !== "Legrand" && state.activeClient !== "LDCS" && state.activeClient !== "Kompact AI" && periodType !== "weekly") {
                 if ((task.status === "WIP" || task.status === "Sent for internal approval") && (task.wipWho || task.wipWhy)) {
                     wipReportDetails = `<div style="font-size: 11px; color: var(--accent-amber); margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
                         ${task.wipWho ? `<span><strong>Pending with:</strong> ${task.wipWho}</span>` : ''}
@@ -8043,7 +8047,7 @@ function renderReportView() {
                    </div>`;
 
             let platformColHtml = `<i class="fa-solid fa-share-nodes" style="color:#3b82f6;"></i> All Platforms`;
-            if (state.activeClient === "Legrand") {
+            if (state.activeClient === "Legrand" || state.activeClient === "LDCS") {
                 platformColHtml = `<i class="fa-brands fa-linkedin" style="color:#0a66c2;"></i> LinkedIn`;
             } else if (state.activeClient === "iCode" || task.client === "iCode") {
                 const campaignTypes = Array.isArray(task.campaignType) 
@@ -8298,7 +8302,7 @@ function renderReportView() {
     if (creativeBody && creativeSec) {
         creativeBody.innerHTML = "";
 
-        if (state.activeClient === "Legrand" || state.activeClient === "iCode" || state.activeClient === "Kompact AI" || isPROnlyClient(state.activeClient)) {
+        if (state.activeClient === "Legrand" || state.activeClient === "LDCS" || state.activeClient === "iCode" || state.activeClient === "Kompact AI" || isPROnlyClient(state.activeClient)) {
             creativeSec.style.display = "none";
         } else {
             creativeSec.style.display = "";
