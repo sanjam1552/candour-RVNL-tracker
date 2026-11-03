@@ -73,7 +73,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if engines:
                 params["engines"] = engines
             
-            if endpoint == 'citations':
+            if endpoint == 'citations' or endpoint == 'citations/stats':
                 limit = query_params.get('limit', ['10'])[0]
                 params['limit'] = limit
                 offset = query_params.get('offset', ['0'])[0]
@@ -87,7 +87,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 req = urllib.request.Request(
                     target_url,
                     headers={
-                        'Authorization': 'Bearer oai_live_cd8838563d31e8f46a3d32eb2bc87cb4900e20495f8f69e6312932d58ce35d3cdbcb70bf',
+                        'Authorization': 'Bearer oai_live_90373c968c8530ba92b8b39ffb70a6cf5928a629242403ed981cb3a833d20da2807ac2c3',
                         'Accept': 'application/json'
                     }
                 )

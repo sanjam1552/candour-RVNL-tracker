@@ -1455,7 +1455,8 @@ function initUserSession() {
             const email = user.email || "";
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
-            if (email.toLowerCase().endsWith("@candour.co.in") || email.toLowerCase() === "stutio2465@gmail.com") {
+            const allowedHubEmails = ["stutio2465@gmail.com", "sajidali.rdec@gmail.com"];
+            if (email.toLowerCase().endsWith("@candour.co.in") || allowedHubEmails.includes(email.toLowerCase())) {
                 state.currentUser = user.displayName || email.split("@")[0];
                 state.currentUserEmail = email.toLowerCase();
                 
@@ -2814,7 +2815,8 @@ function setupEventListeners() {
             const lowerEmail = email.toLowerCase();
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
+            const allowedHubEmails = ["stutio2465@gmail.com", "sajidali.rdec@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && !allowedHubEmails.includes(lowerEmail) && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
@@ -2887,7 +2889,8 @@ function setupEventListeners() {
             const lowerEmail = email.toLowerCase();
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
+            const allowedHubEmails = ["stutio2465@gmail.com", "sajidali.rdec@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && !allowedHubEmails.includes(lowerEmail) && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
@@ -2948,7 +2951,8 @@ function setupEventListeners() {
             const lowerEmail = email.toLowerCase();
             const clientEmails = ["advisor.media.rail@gmail.com", "prteamrvnl@gmail.com", "prrvnl1@gmail.com", "sanjamcreatives@gmail.com"];
             const greenshineEmails = ["bkt@greenshinesolar.in", "rishabh.singh@greenshinesolar.in", "sanjamanand03@gmail.com"];
-            if (!lowerEmail.endsWith("@candour.co.in") && lowerEmail !== "stutio2465@gmail.com" && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
+            const allowedHubEmails = ["stutio2465@gmail.com", "sajidali.rdec@gmail.com"];
+            if (!lowerEmail.endsWith("@candour.co.in") && !allowedHubEmails.includes(lowerEmail) && !clientEmails.includes(lowerEmail) && !greenshineEmails.includes(lowerEmail)) {
                 if (errorMsgEl) {
                     errorMsgEl.textContent = "Access Denied: This email address is not permitted.";
                     errorMsgEl.style.display = "block";
@@ -3193,6 +3197,11 @@ function getUserClientPermission(email, client) {
     // 3. Fallback: If not explicitly configured, but ends with @candour.co.in, default to None (Access Pending)
     if (lowerEmail.endsWith("@candour.co.in")) {
         return "None";
+    }
+    
+    // View-only platform guest access
+    if (lowerEmail === "sajidali.rdec@gmail.com") {
+        return "ReadOnly";
     }
     
     // 4. Default for anyone else
@@ -7664,10 +7673,8 @@ function generateReport(keepExclusions = true) {
     // Call actual renderer
     renderReportView();
     
-    // Fetch and update Otterly analytics on fresh report generation
-    if (keepExclusions !== true) {
-        updateAeoGeoAnalytics(selectedMonth);
-    }
+    // Fetch and update Otterly analytics on report generation (uses local cache to save API calls)
+    updateAeoGeoAnalytics(selectedMonth);
 }
 
 function renderReportView() {
@@ -14363,6 +14370,14 @@ function initDriveUploader(client, isPR) {
 
 let aeoSovChartInstance = null;
 
+const OTTERLY_REPORT_IDS = {
+    "RVNL": "01KZ32Y3BSH4E19NQHF9G31MGD",
+    "Greenshine Solar": "01KYRVW7S2BDBG91PHW1PNEQX7",
+    "Green Shine Solar": "01KYRVW7S2BDBG91PHW1PNEQX7",
+    "Dynpro": "01M1SJB0BR957YATRQHM439DJZ",
+    "Zoom": "01M4R1P76B5TP66WMNQXYX547B"
+};
+
 function getMonthDateRange(monthStr) {
     if (!monthStr) return { start: "2026-08-01", end: "2026-08-26" };
     const parts = monthStr.trim().split(/\s+/);
@@ -14387,9 +14402,10 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
     // Only fetch if the Report Builder tab is active to save API pulls
     if (state.activeTab !== "reports") return;
     
-    // RVNL client focus and monthly report only
+    // Check if active client has an Otterly report mapped and monthly report chosen
     const periodType = document.getElementById("report-period-type") ? document.getElementById("report-period-type").value : "monthly";
-    if (state.activeClient !== "RVNL" || periodType === "weekly") {
+    const reportId = OTTERLY_REPORT_IDS[state.activeClient];
+    if (!reportId || periodType === "weekly") {
         sectionEl.style.display = "none";
         return;
     }
@@ -14398,7 +14414,8 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
     
     const range = getMonthDateRange(selectedMonth);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const cacheKey = `otterly_cache_v2_${range.start}_${range.end}_${todayStr}`;
+    const clientKey = (state.activeClient || 'RVNL').replace(/\s+/g, '_');
+    const cacheKey = `otterly_cache_v3_${clientKey}_${range.start}_${range.end}_${todayStr}`;
     
     // UI elements references
     const competitorBody = document.getElementById("aeo-competitor-table-body");
@@ -14420,7 +14437,7 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
                     insightsEl.innerHTML = cache.geoInsightsHtml;
                 }
                 
-                console.log("Loaded Otterly data and GEO strategy from local cache.");
+                console.log(`Loaded Otterly data for ${state.activeClient} from local cache.`);
                 return;
             } catch (err) {
                 console.warn("Failed to parse cached Otterly data:", err);
@@ -14434,13 +14451,11 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
     document.getElementById("aeo-metric-position").textContent = "...";
     document.getElementById("aeo-metric-sources").textContent = "...";
     
-    if (competitorBody) competitorBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#6b7280;">Loading competitor visibility...</td></tr>`;
+    if (competitorBody) competitorBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#6b7280;">Loading competitor visibility for ${state.activeClient}...</td></tr>`;
     if (citationsBody) citationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#6b7280;">Loading citation metrics...</td></tr>`;
     if (insightsEl) insightsEl.textContent = "Analyzing Otterly citation data and calculating GEO recommendations...";
     
     try {
-        const reportId = "01KZ32Y3BSH4E19NQHF9G31MGD";
-        
         // Fetch stats
         const statsRes = await fetch(`/api/otterly?endpoint=stats&reportId=${reportId}&startDate=${range.start}&endDate=${range.end}&country=in`);
         const stats = await statsRes.json();
@@ -14460,13 +14475,13 @@ async function updateAeoGeoAnalytics(selectedMonth, forceRefresh = false) {
         
         const chartData = engines.map((eng, idx) => {
             const res = engineResults[idx];
-            let rvnlMentions = 0;
+            let brandMentions = 0;
             const bmList = res.allBrandsAnalysis?.brandMentions || [];
-            const rvnlItem = bmList.find(b => b.brand === 'RVNL');
-            if (rvnlItem) {
-                rvnlMentions = rvnlItem.mentions || 0;
+            const brandItem = bmList.find(b => b.isMainBrand || (b.brand && b.brand.toLowerCase() === state.activeClient.toLowerCase()));
+            if (brandItem) {
+                brandMentions = brandItem.mentions || 0;
             }
-            return rvnlMentions;
+            return brandMentions;
         });
         
         // Render UI
@@ -14554,7 +14569,7 @@ function renderOtterlyUI(stats, citStats, chartData) {
             
             tr.innerHTML = `
                 <td style="font-weight: ${isMain ? 'bold' : 'normal'}; color: ${isMain ? 'var(--accent-purple)' : 'var(--text-primary)'}; padding: 6px 8px;">
-                    ${item.brand} ${isMain ? '(RVNL)' : ''}
+                    ${item.brand} ${isMain ? `(${state.activeClient})` : ''}
                 </td>
                 <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}; padding: 6px 8px;">${Number(item.mentions || 0).toLocaleString()}</td>
                 <td style="text-align: right; font-weight: ${isMain ? 'bold' : 'normal'}; padding: 6px 8px;">${item.shareOfVoice || 0}%</td>
@@ -14684,9 +14699,9 @@ async function generateGeoRecommendations(summary, competitors, topCitations) {
     if (!geminiKey) {
         let staticGeoInsights = `
             <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
-                <li><strong>Optimize Wikipedia Citations</strong>: Wikipedia remains a core citation source for LLMs representing major overall influence. Update the RVNL page with latest corporate awards and milestone projects.</li>
-                <li><strong>Target Industry Portals</strong>: Outperform competitors like <strong>IRCON</strong> by pitching guest articles or earning brand mentions on high-ranking domain sources (e.g. <em>theindustryoutlook.com</em>, <em>psuconnect.in</em>).</li>
-                <li><strong>RAG Alignment</strong>: Format online press releases with clear headers and bullet points to improve ingestion rate by LLM retrieval pipelines (Retrieval-Augmented Generation).</li>
+                <li><strong>Optimize High-Influence Domain Citations</strong>: Leading referral portals and authoritative websites represent major RAG retrieval sources for LLMs. Maintain authoritative, up-to-date brand coverage across top referral sites.</li>
+                <li><strong>Outperform Competitors in Category Share of Voice</strong>: Build targeted technical content and press announcements addressing common brand and industry inquiries across generative search engines.</li>
+                <li><strong>RAG Alignment & Structured Content</strong>: Format online releases, case studies, and specs with clear headers and bullet points to improve ingestion rate by LLM retrieval pipelines (ChatGPT, Perplexity, Gemini).</li>
             </ul>
             <div class="no-print" style="margin-top: 12px; font-size: 11px; color: var(--text-muted); font-style: italic;">
                 💡 Tip: Add a Gemini API Key in the settings tab to generate dynamic real-time AI recommendations.
@@ -14701,11 +14716,11 @@ async function generateGeoRecommendations(summary, competitors, topCitations) {
     
     const prompt = `
 You are a senior Answer Engine Optimization (AEO) and Generative Engine Optimization (GEO) strategist at Candour Communications.
-Provide 3 highly actionable, bulleted recommendations (max 120 words total) for our client RVNL to improve their search engine visibility and recommendation rate across LLMs (ChatGPT, Gemini, Perplexity).
+Provide 3 highly actionable, bulleted recommendations (max 120 words total) for our client ${state.activeClient} to improve their search engine visibility and recommendation rate across LLMs (ChatGPT, Gemini, Perplexity).
 Use the following Otterly brand visibility context:
-- Share of Voice: ${summary.shareOfVoice || 31}%
-- Total Mentions: ${summary.totalMentions || 6413}
-- Average Position: ${summary.averagePosition || 1.42}
+- Share of Voice: ${summary.shareOfVoice || 0}%
+- Total Mentions: ${summary.totalMentions || 0}
+- Average Position: ${summary.averagePosition || 0}
 - Top Competitors:
 ${competitorsStr}
 - Top Cited Domains/URLs:
@@ -14720,8 +14735,8 @@ Format the response strictly as an HTML bulleted list (<ul> and <li> tags). Keep
         console.error("Gemini GEO strategy generation failed:", e);
         insightsEl.innerHTML = `
             <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
-                <li><strong>Optimize Wikipedia Citations</strong>: wikipedia.org represents a major RAG retrieval source for RVNL. Maintain up-to-date information regarding projects.</li>
-                <li><strong>Acquire High-Authority Domain Citations</strong>: Target news portals such as <em>psuconnect.in</em> and industry journals.</li>
+                <li><strong>Optimize Core Citations</strong>: Leading digital portals represent major RAG retrieval sources for ${state.activeClient}. Maintain up-to-date brand information.</li>
+                <li><strong>Acquire High-Authority Domain Citations</strong>: Target industry portals, news sites, and journals.</li>
             </ul>
         `;
     }

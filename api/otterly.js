@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         }
     }
     
-    if (endpoint === 'citations') {
+    if (endpoint === 'citations' || endpoint === 'citations/stats') {
         params.append('limit', limit);
         params.append('offset', offset);
     }
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     try {
         const response = await fetch(targetUrl, {
             headers: {
-                'Authorization': 'Bearer oai_live_cd8838563d31e8f46a3d32eb2bc87cb4900e20495f8f69e6312932d58ce35d3cdbcb70bf',
+                'Authorization': 'Bearer oai_live_90373c968c8530ba92b8b39ffb70a6cf5928a629242403ed981cb3a833d20da2807ac2c3',
                 'Accept': 'application/json'
             }
         });
