@@ -45,7 +45,7 @@ function getClientFullName(client) {
         "IIIT Hyd": "IIIT Hyderabad",
         "LDCS": "Legrand Data Center Solutions (LDCS)",
         "NIIT University": "NIIT University",
-        "NIIT MTS": "NIIT MTS",
+        "NIIT MTS": "NIIT Learning Systems",
         "Atlassian": "Atlassian",
         "OutSystems": "OutSystems",
         "Ziroh Labs": "Ziroh Labs",
